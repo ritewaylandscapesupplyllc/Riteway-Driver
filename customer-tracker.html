@@ -337,7 +337,8 @@
     let destLatLng = null;
     let lastTruckPos = null;
     let truckInfoWindow = null;
-    let truckOverlay = null;
+    let truckOverlay = null;   // will hold the fancy overlay instance
+    let TruckOverlay = null;   // the overlay CLASS, created lazily
 
     let introPlayed = false;
     let followTruck = true;
@@ -374,6 +375,81 @@
       if (map) {
         google.maps.event.trigger(map, 'resize');
       }
+    }
+
+    // Lazily define the TruckOverlay class ONLY after google.maps is ready
+    function initTruckOverlayClass() {
+      if (TruckOverlay) return; // already created
+
+      if (typeof google === 'undefined' ||
+          !google.maps ||
+          !google.maps.OverlayView) {
+        return; // can't define yet
+      }
+
+      TruckOverlay = class extends google.maps.OverlayView {
+        constructor(position, map) {
+          super();
+          this.position = position;
+          this.map = map;
+          this.div = null;
+          this.heading = 0;
+          this.setMap(map);
+        }
+
+        onAdd() {
+          const div = document.createElement('div');
+          div.style.position = 'absolute';
+          div.style.zIndex = '999';
+
+          const img = document.createElement('img');
+          img.src = TRUCK_ICON_URL;
+          img.style.width = '72px';
+          img.style.height = 'auto';
+          img.style.transformOrigin = '50% 60%';
+
+          img.onerror = () => {
+            // If the image can't be loaded, hide overlay (marker will still work if visible)
+            div.style.display = 'none';
+          };
+
+          div.appendChild(img);
+          this.div = div;
+          this.img = img;
+
+          const panes = this.getPanes();
+          panes.overlayMouseTarget.appendChild(div);
+        }
+
+        draw() {
+          if (!this.div) return;
+          const projection = this.getProjection();
+          const point = projection.fromLatLngToDivPixel(this.position);
+          if (!point) return;
+
+          this.div.style.left = point.x + 'px';
+          this.div.style.top = point.y + 'px';
+          this.div.style.transform = `translate(-50%, -70%) rotate(${this.heading}deg)`;
+        }
+
+        onRemove() {
+          if (this.div && this.div.parentNode) {
+            this.div.parentNode.removeChild(this.div);
+          }
+          this.div = null;
+          this.img = null;
+        }
+
+        setPosition(position) {
+          this.position = position;
+          this.draw();
+        }
+
+        setHeading(heading) {
+          this.heading = heading || 0;
+          this.draw();
+        }
+      };
     }
 
     function loadTracking() {
@@ -416,10 +492,14 @@
         });
       }
 
+      // Now that we know Google Maps is loaded, safely set up the overlay class
+      initTruckOverlayClass();
+
       destLatLng = null;
       lastTruckPos = null;
       introPlayed = false;
       followTruck = true;
+      truckOverlay = null;
 
       const deliveryRef = database.ref('deliveries/' + deliveryId);
       deliveryRef.child('location').off();
@@ -479,27 +559,40 @@
         const newPos = new google.maps.LatLng(loc.lat, loc.lng);
 
         if (!truckMarker) {
-          // invisible marker for InfoWindow anchor
-          truckMarker = new google.maps.Marker({
-            map: map,
-            position: newPos,
-            title: 'Riteway Truck',
-            opacity: 0,
-            clickable: true
-          });
+          // If TruckOverlay is available, use invisible marker + overlay
+          if (TruckOverlay) {
+            truckMarker = new google.maps.Marker({
+              map: map,
+              position: newPos,
+              title: 'Riteway Truck',
+              opacity: 0,          // hidden anchor
+              clickable: true
+            });
 
-          // teal glow circle
+            truckOverlay = new TruckOverlay(newPos, map);
+          } else {
+            // Fallback: visible marker with PNG
+            truckMarker = new google.maps.Marker({
+              map: map,
+              position: newPos,
+              title: 'Riteway Truck',
+              icon: {
+                url: TRUCK_ICON_URL,
+                scaledSize: new google.maps.Size(72, 72),
+                anchor: new google.maps.Point(36, 48)
+              }
+            });
+          }
+
+          // Teal glow circle
           truckGlow = new google.maps.Circle({
             strokeOpacity: 0,
             fillColor: '#12C3A0',
             fillOpacity: 0.25,
             map: map,
             center: newPos,
-            radius: 80
+            radius: 90
           });
-
-          // rotating truck overlay
-          truckOverlay = new TruckOverlay(newPos, map);
 
           lastTruckPos = newPos;
         } else {
@@ -538,71 +631,7 @@
       });
     }
 
-    // rotating truck overlay using OverlayView
-    class TruckOverlay extends google.maps.OverlayView {
-      constructor(position, map) {
-        super();
-        this.position = position;
-        this.map = map;
-        this.div = null;
-        this.heading = 0;
-        this.setMap(map);
-      }
-
-      onAdd() {
-        const div = document.createElement('div');
-        div.style.position = 'absolute';
-        div.style.zIndex = '999';
-
-        const img = document.createElement('img');
-        img.src = TRUCK_ICON_URL;
-        img.style.width = '72px';
-        img.style.height = 'auto';
-        img.style.transformOrigin = '50% 60%';
-
-        img.onerror = () => {
-          div.style.display = 'none';
-        };
-
-        div.appendChild(img);
-        this.div = div;
-        this.img = img;
-
-        const panes = this.getPanes();
-        panes.overlayMouseTarget.appendChild(div);
-      }
-
-      draw() {
-        if (!this.div) return;
-        const projection = this.getProjection();
-        const point = projection.fromLatLngToDivPixel(this.position);
-        if (!point) return;
-
-        this.div.style.left = point.x + 'px';
-        this.div.style.top = point.y + 'px';
-        this.div.style.transform = `translate(-50%, -70%) rotate(${this.heading}deg)`;
-      }
-
-      onRemove() {
-        if (this.div && this.div.parentNode) {
-          this.div.parentNode.removeChild(this.div);
-        }
-        this.div = null;
-        this.img = null;
-      }
-
-      setPosition(position) {
-        this.position = position;
-        this.draw();
-      }
-
-      setHeading(heading) {
-        this.heading = heading || 0;
-        this.draw();
-      }
-    }
-
-    // intro zoom
+    // intro zoom (show both, then glide into truck)
     function tryIntroZoom() {
       if (introPlayed) return;
       if (!map || !destLatLng || !lastTruckPos) return;
@@ -679,6 +708,7 @@
       }
     }
 
+    // Smooth animation, optionally driving the overlay (if present)
     function animateMarkerMove(marker, glow, overlay, fromPos, toPos, durationMs) {
       if (!fromPos || !toPos) {
         marker.setPosition(toPos);
