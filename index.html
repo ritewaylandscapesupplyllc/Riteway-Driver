@@ -14,12 +14,11 @@
       --bg: #050608;
       --bg-elevated: #15191f;
       --bg-elevated-soft: #1b2129;
-      --accent: #1A8F7A; /* deep teal */
+      --accent: #1A8F7A;
       --accent-soft: rgba(26, 143, 122, 0.14);
       --accent-strong: #12c3a0;
       --text: #f5f7fb;
       --text-muted: #a6afb8;
-      --danger: #e95c4b;
       --border-subtle: #252c35;
       --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.55);
       --radius-lg: 18px;
@@ -45,7 +44,6 @@
       overflow: hidden;
     }
 
-    /* Logo watermark */
     body::before {
       content: "";
       position: fixed;
@@ -282,7 +280,7 @@
           <div class="status-value" id="status-text">Ready to start</div>
         </div>
         <div style="font-size:0.86rem; color:var(--text-muted);">
-          GPS → Firebase
+          GPS → Firebase (5s)
         </div>
       </div>
 
@@ -333,6 +331,7 @@
         .then(() => log('Details saved'))
         .catch(err => log('ERROR saving details: ' + err.message));
 
+      // send GPS every 5 seconds
       interval = setInterval(() => {
         navigator.geolocation.getCurrentPosition(
           pos => {
@@ -352,7 +351,7 @@
           },
           { enableHighAccuracy: true, timeout: 10000 }
         );
-      }, 30000);
+      }, 5000);
 
       // First immediate GPS
       navigator.geolocation.getCurrentPosition(pos => {
