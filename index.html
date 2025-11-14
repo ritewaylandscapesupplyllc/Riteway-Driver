@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Riteway Driver Tracker</title>
+  <title>Riteway Driver</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -11,22 +11,21 @@
     h1 {color:#1a5f1a;}
     input, textarea, button {margin:10px auto; padding:12px; font-size:18px; width:90%; max-width:300px; display:block;}
     button {background:#1a5f1a; color:white; border:none; border-radius:6px;}
-    #status {margin:20px; font-weight:bold; color:#d35400; font-size:18px;}
+    #status, #debug {margin:20px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:5px; font-family: monospace; text-align:left; font-size:14px;}
+    #debug {color: #d35400;}
   </style>
 </head>
 <body>
   <h1>Riteway Driver</h1>
-  <p>Fill in details → Tap <b>Start Tracking</b></p>
+  <p>Fill in → Tap <b>Start Tracking</b></p>
 
-  <input type="text" id="deliveryId" placeholder="Delivery ID (e.g. RITE123)" autocomplete="off">
-  <input type="text" id="customerName" placeholder="Customer Name">
+  <input type="text" id="deliveryId" placeholder="Delivery ID (e.g. TEST123)">
   <input type="text" id="address" placeholder="Delivery Address (required)">
-  <textarea id="items" placeholder="Items (e.g. 5 yards mulch)" rows="2"></textarea>
-  <input type="text" id="eta" placeholder="ETA (e.g. 30 min)">
 
   <button onclick="start()">Start Tracking</button>
   <button onclick="stop()">Stop Tracking</button>
-  <p id="status">Status: Ready</p>
+  <div id="status">Status: Ready</div>
+  <div id="debug">Debug Log:</div>
 
   <script>
     const firebaseConfig = {
@@ -42,50 +41,49 @@
     const db = firebase.database();
 
     let interval;
+    function log(msg) {
+      const debug = document.getElementById('debug');
+      debug.innerHTML += '<br>' + new Date().toLocaleTimeString() + ': ' + msg;
+      console.log(msg);
+    }
+
     function start() {
       const id = document.getElementById('deliveryId').value.trim().toUpperCase();
       const addr = document.getElementById('address').value.trim();
-      if (!id || !addr) { alert('Delivery ID and Address are required!'); return; }
+      if (!id || !addr) { alert('ID and Address required!'); return; }
 
-      const details = {
-        customerName: document.getElementById('customerName').value.trim(),
-        address: addr,
-        items: document.getElementById('items').value.trim(),
-        eta: document.getElementById('eta').value.trim()
-      };
+      log('Starting tracking for ' + id);
 
-      db.ref('deliveries/' + id + '/details').set(details);
-      document.getElementById('status').innerText = 'Status: Requesting GPS...';
+      const details = { address: addr };
+      db.ref('deliveries/' + id + '/details').set(details)
+        .then(() => log('Details saved'))
+        .catch(err => log('ERROR saving details: ' + err.message));
+
+      document.getElementById('status').innerText = 'Requesting GPS...';
 
       interval = setInterval(() => {
         navigator.geolocation.getCurrentPosition(
           pos => {
-            db.ref('deliveries/' + id + '/location').set({
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-              ts: new Date().toISOString()
-            });
+            const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: new Date().toISOString() };
+            db.ref('deliveries/' + id + '/location').set(loc)
+              .then(() => log('GPS sent: ' + loc.lat.toFixed(4) + ', ' + loc.lng.toFixed(4)))
+              .catch(err => log('ERROR sending GPS: ' + err.message));
             document.getElementById('status').innerText = 'LIVE: Sending to ' + id;
           },
           err => {
-            let msg = 'GPS Error: ';
-            if (err.code === 1) msg += 'Location denied. Go to phone settings → Allow location for Chrome.';
-            else if (err.code === 2) msg += 'No GPS signal. Move outside.';
-            else if (err.code === 3) msg += 'Timeout. Try again.';
-            else msg += err.message;
-            document.getElementById('status').innerText = msg;
+            log('GPS ERROR: ' + err.message);
+            document.getElementById('status').innerText = 'GPS Error: ' + err.message;
           },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          { enableHighAccuracy: true, timeout: 10000 }
         );
       }, 30000);
 
-      // First location immediately
+      // First GPS
       navigator.geolocation.getCurrentPosition(pos => {
-        db.ref('deliveries/' + id + '/location').set({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          ts: new Date().toISOString()
-        });
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, ts: new Date().toISOString() };
+        db.ref('deliveries/' + id + '/location').set(loc)
+          .then(() => log('First GPS sent'))
+          .catch(err => log('ERROR first GPS: ' + err.message));
       });
     }
 
@@ -93,7 +91,8 @@
       clearInterval(interval);
       const id = document.getElementById('deliveryId').value.trim().toUpperCase();
       if (id) db.ref('deliveries/' + id).remove();
-      document.getElementById('status').innerText = 'Status: Stopped';
+      document.getElementById('status').innerText = 'Stopped';
+      log('Tracking stopped');
     }
   </script>
 </body>
