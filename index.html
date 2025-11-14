@@ -5,6 +5,21 @@
   <title>Riteway Driver | Live Tracking</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
+  <!-- ✅ NEW: iPhone / iPad homescreen icon -->
+  <!-- Put your dump-truck Riteway icon in the same folder, named exactly like this -->
+  <link rel="apple-touch-icon" href="riteway-driver-icon.png">
+
+  <!-- ✅ NEW: make it behave like an installed app on iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Riteway Driver">
+
+  <!-- ✅ NEW: PWA manifest (helps Android + others too) -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- ✅ NEW: browser theme color (status bar, etc.) -->
+  <meta name="theme-color" content="#050608">
+
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
