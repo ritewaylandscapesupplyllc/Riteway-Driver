@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Riteway Driver Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <style>
+    body {font-family: Arial; padding:20px; text-align:center; background:#f9f9f9;}
+    h1 {color:#1a5f1a;}
+    input, textarea, button {margin:10px auto; padding:12px; font-size:18px; width:90%; max-width:300px; display:block;}
+    button {background:#1a5f1a; color:white; border:none; border-radius:6px;}
+    #status {margin:20px; font-weight:bold; color:#d35400; font-size:18px;}
+  </style>
+</head>
+<body>
+  <h1>Riteway Driver</h1>
+  <p>Fill in details → Tap <b>Start Tracking</b></p>
+
+  <input type="text" id="deliveryId" placeholder="Delivery ID (e.g. RITE123)" autocomplete="off">
+  <input type="text" id="customerName" placeholder="Customer Name">
+  <input type="text" id="address" placeholder="Delivery Address (required)">
+  <textarea id="items" placeholder="Items (e.g. 5 yards mulch)" rows="2"></textarea>
+  <input type="text" id="eta" placeholder="ETA (e.g. 30 min)">
+
+  <button onclick="start()">Start Tracking</button>
+  <button onclick="stop()">Stop Tracking</button>
+  <p id="status">Status: Ready</p>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
+      authDomain: "ritewaytracking-3e9d0.firebaseapp.com",
+      databaseURL: "https://ritewaytracking-3e9d0-default-rtdb.firebaseio.com",
+      projectId: "ritewaytracking-3e9d0",
+      storageBucket: "ritewaytracking-3e9d0.firebasestorage.app",
+      messagingSenderId: "817275576166",
+      appId: "1:817275576166:web:56a92bcaf8f60d52a0b2a7"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let interval;
+    function start() {
+      const id = document.getElementById('deliveryId').value.trim().toUpperCase();
+      const addr = document.getElementById('address').value.trim();
+      if (!id || !addr) { alert('Delivery ID and Address are required!'); return; }
+
+      const details = {
+        customerName: document.getElementById('customerName').value.trim(),
+        address: addr,
+        items: document.getElementById('items').value.trim(),
+        eta: document.getElementById('eta').value.trim()
+      };
+
+      db.ref('deliveries/' + id + '/details').set(details);
+      document.getElementById('status').innerText = 'Status: Requesting GPS...';
+
+      interval = setInterval(() => {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            db.ref('deliveries/' + id + '/location').set({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              ts: new Date().toISOString()
+            });
+            document.getElementById('status').innerText = 'LIVE: Sending to ' + id;
+          },
+          err => {
+            let msg = 'GPS Error: ';
+            if (err.code === 1) msg += 'Location denied. Go to phone settings → Allow location for Chrome.';
+            else if (err.code === 2) msg += 'No GPS signal. Move outside.';
+            else if (err.code === 3) msg += 'Timeout. Try again.';
+            else msg += err.message;
+            document.getElementById('status').innerText = msg;
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      }, 30000);
+
+      // First location immediately
+      navigator.geolocation.getCurrentPosition(pos => {
+        db.ref('deliveries/' + id + '/location').set({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          ts: new Date().toISOString()
+        });
+      });
+    }
+
+    function stop() {
+      clearInterval(interval);
+      const id = document.getElementById('deliveryId').value.trim().toUpperCase();
+      if (id) db.ref('deliveries/' + id).remove();
+      document.getElementById('status').innerText = 'Status: Stopped';
+    }
+  </script>
+</body>
+</html>
