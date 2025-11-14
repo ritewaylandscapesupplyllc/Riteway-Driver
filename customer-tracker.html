@@ -11,107 +11,220 @@
 
   <style>
     :root {
-      --riteway-teal: #12C3A0;   /* brighter teal */
-      --riteway-teal-soft: rgba(18,195,160,0.18);
+      --bg: #050608;
+      --bg-elevated: #15191f;
+      --bg-elevated-soft: #1b2129;
+      --accent: #12C3A0;
+      --accent-soft: rgba(18,195,160,0.18);
+      --text: #f5f7fb;
+      --text-muted: #a6afb8;
+      --border-subtle: #252c35;
+      --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.55);
+      --radius-lg: 18px;
+      --radius-pill: 999px;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
-      font-family: Arial, sans-serif;
-      padding:20px;
-      text-align:center;
-      background:#f4f9f4;
       margin:0;
+      min-height:100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #151a20 0, #050608 55%, #020203 100%);
+      color: var(--text);
+      padding: 18px;
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+      position:relative;
+      overflow-x:hidden;
     }
 
-    h1 {
-      color: var(--riteway-teal);
-      letter-spacing: 1px;
-      font-weight: 700;
-      margin-top:0;
+    body::before {
+      content:"";
+      position:fixed;
+      inset:0;
+      background-image:url("riteway-logo-watermark.png");
+      background-repeat:no-repeat;
+      background-position:center;
+      background-size:min(80vw,520px);
+      opacity:0.05;
+      pointer-events:none;
+      z-index:0;
+      filter:drop-shadow(0 0 30px rgba(0,0,0,0.7));
     }
 
-    input, button {
-      margin:10px;
-      padding:10px;
-      font-size:18px;
-      width:90%;
-      max-width:300px;
-      border-radius: 6px;
-      border:1px solid var(--riteway-teal);
+    .app-shell {
+      width:100%;
+      max-width:900px;
+      position:relative;
+      z-index:1;
     }
 
-    input:focus {
-      outline: none;
-      border-color: var(--riteway-teal);
-      box-shadow: 0 0 6px var(--riteway-teal-soft);
+    /* Centered Riteway logo like driver app */
+    .logo-wrapper {
+      width:100%;
+      display:flex;
+      justify-content:center;
+      margin-top:10px;
+      margin-bottom:-18px;
+      position:relative;
+      z-index:5;
     }
 
-    button {
-      background: var(--riteway-teal);
-      color:white;
-      border:none;
-      font-weight:600;
-      cursor:pointer;
+    .brand-logo {
+      width:220px;
+      height:auto;
+      display:block;
+      filter:drop-shadow(0 0 10px rgba(0,0,0,0.7));
     }
 
-    button:hover {
-      background:#0ea583;
+    .card {
+      background:linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.78));
+      border-radius:var(--radius-lg);
+      border:1px solid var(--border-subtle);
+      box-shadow:var(--shadow-soft);
+      backdrop-filter:blur(16px);
+      padding:22px 18px 16px;
+      margin-bottom:14px;
+    }
+
+    .top-ui h1 {
+      margin:4px 0 4px 0;
+      font-size:1.2rem;
+      letter-spacing:0.12em;
+      text-transform:uppercase;
+      color:var(--accent);
+      text-align:center;
     }
 
     .hint {
-      color: var(--riteway-teal);
-      max-width: 420px;
-      margin: 0 auto 5px auto;
-      font-size: 14px;
+      color:var(--text-muted);
+      max-width:480px;
+      margin:0 auto 10px auto;
+      font-size:0.85rem;
+      text-align:center;
+    }
+
+    .inputs-row {
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    input[type="text"], button {
+      font-size:0.95rem;
+      border-radius:var(--radius-pill);
+      padding:9px 14px;
+    }
+
+    input[type="text"] {
+      min-width:180px;
+      max-width:260px;
+      width:100%;
+      background:rgba(10,13,18,0.9);
+      border:1px solid var(--border-subtle);
+      color:var(--text);
+    }
+
+    input::placeholder {
+      color:rgba(166,175,184,0.75);
+    }
+
+    input:focus {
+      outline:none;
+      border-color:var(--accent);
+      box-shadow:0 0 0 1px var(--accent-soft);
+    }
+
+    button {
+      border:none;
+      background:var(--accent);
+      color:#031210;
+      font-weight:600;
+      cursor:pointer;
+      box-shadow:0 8px 20px rgba(18,195,160,0.45);
+      text-transform:uppercase;
+      letter-spacing:0.06em;
+    }
+
+    button:hover {
+      background:#11ae8c;
     }
 
     .details {
-      margin:20px auto;
-      max-width:400px;
+      margin:14px auto 0 auto;
+      max-width:480px;
       text-align:left;
-      background:#ffffff;
-      padding:15px;
-      border-radius:8px;
-      box-shadow:0 2px 5px rgba(0,0,0,0.1);
-      border-left:4px solid var(--riteway-teal);
+      background:rgba(5,8,11,0.96);
+      padding:14px 14px 10px;
+      border-radius:12px;
+      border-left:3px solid var(--accent);
+      box-shadow:0 1px 3px rgba(0,0,0,0.5);
+      font-size:0.85rem;
+    }
+
+    .details p {
+      margin:4px 0;
     }
 
     .details p strong {
-      color: var(--riteway-teal);
+      color:var(--accent);
     }
 
     .eta-label {
       font-weight:bold;
-      color: var(--riteway-teal);
+      color:var(--accent);
     }
 
     .eta-value {
       font-weight:normal;
-      color:#333;
+      color:var(--text);
+    }
+
+    .map-card {
+      background:#05070b;
+      border-radius:var(--radius-lg);
+      border:1px solid var(--border-subtle);
+      padding:12px;
+      box-shadow:var(--shadow-soft);
     }
 
     .map-wrapper {
-      position: relative;
-      margin-top:20px;
+      position:relative;
+      margin-top:4px;
+      border-radius:12px;
+      overflow:hidden;
     }
 
     #map {
-      height: 500px;
-      width: 100%;
-      border:2px solid var(--riteway-teal);
-      border-radius:8px;
+      height:500px;
+      width:100%;
+      border-radius:12px;
     }
 
-    /* Mobile-only fullscreen button (shown via JS) */
     #fullscreenToggle {
       margin-top:10px;
-      font-size:14px;
+      font-size:0.8rem;
       width:auto;
       max-width:none;
+      padding:6px 12px;
+      border-radius:var(--radius-pill);
+      border:1px solid var(--accent-soft);
+      background:rgba(5,8,11,0.9);
+      color:var(--text-muted);
       display:none;
+      box-shadow:none;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
     }
 
-    /* Fullscreen mode CSS */
+    /* Fullscreen mode */
     body.fullscreen-active {
       padding:0;
       overflow:hidden;
@@ -121,48 +234,89 @@
       display:none;
     }
 
-    body.fullscreen-active .map-wrapper {
+    body.fullscreen-active .app-shell {
+      max-width:none;
+    }
+
+    body.fullscreen-active .map-card {
       position:fixed;
       inset:0;
       margin:0;
+      border-radius:0;
+      border:none;
+      padding:0;
       z-index:9999;
+    }
+
+    body.fullscreen-active .map-wrapper {
+      position:absolute;
+      inset:0;
+      margin:0;
       border-radius:0;
     }
 
     body.fullscreen-active #map {
       height:100%;
       width:100%;
-      border:none;
       border-radius:0;
+    }
+
+    body.fullscreen-active #fullscreenToggle {
+      position:absolute;
+      top:12px;
+      right:12px;
+      z-index:10000;
+      background:rgba(0,0,0,0.75);
     }
 
     @media (max-width:600px) {
       #map {
-        height: 380px;
+        height:380px;
+      }
+      .card {
+        padding:20px 14px 14px;
+      }
+      .details {
+        margin-top:10px;
       }
     }
   </style>
 </head>
 <body>
 
-  <div class="top-ui">
-    <h1>Riteway Delivery Tracker</h1>
-    <p class="hint">Enter your Delivery ID to see your truck in real time.</p>
-
-    <input type="text" id="deliveryId" placeholder="RITE123">
-    <button onclick="loadTracking()">Track My Delivery</button>
-
-    <div id="details" class="details" style="display:none;">
-      <p><strong>Customer:</strong> <span id="customerName"></span></p>
-      <p><strong>Address:</strong> <span id="address"></span></p>
-      <p><strong>Items:</strong> <span id="items"></span></p>
-      <p><span class="eta-label">ETA:</span> <span id="eta" class="eta-value">Waiting for driver…</span></p>
+  <div class="app-shell">
+    <!-- Logo like driver app -->
+    <div class="logo-wrapper">
+      <img src="riteway-logo.png" alt="Riteway Logo" class="brand-logo">
     </div>
-  </div>
 
-  <div class="map-wrapper">
-    <div id="map"></div>
-    <button id="fullscreenToggle" onclick="toggleFullscreen()">Full Screen Map</button>
+    <!-- Top card: title, input, details -->
+    <div class="card top-ui">
+      <h1>Delivery Tracker</h1>
+      <p class="hint">Enter your Delivery ID to see your truck in real time.</p>
+
+      <div class="inputs-row">
+        <input type="text" id="deliveryId" placeholder="RITE123">
+        <button onclick="loadTracking()">Track My Delivery</button>
+      </div>
+
+      <div id="details" class="details" style="display:none;">
+        <p><strong>Customer:</strong> <span id="customerName"></span></p>
+        <p><strong>Address:</strong> <span id="address"></span></p>
+        <p><strong>Items:</strong> <span id="items"></span></p>
+        <p><span class="eta-label">ETA:</span> <span id="eta" class="eta-value">Waiting for driver…</span></p>
+      </div>
+    </div>
+
+    <!-- Map card -->
+    <div class="card map-card">
+      <div class="map-wrapper">
+        <div id="map"></div>
+      </div>
+      <div style="text-align:right; margin-top:6px;">
+        <button id="fullscreenToggle" onclick="toggleFullscreen()">Full Screen Map</button>
+      </div>
+    </div>
   </div>
 
   <!-- Google Maps (with geometry for distance) -->
@@ -195,7 +349,7 @@
     const AVG_SPEED_MPH = 35;
     const AVG_SPEED_MPS = AVG_SPEED_MPH * 1609.34 / 3600;
 
-    // 🔹 NEW: read deliveryId from URL query (?deliveryId=RITE123)
+    // read deliveryId from URL query (?deliveryId=RITE123)
     function getDeliveryIdFromURL() {
       const params = new URLSearchParams(window.location.search);
       const id = params.get("deliveryId");
@@ -394,23 +548,20 @@
       });
     }
 
-    // Kick off the zoom sequence once both dest + truck pos known
     function maybeStartZoomSequence() {
       if (!map || !destLatLng || !lastTruckPos) return;
       if (zoomState !== "idle") return;
 
       zoomState = "start";
 
-      // 1) Fit bounds so both truck & destination are visible
       const bounds = new google.maps.LatLngBounds();
       bounds.extend(destLatLng);
       bounds.extend(lastTruckPos);
       map.fitBounds(bounds);
 
-      // 2) After a bit, start gradual zoom-in to the truck
       setTimeout(() => {
         if (!map) return;
-        smoothZoomToTruck(14); // target zoom
+        smoothZoomToTruck(14);
       }, 1500);
     }
 
@@ -433,7 +584,7 @@
           map.panTo(lastTruckPos);
         }
 
-        setTimeout(step, 400); // speed of zoom steps
+        setTimeout(step, 400);
       };
 
       step();
@@ -452,7 +603,7 @@
         <div style="font-size:13px; line-height:1.4;">
           <strong>Riteway Truck</strong><br>
           ETA: ${etaText}<br>
-          <span style="color:#666;">Last update: ${timeStr || 'just now'}</span>
+          <span style="color:#888;">Last update: ${timeStr || 'just now'}</span>
         </div>
       `;
 
@@ -499,7 +650,7 @@
       requestAnimationFrame(step);
     }
 
-    // 🔹 Auto-start tracking when coming from Google Site with ?deliveryId=
+    // Auto-start tracking when coming from Google Site with ?deliveryId=
     window.addEventListener('load', () => {
       const id = getDeliveryIdFromURL();
       if (!id) return;
