@@ -73,21 +73,19 @@
       z-index: 2;
     }
 
-    /* ============================
-       Floating Logo Above Card
-    ============================ */
+    /* Centered logo above card */
     .logo-wrapper {
       width: 100%;
       display: flex;
       justify-content: center;
       margin-top: 20px;
-      margin-bottom: -30px; /* pulls card up to sit closer to logo */
+      margin-bottom: -30px;
       position: relative;
       z-index: 5;
     }
 
     .brand-logo {
-      width: 220px;   /* Bigger, cleaner logo */
+      width: 220px;
       height: auto;
       display: block;
       filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.7));
@@ -246,19 +244,28 @@
 <body>
   <div class="app-shell">
 
-    <!-- ⭐ Centered Logo Above the Card -->
+    <!-- Centered Riteway logo above card -->
     <div class="logo-wrapper">
       <img src="riteway-logo.png" class="brand-logo" alt="Riteway Logo">
     </div>
 
     <div class="card">
-
       <header class="header">
         <div class="brand-subtitle">Driver Live Tracking</div>
         <div class="badge">Driver View</div>
       </header>
 
       <div class="inputs">
+        <div class="field">
+          <label for="customerName">Customer Name</label>
+          <input type="text" id="customerName" placeholder="E.g. John Smith">
+        </div>
+
+        <div class="field">
+          <label for="items">Items Being Delivered</label>
+          <input type="text" id="items" placeholder="E.g. 10 yd topsoil, 5 yd gravel">
+        </div>
+
         <div class="field">
           <label for="deliveryId">Delivery ID</label>
           <input type="text" id="deliveryId" placeholder="E.g. RITE123">
@@ -280,11 +287,12 @@
           <div class="status-label">Status</div>
           <div class="status-value" id="status-text">Ready to start</div>
         </div>
-        <div style="font-size:0.86rem; color:var(--text-muted);">GPS → Firebase (5s)</div>
+        <div style="font-size:0.86rem; color:var(--text-muted);">
+          GPS → Firebase (5s)
+        </div>
       </div>
 
       <div id="debug"><strong>Debug Log</strong></div>
-
     </div>
   </div>
 
@@ -299,8 +307,8 @@
       appId: "1:817275576166:web:56a92bcaf8f60d52a0b2a7"
     };
     firebase.initializeApp(firebaseConfig);
-
     const db = firebase.database();
+
     let interval;
 
     function log(msg) {
@@ -308,27 +316,38 @@
       const time = new Date().toLocaleTimeString();
       debug.innerHTML += `<br>[${time}] ${msg}`;
       debug.scrollTop = debug.scrollHeight;
+      console.log(msg);
     }
 
-    function setStatus(t) {
-      document.getElementById('status-text').innerText = t;
+    function setStatus(text) {
+      document.getElementById('status-text').innerText = text;
     }
 
     function start() {
       const id = document.getElementById('deliveryId').value.trim().toUpperCase();
       const addr = document.getElementById('address').value.trim();
+      const customerName = document.getElementById('customerName').value.trim();
+      const items = document.getElementById('items').value.trim();
 
       if (!id || !addr) {
-        alert("Delivery ID and address are required.");
+        alert('Delivery ID and address are required to start tracking.');
         return;
       }
 
       log(`Starting tracking for ${id}`);
-      setStatus("Requesting GPS…");
+      setStatus('Requesting GPS…');
 
-      db.ref(`deliveries/${id}/details`).set({ address: addr });
+      const details = {
+        address: addr,
+        customerName: customerName || '',
+        items: items || ''
+      };
 
-      // Repeating GPS updates
+      db.ref('deliveries/' + id + '/details').set(details)
+        .then(() => log('Details saved'))
+        .catch(err => log('ERROR saving details: ' + err.message));
+
+      // send GPS every 5 seconds
       interval = setInterval(() => {
         navigator.geolocation.getCurrentPosition(
           pos => {
@@ -337,35 +356,38 @@
               lng: pos.coords.longitude,
               ts: new Date().toISOString()
             };
-            db.ref(`deliveries/${id}/location`).set(loc);
-            setStatus("Live — sending location");
-            log(`GPS: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`);
+            db.ref('deliveries/' + id + '/location').set(loc)
+              .then(() => log('GPS sent: ' + loc.lat.toFixed(4) + ', ' + loc.lng.toFixed(4)))
+              .catch(err => log('ERROR sending GPS: ' + err.message));
+            setStatus('Live · Sending position for ' + id);
           },
           err => {
-            setStatus("GPS error");
-            log("GPS ERROR: " + err.message);
+            log('GPS ERROR: ' + err.message);
+            setStatus('GPS error: ' + err.message);
           },
           { enableHighAccuracy: true, timeout: 10000 }
         );
       }, 5000);
 
-      // First immediate ping
+      // First immediate GPS
       navigator.geolocation.getCurrentPosition(pos => {
-        db.ref(`deliveries/${id}/location`).set({
+        const loc = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           ts: new Date().toISOString()
-        });
-        log("First GPS sent");
+        };
+        db.ref('deliveries/' + id + '/location').set(loc)
+          .then(() => log('First GPS sent'))
+          .catch(err => log('ERROR first GPS: ' + err.message));
       });
     }
 
     function stop() {
       clearInterval(interval);
       const id = document.getElementById('deliveryId').value.trim().toUpperCase();
-      if (id) db.ref(`deliveries/${id}`).remove();
-      setStatus("Stopped");
-      log("Tracking stopped");
+      if (id) db.ref('deliveries/' + id).remove();
+      setStatus('Stopped');
+      log('Tracking stopped');
     }
   </script>
 </body>
