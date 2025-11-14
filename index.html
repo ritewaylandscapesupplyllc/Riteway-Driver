@@ -5,19 +5,19 @@
   <title>Riteway Driver | Live Tracking</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- ✅ NEW: iPhone / iPad homescreen icon -->
+  <!-- iPhone / iPad homescreen icon -->
   <!-- Put your dump-truck Riteway icon in the same folder, named exactly like this -->
   <link rel="apple-touch-icon" href="riteway-driver-icon.png">
 
-  <!-- ✅ NEW: make it behave like an installed app on iOS -->
+  <!-- Make it behave like an installed app on iOS -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Riteway Driver">
 
-  <!-- ✅ NEW: PWA manifest (helps Android + others too) -->
+  <!-- PWA manifest (helps Android + others too) -->
   <link rel="manifest" href="manifest.json">
 
-  <!-- ✅ NEW: browser theme color (status bar, etc.) -->
+  <!-- Browser theme color (status bar, etc.) -->
   <meta name="theme-color" content="#050608">
 
   <!-- Firebase -->
@@ -59,6 +59,7 @@
       overflow: hidden;
     }
 
+    /* Page background watermark (already in your code) */
     body::before {
       content: "";
       position: fixed;
@@ -103,12 +104,12 @@
       gap: 4px;
     }
 
-    .brand-title {
-      font-size: 1.15rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--accent-strong);
+    /* ✅ NEW: logo image styling */
+    .brand-logo {
+      width: 170px;      /* tweak this if you want bigger/smaller */
+      height: auto;
+      display: block;
+      filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.6));
     }
 
     .brand-subtitle {
@@ -266,7 +267,8 @@
     <div class="card">
       <header class="header">
         <div class="brand-lockup">
-          <div class="brand-title">Riteway</div>
+          <!-- ✅ NEW: logo image instead of text -->
+          <img src="riteway-logo.png" alt="Riteway" class="brand-logo">
           <div class="brand-subtitle">Driver Live Tracking</div>
         </div>
         <div class="badge">Driver View</div>
