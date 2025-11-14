@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Riteway Delivery Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <style>
+    :root {
+      --bg: #050608;
+      --bg-elevated: #15191f;
+      --bg-elevated-soft: #1b2129;
+      --accent: #12C3A0;
+      --accent-soft: rgba(18,195,160,0.18);
+      --text: #f5f7fb;
+      --text-muted: #a6afb8;
+      --border-subtle: #252c35;
+      --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.55);
+      --radius-lg: 18px;
+      --radius-pill: 999px;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin:0;
+      min-height:100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #151a20 0, #050608 55%, #020203 100%);
+      color: var(--text);
+      padding: 18px;
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+      position:relative;
+      overflow-x:hidden;
+    }
+
+    body::before {
+      content:"";
+      position:fixed;
+      inset:0;
+      background-image:url("riteway-logo-watermark.png"); /* optional watermark */
+      background-repeat:no-repeat;
+      background-position:center;
+      background-size:min(80vw,520px);
+      opacity:0.05;
+      pointer-events:none;
+      z-index:0;
+      filter:drop-shadow(0 0 30px rgba(0,0,0,0.7));
+    }
+
+    .app-shell {
+      width:100%;
+      max-width:900px;
+      position:relative;
+      z-index:2;
+    }
+
+    /* Centered logo above card */
+    .logo-wrapper {
+      width:100%;
+      display:flex;
+      justify-content:center;
+      margin-top:10px;
+      margin-bottom:-18px;
+      position:relative;
+      z-index:5;
+    }
+
+    .brand-logo {
+      width:220px;
+      height:auto;
+      display:block;
+      filter:drop-shadow(0 0 10px rgba(0,0,0,0.7));
+    }
+
+    .top-card {
+      background:linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.75));
+      border-radius:var(--radius-lg);
+      border:1px solid var(--border-subtle);
+      box-shadow:var(--shadow-soft);
+      padding:26px 20px 16px;
+      backdrop-filter:blur(16px);
+      margin-bottom:16px;
+    }
+
+    h1 {
+      margin:0 0 4px 0;
+      font-size:1.25rem;
+      letter-spacing:0.1em;
+      text-transform:uppercase;
+      color:var(--accent);
+    }
+
+    .hint {
+      color:var(--text-muted);
+      max-width:480px;
+      margin:0 auto 10px auto;
+      font-size:0.85rem;
+    }
+
+    .inputs-row {
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    input[type="text"], button {
+      font-size:0.95rem;
+      border-radius:var(--radius-pill);
+      padding:9px 14px;
+      border:1px solid var(--border-subtle);
+    }
+
+    input[type="text"] {
+      min-width:180px;
+      max-width:260px;
+      background:rgba(10,13,18,0.9);
+      color:var(--text);
+    }
+
+    input::placeholder {
+      color:rgba(166,175,184,0.75);
+    }
+
+    button {
+      background:var(--accent);
+      color:#031210;
+      font-weight:600;
+      cursor:pointer;
+      border:none;
+      box-shadow:0 6px 16px rgba(18,195,160,0.45);
+      text-transform:uppercase;
+      letter-spacing:0.06em;
+    }
+
+    button:hover {
+      background:#11ae8c;
+    }
+
+    .details {
+      margin:14px auto 0 auto;
+      max-width:480px;
+      text-align:left;
+      background:rgba(5,8,11,0.95);
+      padding:14px 14px 10px;
+      border-radius:12px;
+      border-left:3px solid var(--accent);
+      box-shadow:0 1px 3px rgba(0,0,0,0.5);
+      font-size:0.85rem;
+    }
+
+    .details p {
+      margin:4px 0;
+    }
+
+    .details p strong {
+      color:var(--accent);
+    }
+
+    .eta-label {
+      font-weight:bold;
+      color:var(--accent);
+    }
+
+    .eta-value {
+      font-weight:normal;
+      color:var(--text);
+    }
+
+    .map-card {
+      background:#05070b;
+      border-radius:var(--radius-lg);
+      border:1px solid var(--border-subtle);
+      margin-top:10px;
+      padding:10px;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .map-wrapper {
+      position:relative;
+      margin-top:4px;
+      border-radius:12px;
+      overflow:hidden;
+    }
+
+    #map {
+      height:500px;
+      width:100%;
+      border-radius:12px;
+    }
+
+    /* Mobile-only fullscreen button */
+    #fullscreenToggle {
+      margin-top:10px;
+      font-size:0.8rem;
+      width:auto;
+      max-width:none;
+      padding:6px 12px;
+      border-radius:var(--radius-pill);
+      border:1px solid var(--accent-soft);
+      background:rgba(5,8,11,0.9);
+      color:var(--text-muted);
+      display:none;
+      box-shadow:none;
+      letter-spacing:0.08em;
+    }
+
+    /* Fullscreen mode */
+    body.fullscreen-active {
+      padding:0;
+      overflow:hidden;
+    }
+    body.fullscreen-active .top-card {
+      display:none;
+    }
+    body.fullscreen-active .app-shell {
+      max-width:none;
+    }
+    body.fullscreen-active .map-card {
+      position:fixed;
+      inset:0;
+      margin:0;
+      border-radius:0;
+      border:none;
+      padding:0;
+      z-index:9999;
+    }
+    body.fullscreen-active .map-wrapper {
+      position:absolute;
+      inset:0;
+      margin:0;
+      border-radius:0;
+    }
+    body.fullscreen-active #map {
+      height:100%;
+      width:100%;
+      border-radius:0;
+    }
+    body.fullscreen-active #fullscreenToggle {
+      position:absolute;
+      top:12px;
+      right:12px;
+      z-index:10000;
+      background:rgba(0,0,0,0.75);
+    }
+
+    @media (max-width:600px) {
+      #map {
+        height:380px;
+      }
+      .top-card {
+        padding:22px 14px 14px;
+      }
+      .details {
+        margin-top:10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- Centered Riteway logo -->
+    <div class="logo-wrapper">
+      <img src="riteway-logo.png" class="brand-logo" alt="Riteway Logo">
+    </div>
+
+    <!-- Top card with ID input + details -->
+    <div class="top-card">
+      <h1>Delivery Tracker</h1>
+      <p class="hint">Enter your Delivery ID to see your truck in real time.</p>
+
+      <div class="inputs-row">
+        <input type="text" id="deliveryId" placeholder="RITE123">
+        <button onclick="loadTracking()">Track My Delivery</button>
+      </div>
+
+      <div id="details" class="details" style="display:none;">
+        <p><strong>Customer:</strong> <span id="customerName"></span></p>
+        <p><strong>Address:</strong> <span id="address"></span></p>
+        <p><strong>Items:</strong> <span id="items"></span></p>
+        <p><span class="eta-label">ETA:</span> <span id="eta" class="eta-value">Waiting for driver…</span></p>
+      </div>
+    </div>
+
+    <!-- Map section -->
+    <div class="map-card">
+      <div class="map-wrapper">
+        <div id="map"></div>
+      </div>
+      <div style="text-align:right;">
+        <button id="fullscreenToggle" onclick="toggleFullscreen()">Full Screen Map</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google Maps (with geometry for distance) -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA955mtbdY2qg_kvyLxWOV1yWN5NYenHcI&libraries=places,geometry"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
+      authDomain: "ritewaytracking-3e9d0.firebaseapp.com",
+      databaseURL: "https://ritewaytracking-3e9d0-default-rtdb.firebaseio.com",
+      projectId: "ritewaytracking-3e9d0",
+      storageBucket: "ritewaytracking-3e9d0.firebasestorage.app",
+      messagingSenderId: "817275576166",
+      appId: "1:817275576166:web:56a92bcaf8f60d52a0b2a7"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    let map, truckMarker, truckGlow, destMarker, geocoder;
+    let destLatLng = null;
+    let lastTruckPos = null;
+    let truckInfoWindow = null;
+
+    // zoom flow: "idle" → "start" → "done"
+    let zoomState = "idle";
+    let followTruck = true;
+    let internalZoomChange = false;
+
+    const AVG_SPEED_MPH = 35;
+    const AVG_SPEED_MPS = AVG_SPEED_MPH * 1609.34 / 3600;
+
+    function isMobile() {
+      return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+    }
+
+    function toggleFullscreen() {
+      if (!isMobile()) return;
+
+      const body = document.body;
+      const btn = document.getElementById('fullscreenToggle');
+      const active = body.classList.contains('fullscreen-active');
+
+      if (active) {
+        body.classList.remove('fullscreen-active');
+        btn.textContent = 'Full Screen Map';
+      } else {
+        body.classList.add('fullscreen-active');
+        btn.textContent = 'Exit Full Screen';
+      }
+
+      if (map) {
+        google.maps.event.trigger(map, 'resize');
+      }
+    }
+
+    function loadTracking() {
+      const deliveryId = document.getElementById('deliveryId').value.trim().toUpperCase();
+      if (!deliveryId) {
+        alert("Please enter your Delivery ID");
+        return;
+      }
+
+      if (typeof google === 'undefined' || !google.maps) {
+        alert("Map is still loading. Please wait a moment and try again.");
+        return;
+      }
+
+      geocoder = new google.maps.Geocoder();
+
+      if (isMobile()) {
+        document.getElementById('fullscreenToggle').style.display = 'inline-block';
+      }
+
+      startTracking(deliveryId);
+    }
+
+    function startTracking(deliveryId) {
+      if (!map) {
+        map = new google.maps.Map(document.getElementById('map'), {
+          center: { lat: 40.612, lng: -112.464 }, // Tooele-ish
+          zoom: 12,
+          gestureHandling: 'greedy'
+        });
+
+        // Let user break follow-mode
+        map.addListener('dragstart', () => { followTruck = false; });
+        map.addListener('click', () => { followTruck = false; });
+        map.addListener('zoom_changed', () => {
+          if (internalZoomChange) {
+            internalZoomChange = false;
+            return;
+          }
+          followTruck = false;
+        });
+      }
+
+      // Reset state for new tracking session
+      destLatLng = null;
+      lastTruckPos = null;
+      zoomState = "idle";
+      followTruck = true;
+
+      const deliveryRef = database.ref('deliveries/' + deliveryId);
+
+      // Clear any previous listeners on this ref
+      deliveryRef.child('location').off();
+
+      // Load details once
+      deliveryRef.child('details').once('value', snapshot => {
+        const details = snapshot.val();
+        if (details) {
+          document.getElementById('customerName').innerText = details.customerName || 'N/A';
+          document.getElementById('address').innerText = details.address || 'N/A';
+          document.getElementById('items').innerText = details.items || 'N/A';
+          document.getElementById('details').style.display = 'block';
+
+          if (details.address) {
+            geocoder.geocode({ address: details.address }, (results, status) => {
+              if (status === 'OK' && results[0]) {
+                destLatLng = results[0].geometry.location;
+
+                const destIcon = {
+                  path: "M0,-10 L6,-2 L6,6 L-6,6 L-6,-2 Z",
+                  fillColor: "#333333",
+                  fillOpacity: 1,
+                  strokeColor: "#12C3A0",
+                  strokeWeight: 2,
+                  scale: 1.3
+                };
+
+                if (!destMarker) {
+                  destMarker = new google.maps.Marker({
+                    position: destLatLng,
+                    map: map,
+                    title: 'Delivery Destination',
+                    icon: destIcon
+                  });
+                } else {
+                  destMarker.setPosition(destLatLng);
+                  destMarker.setIcon(destIcon);
+                }
+
+                maybeStartZoomSequence();
+              }
+            });
+          }
+        }
+      });
+
+      // Live location listener
+      deliveryRef.child('location').on('value', snapshot => {
+        const loc = snapshot.val();
+        const etaEl = document.getElementById('eta');
+
+        if (!loc) {
+          etaEl.innerText = 'Waiting for driver to start…';
+          return;
+        }
+
+        const newPos = new google.maps.LatLng(loc.lat, loc.lng);
+
+        if (!truckMarker) {
+          truckMarker = new google.maps.Marker({
+            map: map,
+            position: newPos,
+            title: 'Riteway Truck',
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 6,
+              fillColor: '#12C3A0',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2
+            },
+            optimized: true
+          });
+
+          truckGlow = new google.maps.Circle({
+            strokeOpacity: 0,
+            fillColor: '#12C3A0',
+            fillOpacity: 0.25,
+            map: map,
+            center: newPos,
+            radius: 80
+          });
+
+          lastTruckPos = newPos;
+        } else {
+          animateMarkerMove(truckMarker, truckGlow, lastTruckPos, newPos, 1000);
+          lastTruckPos = newPos;
+        }
+
+        maybeStartZoomSequence();
+
+        // ETA calc
+        let etaText = 'Driver is en route';
+        if (destLatLng && google.maps.geometry && google.maps.geometry.spherical) {
+          const distanceMeters = google.maps.geometry.spherical.computeDistanceBetween(newPos, destLatLng);
+          const seconds = distanceMeters / AVG_SPEED_MPS;
+
+          if (seconds < 60) {
+            etaText = 'About 1 minute';
+          } else {
+            const minutes = Math.round(seconds / 60);
+            if (minutes < 60) {
+              etaText = 'About ' + minutes + ' minute' + (minutes === 1 ? '' : 's');
+            } else {
+              const hours = Math.floor(minutes / 60);
+              const remMin = minutes % 60;
+              if (remMin < 5) {
+                etaText = 'About ' + hours + ' hour' + (hours === 1 ? '' : 's');
+              } else {
+                etaText = 'About ' + hours + ' hr ' + remMin + ' min';
+              }
+            }
+          }
+        }
+
+        etaEl.innerText = etaText;
+        updateTruckInfoWindow(etaText, loc.ts);
+      });
+    }
+
+    function maybeStartZoomSequence() {
+      if (!map || !destLatLng || !lastTruckPos) return;
+      if (zoomState !== "idle") return;
+
+      zoomState = "start";
+
+      // 1) Fit bounds so both truck & destination are visible
+      const bounds = new google.maps.LatLngBounds();
+      bounds.extend(destLatLng);
+      bounds.extend(lastTruckPos);
+      map.fitBounds(bounds);
+
+      // 2) After a bit, start gradual zoom-in to the truck
+      setTimeout(() => {
+        if (!map) return;
+        smoothZoomToTruck(14); // target zoom
+      }, 1500);
+    }
+
+    function smoothZoomToTruck(targetZoom) {
+      if (!map) return;
+      zoomState = "zooming";
+
+      const step = () => {
+        const currentZoom = map.getZoom();
+        if (currentZoom >= targetZoom) {
+          zoomState = "done";
+          return;
+        }
+
+        internalZoomChange = true;
+        map.setZoom(currentZoom + 1);
+
+        if (lastTruckPos && followTruck) {
+          map.panTo(lastTruckPos);
+        }
+
+        setTimeout(step, 400);
+      };
+
+      step();
+    }
+
+    function updateTruckInfoWindow(etaText, tsIso) {
+      if (!truckMarker || !map) return;
+
+      const ts = tsIso ? new Date(tsIso) : null;
+      let timeStr = '';
+      if (ts && !isNaN(ts.getTime())) {
+        timeStr = ts.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      }
+
+      const content = `
+        <div style="font-size:13px; line-height:1.4;">
+          <strong>Riteway Truck</strong><br>
+          ETA: ${etaText}<br>
+          <span style="color:#888;">Last update: ${timeStr || 'just now'}</span>
+        </div>
+      `;
+
+      if (!truckInfoWindow) {
+        truckInfoWindow = new google.maps.InfoWindow({
+          content,
+          maxWidth: 220
+        });
+        truckInfoWindow.open(map, truckMarker);
+      } else {
+        truckInfoWindow.setContent(content);
+        truckInfoWindow.open(map, truckMarker);
+      }
+    }
+
+    function animateMarkerMove(marker, glow, fromPos, toPos, durationMs) {
+      if (!fromPos || !toPos) {
+        marker.setPosition(toPos);
+        if (glow) glow.setCenter(toPos);
+        if (followTruck && map && zoomState !== "idle") {
+          map.panTo(toPos);
+        }
+        return;
+      }
+
+      const start = performance.now();
+
+      function step(timestamp) {
+        const progress = Math.min((timestamp - start) / durationMs, 1);
+        const lat = fromPos.lat() + (toPos.lat() - fromPos.lat()) * progress;
+        const lng = fromPos.lng() + (toPos.lng() - fromPos.lng()) * progress;
+        const current = new google.maps.LatLng(lat, lng);
+
+        marker.setPosition(current);
+        if (glow) glow.setCenter(current);
+
+        if (followTruck && map && zoomState !== "idle") {
+          map.panTo(current);
+        }
+
+        if (progress < 1) {
+          requestAnimationFrame(step);
+        }
+      }
+
+      requestAnimationFrame(step);
+    }
+
+    // 🔁 Read deliveryId from URL and auto-start tracking
+    function getDeliveryIdFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('deliveryId');
+      return id ? id.trim().toUpperCase() : '';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const id = getDeliveryIdFromUrl();
+      if (id) {
+        const input = document.getElementById('deliveryId');
+        input.value = id;
+        loadTracking();
+      }
+    });
+  </script>
+</body>
+</html>
