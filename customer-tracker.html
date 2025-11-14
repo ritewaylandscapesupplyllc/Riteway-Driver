@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="utf-8">
-  <title>Riteway Delivery Tracker</title>
+  <title>Riteway Live Delivery Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- Firebase -->
@@ -11,298 +11,158 @@
 
   <style>
     :root {
-      --bg: #050608;
-      --bg-elevated: #15191f;
-      --bg-elevated-soft: #1b2129;
-      --accent: #12C3A0;
-      --accent-soft: rgba(18,195,160,0.18);
-      --text: #f5f7fb;
-      --text-muted: #a6afb8;
-      --border-subtle: #252c35;
-      --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.55);
-      --radius-lg: 18px;
-      --radius-pill: 999px;
-    }
-
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
+      --riteway-teal: #12C3A0;   /* brighter teal */
+      --riteway-teal-soft: rgba(18,195,160,0.18);
     }
 
     body {
+      font-family: Arial, sans-serif;
+      padding:20px;
+      text-align:center;
+      background:#f4f9f4;
       margin:0;
-      min-height:100vh;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #151a20 0, #050608 55%, #020203 100%);
-      color: var(--text);
-      padding: 18px;
-      display:flex;
-      justify-content:center;
-      align-items:flex-start;
-      position:relative;
-      overflow-x:hidden;
-    }
-
-    body::before {
-      content:"";
-      position:fixed;
-      inset:0;
-      background-image:url("riteway-logo-watermark.png"); /* optional watermark */
-      background-repeat:no-repeat;
-      background-position:center;
-      background-size:min(80vw,520px);
-      opacity:0.05;
-      pointer-events:none;
-      z-index:0;
-      filter:drop-shadow(0 0 30px rgba(0,0,0,0.7));
-    }
-
-    .app-shell {
-      width:100%;
-      max-width:900px;
-      position:relative;
-      z-index:2;
-    }
-
-    /* Centered logo above card */
-    .logo-wrapper {
-      width:100%;
-      display:flex;
-      justify-content:center;
-      margin-top:10px;
-      margin-bottom:-18px;
-      position:relative;
-      z-index:5;
-    }
-
-    .brand-logo {
-      width:220px;
-      height:auto;
-      display:block;
-      filter:drop-shadow(0 0 10px rgba(0,0,0,0.7));
-    }
-
-    .top-card {
-      background:linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.75));
-      border-radius:var(--radius-lg);
-      border:1px solid var(--border-subtle);
-      box-shadow:var(--shadow-soft);
-      padding:26px 20px 16px;
-      backdrop-filter:blur(16px);
-      margin-bottom:16px;
     }
 
     h1 {
-      margin:0 0 4px 0;
-      font-size:1.25rem;
-      letter-spacing:0.1em;
-      text-transform:uppercase;
-      color:var(--accent);
+      color: var(--riteway-teal);
+      letter-spacing: 1px;
+      font-weight: 700;
+      margin-top:0;
     }
 
-    .hint {
-      color:var(--text-muted);
-      max-width:480px;
-      margin:0 auto 10px auto;
-      font-size:0.85rem;
+    input, button {
+      margin:10px;
+      padding:10px;
+      font-size:18px;
+      width:90%;
+      max-width:300px;
+      border-radius: 6px;
+      border:1px solid var(--riteway-teal);
     }
 
-    .inputs-row {
-      display:flex;
-      flex-wrap:wrap;
-      justify-content:center;
-      gap:10px;
-      margin-top:10px;
-    }
-
-    input[type="text"], button {
-      font-size:0.95rem;
-      border-radius:var(--radius-pill);
-      padding:9px 14px;
-      border:1px solid var(--border-subtle);
-    }
-
-    input[type="text"] {
-      min-width:180px;
-      max-width:260px;
-      background:rgba(10,13,18,0.9);
-      color:var(--text);
-    }
-
-    input::placeholder {
-      color:rgba(166,175,184,0.75);
+    input:focus {
+      outline: none;
+      border-color: var(--riteway-teal);
+      box-shadow: 0 0 6px var(--riteway-teal-soft);
     }
 
     button {
-      background:var(--accent);
-      color:#031210;
+      background: var(--riteway-teal);
+      color:white;
+      border:none;
       font-weight:600;
       cursor:pointer;
-      border:none;
-      box-shadow:0 6px 16px rgba(18,195,160,0.45);
-      text-transform:uppercase;
-      letter-spacing:0.06em;
     }
 
     button:hover {
-      background:#11ae8c;
+      background:#0ea583;
+    }
+
+    .hint {
+      color: var(--riteway-teal);
+      max-width: 420px;
+      margin: 0 auto 5px auto;
+      font-size: 14px;
     }
 
     .details {
-      margin:14px auto 0 auto;
-      max-width:480px;
+      margin:20px auto;
+      max-width:400px;
       text-align:left;
-      background:rgba(5,8,11,0.95);
-      padding:14px 14px 10px;
-      border-radius:12px;
-      border-left:3px solid var(--accent);
-      box-shadow:0 1px 3px rgba(0,0,0,0.5);
-      font-size:0.85rem;
-    }
-
-    .details p {
-      margin:4px 0;
+      background:#ffffff;
+      padding:15px;
+      border-radius:8px;
+      box-shadow:0 2px 5px rgba(0,0,0,0.1);
+      border-left:4px solid var(--riteway-teal);
     }
 
     .details p strong {
-      color:var(--accent);
+      color: var(--riteway-teal);
     }
 
     .eta-label {
       font-weight:bold;
-      color:var(--accent);
+      color: var(--riteway-teal);
     }
 
     .eta-value {
       font-weight:normal;
-      color:var(--text);
-    }
-
-    .map-card {
-      background:#05070b;
-      border-radius:var(--radius-lg);
-      border:1px solid var(--border-subtle);
-      margin-top:10px;
-      padding:10px;
-      box-shadow:var(--shadow-soft);
+      color:#333;
     }
 
     .map-wrapper {
-      position:relative;
-      margin-top:4px;
-      border-radius:12px;
-      overflow:hidden;
+      position: relative;
+      margin-top:20px;
     }
 
     #map {
-      height:500px;
-      width:100%;
-      border-radius:12px;
+      height: 500px;
+      width: 100%;
+      border:2px solid var(--riteway-teal);
+      border-radius:8px;
     }
 
-    /* Mobile-only fullscreen button */
+    /* Mobile-only fullscreen button (shown via JS) */
     #fullscreenToggle {
       margin-top:10px;
-      font-size:0.8rem;
+      font-size:14px;
       width:auto;
       max-width:none;
-      padding:6px 12px;
-      border-radius:var(--radius-pill);
-      border:1px solid var(--accent-soft);
-      background:rgba(5,8,11,0.9);
-      color:var(--text-muted);
       display:none;
-      box-shadow:none;
-      letter-spacing:0.08em;
     }
 
-    /* Fullscreen mode */
+    /* Fullscreen mode CSS */
     body.fullscreen-active {
       padding:0;
       overflow:hidden;
     }
-    body.fullscreen-active .top-card {
+
+    body.fullscreen-active .top-ui {
       display:none;
     }
-    body.fullscreen-active .app-shell {
-      max-width:none;
-    }
-    body.fullscreen-active .map-card {
+
+    body.fullscreen-active .map-wrapper {
       position:fixed;
       inset:0;
       margin:0;
-      border-radius:0;
-      border:none;
-      padding:0;
       z-index:9999;
-    }
-    body.fullscreen-active .map-wrapper {
-      position:absolute;
-      inset:0;
-      margin:0;
       border-radius:0;
     }
+
     body.fullscreen-active #map {
       height:100%;
       width:100%;
+      border:none;
       border-radius:0;
-    }
-    body.fullscreen-active #fullscreenToggle {
-      position:absolute;
-      top:12px;
-      right:12px;
-      z-index:10000;
-      background:rgba(0,0,0,0.75);
     }
 
     @media (max-width:600px) {
       #map {
-        height:380px;
-      }
-      .top-card {
-        padding:22px 14px 14px;
-      }
-      .details {
-        margin-top:10px;
+        height: 380px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="app-shell">
 
-    <!-- Centered Riteway logo -->
-    <div class="logo-wrapper">
-      <img src="riteway-logo.png" class="brand-logo" alt="Riteway Logo">
+  <div class="top-ui">
+    <h1>Riteway Delivery Tracker</h1>
+    <p class="hint">Enter your Delivery ID to see your truck in real time.</p>
+
+    <input type="text" id="deliveryId" placeholder="RITE123">
+    <button onclick="loadTracking()">Track My Delivery</button>
+
+    <div id="details" class="details" style="display:none;">
+      <p><strong>Customer:</strong> <span id="customerName"></span></p>
+      <p><strong>Address:</strong> <span id="address"></span></p>
+      <p><strong>Items:</strong> <span id="items"></span></p>
+      <p><span class="eta-label">ETA:</span> <span id="eta" class="eta-value">Waiting for driver…</span></p>
     </div>
+  </div>
 
-    <!-- Top card with ID input + details -->
-    <div class="top-card">
-      <h1>Delivery Tracker</h1>
-      <p class="hint">Enter your Delivery ID to see your truck in real time.</p>
-
-      <div class="inputs-row">
-        <input type="text" id="deliveryId" placeholder="RITE123">
-        <button onclick="loadTracking()">Track My Delivery</button>
-      </div>
-
-      <div id="details" class="details" style="display:none;">
-        <p><strong>Customer:</strong> <span id="customerName"></span></p>
-        <p><strong>Address:</strong> <span id="address"></span></p>
-        <p><strong>Items:</strong> <span id="items"></span></p>
-        <p><span class="eta-label">ETA:</span> <span id="eta" class="eta-value">Waiting for driver…</span></p>
-      </div>
-    </div>
-
-    <!-- Map section -->
-    <div class="map-card">
-      <div class="map-wrapper">
-        <div id="map"></div>
-      </div>
-      <div style="text-align:right;">
-        <button id="fullscreenToggle" onclick="toggleFullscreen()">Full Screen Map</button>
-      </div>
-    </div>
+  <div class="map-wrapper">
+    <div id="map"></div>
+    <button id="fullscreenToggle" onclick="toggleFullscreen()">Full Screen Map</button>
   </div>
 
   <!-- Google Maps (with geometry for distance) -->
@@ -334,6 +194,13 @@
 
     const AVG_SPEED_MPH = 35;
     const AVG_SPEED_MPS = AVG_SPEED_MPH * 1609.34 / 3600;
+
+    // 🔹 NEW: read deliveryId from URL query (?deliveryId=RITE123)
+    function getDeliveryIdFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("deliveryId");
+      return id ? id.trim().toUpperCase() : "";
+    }
 
     function isMobile() {
       return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
@@ -408,7 +275,7 @@
 
       const deliveryRef = database.ref('deliveries/' + deliveryId);
 
-      // Clear any previous listeners on this ref
+      // Clear any previous listeners on this ref (defensive)
       deliveryRef.child('location').off();
 
       // Load details once
@@ -527,6 +394,7 @@
       });
     }
 
+    // Kick off the zoom sequence once both dest + truck pos known
     function maybeStartZoomSequence() {
       if (!map || !destLatLng || !lastTruckPos) return;
       if (zoomState !== "idle") return;
@@ -548,6 +416,7 @@
 
     function smoothZoomToTruck(targetZoom) {
       if (!map) return;
+
       zoomState = "zooming";
 
       const step = () => {
@@ -564,7 +433,7 @@
           map.panTo(lastTruckPos);
         }
 
-        setTimeout(step, 400);
+        setTimeout(step, 400); // speed of zoom steps
       };
 
       step();
@@ -583,7 +452,7 @@
         <div style="font-size:13px; line-height:1.4;">
           <strong>Riteway Truck</strong><br>
           ETA: ${etaText}<br>
-          <span style="color:#888;">Last update: ${timeStr || 'just now'}</span>
+          <span style="color:#666;">Last update: ${timeStr || 'just now'}</span>
         </div>
       `;
 
@@ -603,9 +472,7 @@
       if (!fromPos || !toPos) {
         marker.setPosition(toPos);
         if (glow) glow.setCenter(toPos);
-        if (followTruck && map && zoomState !== "idle") {
-          map.panTo(toPos);
-        }
+        if (followTruck && map) map.panTo(toPos);
         return;
       }
 
@@ -632,21 +499,26 @@
       requestAnimationFrame(step);
     }
 
-    // 🔁 Read deliveryId from URL and auto-start tracking
-    function getDeliveryIdFromUrl() {
-      const params = new URLSearchParams(window.location.search);
-      const id = params.get('deliveryId');
-      return id ? id.trim().toUpperCase() : '';
-    }
-
+    // 🔹 NEW: Auto-start tracking when coming from Google Site with ?deliveryId=
     document.addEventListener('DOMContentLoaded', () => {
-      const id = getDeliveryIdFromUrl();
-      if (id) {
-        const input = document.getElementById('deliveryId');
-        input.value = id;
+      const id = getDeliveryIdFromURL();
+      if (!id) return;
+
+      const input = document.getElementById('deliveryId');
+      if (input) input.value = id;
+
+      // wait for Maps to load, then start tracking
+      function tryStart() {
+        if (typeof google === 'undefined' || !google.maps) {
+          setTimeout(tryStart, 500);
+          return;
+        }
         loadTracking();
       }
+
+      tryStart();
     });
   </script>
+
 </body>
 </html>
