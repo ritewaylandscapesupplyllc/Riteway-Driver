@@ -236,7 +236,7 @@
       max-width:none;
     }
 
-    body.fullscreen-active .map-card {
+    body.fullscreen-active .card.map-card {
       position:fixed;
       inset:0;
       margin:0;
@@ -336,7 +336,7 @@
     let lastTruckPos = null;
     let truckInfoWindow = null;
 
-    let introPlayed = false;         // NEW: ensure smooth zoom only runs once
+    let introPlayed = false;   // ensures smooth intro zoom only runs once
     let followTruck = true;
     let internalZoomChange = false;
 
@@ -539,20 +539,20 @@
       });
     }
 
-    // NEW: smooth intro zoom sequence
+    // smoother intro zoom sequence
     function tryIntroZoom() {
       if (introPlayed) return;
       if (!map || !destLatLng || !lastTruckPos) return;
 
       introPlayed = true;
 
-      // Step 1: show both points
+      // Step 1: fit bounds so both truck & destination are visible
       const bounds = new google.maps.LatLngBounds();
       bounds.extend(destLatLng);
       bounds.extend(lastTruckPos);
       map.fitBounds(bounds);
 
-      // Step 2: after a pause, pan to truck & gradually zoom in
+      // Step 2: after a short pause, pan to truck & gently zoom in
       setTimeout(() => {
         if (!map || !lastTruckPos) return;
 
@@ -560,21 +560,27 @@
         map.panTo(lastTruckPos);
 
         let currentZoom = map.getZoom();
-        const targetZoom = Math.max(currentZoom + 3, 14); // zoom in a bit more
+        const targetZoom = Math.max(currentZoom + 4, 15); // a bit closer, but smooth
 
         function stepZoom() {
-          if (!map || currentZoom >= targetZoom) return;
-          currentZoom++;
+          if (!map) return;
+          currentZoom = map.getZoom();
+
+          if (currentZoom >= targetZoom) return;
+
           internalZoomChange = true;
-          map.setZoom(currentZoom);
-          if (followTruck) {
+          map.setZoom(currentZoom + 1);
+
+          if (followTruck && lastTruckPos) {
             map.panTo(lastTruckPos);
           }
-          setTimeout(stepZoom, 350);
+
+          // bigger delay between steps = smoother zoom
+          setTimeout(stepZoom, 450);
         }
 
         stepZoom();
-      }, 1500);
+      }, 1500); // wait before starting zoom so user sees both points first
     }
 
     function updateTruckInfoWindow(etaText, tsIso) {
@@ -587,17 +593,24 @@
       }
 
       const content = `
-        <div style="font-size:13px; line-height:1.4;">
-          <strong>Riteway Truck</strong><br>
-          ETA: ${etaText}<br>
-          <span style="color:#888;">Last update: ${timeStr || 'just now'}</span>
+        <div style="font-size:13px; line-height:1.4; color:#222;">
+          <div style="font-weight:600; color:#0b5c4a; margin-bottom:2px;">
+            Riteway Truck
+          </div>
+          <div>
+            ETA:
+            <span style="font-weight:500; color:#222;">${etaText}</span>
+          </div>
+          <div style="color:#555; margin-top:2px;">
+            Last update: ${timeStr || 'just now'}
+          </div>
         </div>
       `;
 
       if (!truckInfoWindow) {
         truckInfoWindow = new google.maps.InfoWindow({
           content,
-          maxWidth: 220
+          maxWidth: 240
         });
         truckInfoWindow.open(map, truckMarker);
       } else {
