@@ -64,7 +64,6 @@
       z-index:1;
     }
 
-    /* Centered Riteway logo like driver app */
     .logo-wrapper {
       width:100%;
       display:flex;
@@ -224,7 +223,6 @@
       text-transform:uppercase;
     }
 
-    /* Fullscreen mode */
     body.fullscreen-active {
       padding:0;
       overflow:hidden;
@@ -285,12 +283,10 @@
 <body>
 
   <div class="app-shell">
-    <!-- Logo like driver app -->
     <div class="logo-wrapper">
       <img src="riteway-logo.png" alt="Riteway Logo" class="brand-logo">
     </div>
 
-    <!-- Top card: title, input, details -->
     <div class="card top-ui">
       <h1>Delivery Tracker</h1>
       <p class="hint">Enter your Delivery ID to see your truck in real time.</p>
@@ -308,7 +304,6 @@
       </div>
     </div>
 
-    <!-- Map card -->
     <div class="card map-card">
       <div class="map-wrapper">
         <div id="map"></div>
@@ -341,15 +336,13 @@
     let lastTruckPos = null;
     let truckInfoWindow = null;
 
-    // zoom flow: "idle" → "start" → "done"
-    let zoomState = "idle";
+    let introPlayed = false;         // NEW: ensure smooth zoom only runs once
     let followTruck = true;
     let internalZoomChange = false;
 
     const AVG_SPEED_MPH = 35;
     const AVG_SPEED_MPS = AVG_SPEED_MPH * 1609.34 / 3600;
 
-    // read deliveryId from URL query (?deliveryId=RITE123)
     function getDeliveryIdFromURL() {
       const params = new URLSearchParams(window.location.search);
       const id = params.get("deliveryId");
@@ -404,12 +397,11 @@
     function startTracking(deliveryId) {
       if (!map) {
         map = new google.maps.Map(document.getElementById('map'), {
-          center: { lat: 40.612, lng: -112.464 }, // Tooele-ish
+          center: { lat: 40.612, lng: -112.464 },
           zoom: 12,
           gestureHandling: 'greedy'
         });
 
-        // Let user break follow-mode
         map.addListener('dragstart', () => { followTruck = false; });
         map.addListener('click', () => { followTruck = false; });
         map.addListener('zoom_changed', () => {
@@ -421,18 +413,17 @@
         });
       }
 
-      // Reset state for new tracking session
+      // Reset session state
       destLatLng = null;
       lastTruckPos = null;
-      zoomState = "idle";
+      introPlayed = false;
       followTruck = true;
 
       const deliveryRef = database.ref('deliveries/' + deliveryId);
 
-      // Clear any previous listeners on this ref (defensive)
       deliveryRef.child('location').off();
 
-      // Load details once
+      // Load details & destination
       deliveryRef.child('details').once('value', snapshot => {
         const details = snapshot.val();
         if (details) {
@@ -467,14 +458,14 @@
                   destMarker.setIcon(destIcon);
                 }
 
-                maybeStartZoomSequence();
+                tryIntroZoom();
               }
             });
           }
         }
       });
 
-      // Live location
+      // Live location listener
       deliveryRef.child('location').on('value', snapshot => {
         const loc = snapshot.val();
         const etaEl = document.getElementById('eta');
@@ -517,9 +508,9 @@
           lastTruckPos = newPos;
         }
 
-        maybeStartZoomSequence();
+        tryIntroZoom(); // may start the intro zoom once both truck & dest are known
 
-        // ETA calc
+        // ETA
         let etaText = 'Driver is en route';
         if (destLatLng && google.maps.geometry && google.maps.geometry.spherical) {
           const distanceMeters = google.maps.geometry.spherical.computeDistanceBetween(newPos, destLatLng);
@@ -548,46 +539,42 @@
       });
     }
 
-    function maybeStartZoomSequence() {
+    // NEW: smooth intro zoom sequence
+    function tryIntroZoom() {
+      if (introPlayed) return;
       if (!map || !destLatLng || !lastTruckPos) return;
-      if (zoomState !== "idle") return;
 
-      zoomState = "start";
+      introPlayed = true;
 
+      // Step 1: show both points
       const bounds = new google.maps.LatLngBounds();
       bounds.extend(destLatLng);
       bounds.extend(lastTruckPos);
       map.fitBounds(bounds);
 
+      // Step 2: after a pause, pan to truck & gradually zoom in
       setTimeout(() => {
-        if (!map) return;
-        smoothZoomToTruck(14);
+        if (!map || !lastTruckPos) return;
+
+        followTruck = true;
+        map.panTo(lastTruckPos);
+
+        let currentZoom = map.getZoom();
+        const targetZoom = Math.max(currentZoom + 3, 14); // zoom in a bit more
+
+        function stepZoom() {
+          if (!map || currentZoom >= targetZoom) return;
+          currentZoom++;
+          internalZoomChange = true;
+          map.setZoom(currentZoom);
+          if (followTruck) {
+            map.panTo(lastTruckPos);
+          }
+          setTimeout(stepZoom, 350);
+        }
+
+        stepZoom();
       }, 1500);
-    }
-
-    function smoothZoomToTruck(targetZoom) {
-      if (!map) return;
-
-      zoomState = "zooming";
-
-      const step = () => {
-        const currentZoom = map.getZoom();
-        if (currentZoom >= targetZoom) {
-          zoomState = "done";
-          return;
-        }
-
-        internalZoomChange = true;
-        map.setZoom(currentZoom + 1);
-
-        if (lastTruckPos && followTruck) {
-          map.panTo(lastTruckPos);
-        }
-
-        setTimeout(step, 400);
-      };
-
-      step();
     }
 
     function updateTruckInfoWindow(etaText, tsIso) {
@@ -638,7 +625,7 @@
         marker.setPosition(current);
         if (glow) glow.setCenter(current);
 
-        if (followTruck && map && zoomState !== "idle") {
+        if (followTruck && map) {
           map.panTo(current);
         }
 
