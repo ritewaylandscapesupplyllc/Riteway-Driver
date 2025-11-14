@@ -331,14 +331,14 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    // 🔧 your truck icon image in repo root
+    // your truck icon image in repo root
     const TRUCK_ICON_URL = 'riteway-truck-marker.png';
 
     let map, truckMarker, truckGlow, destMarker, geocoder;
     let destLatLng = null;
     let lastTruckPos = null;
     let truckInfoWindow = null;
-    let truckOverlay = null; // rotating dump-truck overlay
+    let truckOverlay = null;
 
     let introPlayed = false;
     let followTruck = true;
@@ -417,7 +417,6 @@
         });
       }
 
-      // Reset session state
       destLatLng = null;
       lastTruckPos = null;
       introPlayed = false;
@@ -427,7 +426,7 @@
 
       deliveryRef.child('location').off();
 
-      // Load details & destination
+      // details + destination
       deliveryRef.child('details').once('value', snapshot => {
         const details = snapshot.val();
         if (details) {
@@ -469,7 +468,7 @@
         }
       });
 
-      // Live location listener
+      // live location
       deliveryRef.child('location').on('value', snapshot => {
         const loc = snapshot.val();
         const etaEl = document.getElementById('eta');
@@ -482,16 +481,14 @@
         const newPos = new google.maps.LatLng(loc.lat, loc.lng);
 
         if (!truckMarker) {
-          // invisible marker used only for InfoWindow anchor / click
           truckMarker = new google.maps.Marker({
             map: map,
             position: newPos,
             title: 'Riteway Truck',
-            opacity: 0,        // hide marker graphic
+            opacity: 0,        // hidden, just anchor for InfoWindow
             clickable: true
           });
 
-          // glowing circle
           truckGlow = new google.maps.Circle({
             strokeOpacity: 0,
             fillColor: '#12C3A0',
@@ -501,7 +498,6 @@
             radius: 80
           });
 
-          // rotating truck overlay
           truckOverlay = new TruckOverlay(newPos, map);
 
           lastTruckPos = newPos;
@@ -510,7 +506,7 @@
           lastTruckPos = newPos;
         }
 
-        tryIntroZoom(); // may start the intro zoom once both truck & dest are known
+        tryIntroZoom();
 
         // ETA
         let etaText = 'Driver is en route';
@@ -541,7 +537,7 @@
       });
     }
 
-    // rotating truck overlay using OverlayView
+    // rotating truck overlay
     class TruckOverlay extends google.maps.OverlayView {
       constructor(position, map) {
         super();
@@ -555,19 +551,26 @@
       onAdd() {
         const div = document.createElement('div');
         div.style.position = 'absolute';
+        div.style.zIndex = '999';   // make sure it's above the glow
 
         const img = document.createElement('img');
         img.src = TRUCK_ICON_URL;
-        img.style.width = '46px';
+        img.style.width = '54px';
         img.style.height = 'auto';
         img.style.transformOrigin = '50% 50%';
+
+        img.onerror = () => {
+          // if image fails, just hide overlay (glow + info still work)
+          div.style.display = 'none';
+        };
 
         div.appendChild(img);
         this.div = div;
         this.img = img;
 
         const panes = this.getPanes();
-        panes.overlayImage.appendChild(div);
+        // overlayMouseTarget tends to sit above overlay layers
+        panes.overlayMouseTarget.appendChild(div);
       }
 
       draw() {
@@ -600,20 +603,18 @@
       }
     }
 
-    // smoother intro zoom sequence
+    // intro zoom
     function tryIntroZoom() {
       if (introPlayed) return;
       if (!map || !destLatLng || !lastTruckPos) return;
 
       introPlayed = true;
 
-      // Step 1: fit bounds so both truck & destination are visible
       const bounds = new google.maps.LatLngBounds();
       bounds.extend(destLatLng);
       bounds.extend(lastTruckPos);
       map.fitBounds(bounds);
 
-      // Step 2: after a short pause, pan to truck & gently zoom in
       setTimeout(() => {
         if (!map || !lastTruckPos) return;
 
@@ -621,7 +622,7 @@
         map.panTo(lastTruckPos);
 
         let currentZoom = map.getZoom();
-        const targetZoom = Math.max(currentZoom + 4, 15); // a bit closer, but smooth
+        const targetZoom = Math.max(currentZoom + 4, 15);
 
         function stepZoom() {
           if (!map) return;
@@ -636,12 +637,11 @@
             map.panTo(lastTruckPos);
           }
 
-          // bigger delay between steps = smoother zoom
           setTimeout(stepZoom, 450);
         }
 
         stepZoom();
-      }, 1500); // wait before starting zoom so user sees both points first
+      }, 1500);
     }
 
     function updateTruckInfoWindow(etaText, tsIso) {
@@ -691,7 +691,6 @@
 
       const start = performance.now();
 
-      // heading in degrees from previous point to new point
       let heading = 0;
       if (google.maps.geometry && google.maps.geometry.spherical) {
         heading = google.maps.geometry.spherical.computeHeading(fromPos, toPos) || 0;
@@ -722,7 +721,7 @@
       requestAnimationFrame(step);
     }
 
-    // Auto-start tracking when coming from Google Site with ?deliveryId=
+    // auto-start from ?deliveryId=
     window.addEventListener('load', () => {
       const id = getDeliveryIdFromURL();
       if (!id) return;
