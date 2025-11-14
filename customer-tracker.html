@@ -332,13 +332,14 @@
     const database = firebase.database();
 
     const TRUCK_ICON_URL = 'riteway-truck-marker.png';
+    const ROTATION_OFFSET = -90; // adjust if the nose isn't lined up with direction
 
     let map, truckMarker, truckGlow, destMarker, geocoder;
     let destLatLng = null;
     let lastTruckPos = null;
     let truckInfoWindow = null;
-    let truckOverlay = null;   // will hold the fancy overlay instance
-    let TruckOverlay = null;   // the overlay CLASS, created lazily
+    let truckOverlay = null;
+    let TruckOverlay = null;   // overlay CLASS, created lazily
 
     let introPlayed = false;
     let followTruck = true;
@@ -409,7 +410,7 @@
           img.style.transformOrigin = '50% 60%';
 
           img.onerror = () => {
-            // If the image can't be loaded, hide overlay (marker will still work if visible)
+            // If the image can't be loaded, hide overlay (marker fallback still visible)
             div.style.display = 'none';
           };
 
@@ -492,7 +493,7 @@
         });
       }
 
-      // Now that we know Google Maps is loaded, safely set up the overlay class
+      // Now that Google Maps is loaded, safely set up the overlay class
       initTruckOverlayClass();
 
       destLatLng = null;
@@ -708,7 +709,7 @@
       }
     }
 
-    // Smooth animation, optionally driving the overlay (if present)
+    // Smooth animation, drives overlay (if present) + glow
     function animateMarkerMove(marker, glow, overlay, fromPos, toPos, durationMs) {
       if (!fromPos || !toPos) {
         marker.setPosition(toPos);
@@ -735,7 +736,7 @@
         if (glow) glow.setCenter(current);
         if (overlay) {
           overlay.setPosition(current);
-          overlay.setHeading(heading);
+          overlay.setHeading(heading + ROTATION_OFFSET);
         }
 
         if (followTruck && map) {
