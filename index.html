@@ -6,18 +6,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- iPhone / iPad homescreen icon -->
-  <!-- Put your dump-truck Riteway icon in the same folder, named exactly like this -->
   <link rel="apple-touch-icon" href="riteway-driver-icon.png">
 
-  <!-- Make it behave like an installed app on iOS -->
+  <!-- iOS full-screen mode -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Riteway Driver">
 
-  <!-- PWA manifest (helps Android + others too) -->
+  <!-- PWA manifest -->
   <link rel="manifest" href="manifest.json">
 
-  <!-- Browser theme color (status bar, etc.) -->
   <meta name="theme-color" content="#050608">
 
   <!-- Firebase -->
@@ -40,26 +38,20 @@
       --radius-pill: 999px;
     }
 
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
-
     body {
       margin: 0;
       min-height: 100vh;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: radial-gradient(circle at top, #151a20 0, #050608 55%, #020203 100%);
       color: var(--text);
-      display: flex;
-      align-items: center;
-      justify-content: center;
       padding: 18px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
       position: relative;
-      overflow: hidden;
+      overflow-x: hidden;
     }
 
-    /* Page background watermark (already in your code) */
     body::before {
       content: "";
       position: fixed;
@@ -75,19 +67,41 @@
     }
 
     .app-shell {
-      position: relative;
-      z-index: 1;
       width: 100%;
       max-width: 480px;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* ============================
+       Floating Logo Above Card
+    ============================ */
+    .logo-wrapper {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+      margin-bottom: -30px; /* pulls card up to sit closer to logo */
+      position: relative;
+      z-index: 5;
+    }
+
+    .brand-logo {
+      width: 220px;   /* Bigger, cleaner logo */
+      height: auto;
+      display: block;
+      filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.7));
     }
 
     .card {
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.75));
       border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-soft);
       border: 1px solid var(--border-subtle);
-      padding: 20px 20px 18px;
+      box-shadow: var(--shadow-soft);
+      padding: 30px 20px 18px;
       backdrop-filter: blur(16px);
+      position: relative;
+      z-index: 3;
     }
 
     .header {
@@ -97,24 +111,10 @@
       margin-bottom: 18px;
     }
 
-    .brand-lockup {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 4px;
-    }
-
-    /* ✅ NEW: logo image styling */
-    .brand-logo {
-      width: 170px;      /* tweak this if you want bigger/smaller */
-      height: auto;
-      display: block;
-      filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.6));
-    }
-
     .brand-subtitle {
-      font-size: 0.82rem;
+      font-size: 0.85rem;
       color: var(--text-muted);
+      margin-left: 4px;
     }
 
     .badge {
@@ -190,19 +190,10 @@
       text-transform: uppercase;
     }
 
-    button:active {
-      transform: translateY(1px);
-      box-shadow: none;
-    }
-
     .btn-primary {
       background: linear-gradient(135deg, var(--accent), var(--accent-strong));
       color: #031210;
       box-shadow: 0 10px 24px rgba(18, 195, 160, 0.45);
-    }
-
-    .btn-primary:hover {
-      background: linear-gradient(135deg, var(--accent-strong), var(--accent));
     }
 
     .btn-ghost {
@@ -221,7 +212,6 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
     }
 
     .status-label {
@@ -243,34 +233,28 @@
       background: rgba(5, 8, 11, 0.95);
       border-radius: 12px;
       border: 1px dashed var(--border-subtle);
-      font-family: "JetBrains Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-family: "JetBrains Mono", monospace;
       font-size: 0.7rem;
       line-height: 1.4;
       color: var(--text-muted);
       max-height: 160px;
       overflow-y: auto;
     }
-
-    #debug strong {
-      color: var(--accent-strong);
-    }
-
-    @media (max-width: 480px) {
-      .card {
-        padding: 18px 16px 16px;
-      }
-    }
   </style>
 </head>
+
 <body>
   <div class="app-shell">
+
+    <!-- ⭐ Centered Logo Above the Card -->
+    <div class="logo-wrapper">
+      <img src="riteway-logo.png" class="brand-logo" alt="Riteway Logo">
+    </div>
+
     <div class="card">
+
       <header class="header">
-        <div class="brand-lockup">
-          <!-- ✅ NEW: logo image instead of text -->
-          <img src="riteway-logo.png" alt="Riteway" class="brand-logo">
-          <div class="brand-subtitle">Driver Live Tracking</div>
-        </div>
+        <div class="brand-subtitle">Driver Live Tracking</div>
         <div class="badge">Driver View</div>
       </header>
 
@@ -296,12 +280,11 @@
           <div class="status-label">Status</div>
           <div class="status-value" id="status-text">Ready to start</div>
         </div>
-        <div style="font-size:0.86rem; color:var(--text-muted);">
-          GPS → Firebase (5s)
-        </div>
+        <div style="font-size:0.86rem; color:var(--text-muted);">GPS → Firebase (5s)</div>
       </div>
 
       <div id="debug"><strong>Debug Log</strong></div>
+
     </div>
   </div>
 
@@ -316,39 +299,36 @@
       appId: "1:817275576166:web:56a92bcaf8f60d52a0b2a7"
     };
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
 
+    const db = firebase.database();
     let interval;
 
     function log(msg) {
       const debug = document.getElementById('debug');
       const time = new Date().toLocaleTimeString();
-      debug.innerHTML += '<br>[' + time + '] ' + msg;
+      debug.innerHTML += `<br>[${time}] ${msg}`;
       debug.scrollTop = debug.scrollHeight;
-      console.log(msg);
     }
 
-    function setStatus(text) {
-      document.getElementById('status-text').innerText = text;
+    function setStatus(t) {
+      document.getElementById('status-text').innerText = t;
     }
 
     function start() {
       const id = document.getElementById('deliveryId').value.trim().toUpperCase();
       const addr = document.getElementById('address').value.trim();
+
       if (!id || !addr) {
-        alert('Delivery ID and address are required to start tracking.');
+        alert("Delivery ID and address are required.");
         return;
       }
 
-      log('<strong>Starting tracking for ' + id + '</strong>');
-      setStatus('Requesting GPS…');
+      log(`Starting tracking for ${id}`);
+      setStatus("Requesting GPS…");
 
-      const details = { address: addr };
-      db.ref('deliveries/' + id + '/details').set(details)
-        .then(() => log('Details saved'))
-        .catch(err => log('ERROR saving details: ' + err.message));
+      db.ref(`deliveries/${id}/details`).set({ address: addr });
 
-      // send GPS every 5 seconds
+      // Repeating GPS updates
       interval = setInterval(() => {
         navigator.geolocation.getCurrentPosition(
           pos => {
@@ -357,38 +337,35 @@
               lng: pos.coords.longitude,
               ts: new Date().toISOString()
             };
-            db.ref('deliveries/' + id + '/location').set(loc)
-              .then(() => log('GPS sent: ' + loc.lat.toFixed(4) + ', ' + loc.lng.toFixed(4)))
-              .catch(err => log('ERROR sending GPS: ' + err.message));
-            setStatus('Live · Sending position for ' + id);
+            db.ref(`deliveries/${id}/location`).set(loc);
+            setStatus("Live — sending location");
+            log(`GPS: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`);
           },
           err => {
-            log('GPS ERROR: ' + err.message);
-            setStatus('GPS error: ' + err.message);
+            setStatus("GPS error");
+            log("GPS ERROR: " + err.message);
           },
           { enableHighAccuracy: true, timeout: 10000 }
         );
       }, 5000);
 
-      // First immediate GPS
+      // First immediate ping
       navigator.geolocation.getCurrentPosition(pos => {
-        const loc = {
+        db.ref(`deliveries/${id}/location`).set({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           ts: new Date().toISOString()
-        };
-        db.ref('deliveries/' + id + '/location').set(loc)
-          .then(() => log('First GPS sent'))
-          .catch(err => log('ERROR first GPS: ' + err.message));
+        });
+        log("First GPS sent");
       });
     }
 
     function stop() {
       clearInterval(interval);
       const id = document.getElementById('deliveryId').value.trim().toUpperCase();
-      if (id) db.ref('deliveries/' + id).remove();
-      setStatus('Stopped');
-      log('<strong>Tracking stopped</strong>');
+      if (id) db.ref(`deliveries/${id}`).remove();
+      setStatus("Stopped");
+      log("Tracking stopped");
     }
   </script>
 </body>
