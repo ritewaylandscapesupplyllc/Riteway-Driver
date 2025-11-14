@@ -320,7 +320,7 @@
         }
       });
 
-      // Live location listener
+      // Live location
       deliveryRef.child('location').on('value', snapshot => {
         const loc = snapshot.val();
         const etaEl = document.getElementById('eta');
@@ -499,24 +499,15 @@
       requestAnimationFrame(step);
     }
 
-    // 🔹 NEW: Auto-start tracking when coming from Google Site with ?deliveryId=
-    document.addEventListener('DOMContentLoaded', () => {
+    // 🔹 Auto-start tracking when coming from Google Site with ?deliveryId=
+    window.addEventListener('load', () => {
       const id = getDeliveryIdFromURL();
       if (!id) return;
 
       const input = document.getElementById('deliveryId');
       if (input) input.value = id;
 
-      // wait for Maps to load, then start tracking
-      function tryStart() {
-        if (typeof google === 'undefined' || !google.maps) {
-          setTimeout(tryStart, 500);
-          return;
-        }
-        loadTracking();
-      }
-
-      tryStart();
+      loadTracking();
     });
   </script>
 
