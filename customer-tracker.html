@@ -314,7 +314,7 @@
     </div>
   </div>
 
-  <!-- Google Maps (with geometry for distance) -->
+  <!-- Google Maps (with geometry for distance & heading) -->
   <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA955mtbdY2qg_kvyLxWOV1yWN5NYenHcI&libraries=places,geometry"></script>
 
   <script>
@@ -337,6 +337,7 @@
     let destLatLng = null;
     let lastTruckPos = null;
     let truckInfoWindow = null;
+    let truckOverlay = null;
 
     let introPlayed = false;
     let followTruck = true;
@@ -421,7 +422,6 @@
       followTruck = true;
 
       const deliveryRef = database.ref('deliveries/' + deliveryId);
-
       deliveryRef.child('location').off();
 
       // details + destination
@@ -479,17 +479,16 @@
         const newPos = new google.maps.LatLng(loc.lat, loc.lng);
 
         if (!truckMarker) {
+          // invisible marker for InfoWindow anchor
           truckMarker = new google.maps.Marker({
             map: map,
             position: newPos,
             title: 'Riteway Truck',
-            icon: {
-              url: TRUCK_ICON_URL,
-              scaledSize: new google.maps.Size(54, 54),
-              anchor: new google.maps.Point(27, 40)
-            }
+            opacity: 0,
+            clickable: true
           });
 
+          // teal glow circle
           truckGlow = new google.maps.Circle({
             strokeOpacity: 0,
             fillColor: '#12C3A0',
@@ -499,9 +498,12 @@
             radius: 80
           });
 
+          // rotating truck overlay
+          truckOverlay = new TruckOverlay(newPos, map);
+
           lastTruckPos = newPos;
         } else {
-          animateMarkerMove(truckMarker, truckGlow, lastTruckPos, newPos, 1000);
+          animateMarkerMove(truckMarker, truckGlow, truckOverlay, lastTruckPos, newPos, 1000);
           lastTruckPos = newPos;
         }
 
@@ -534,6 +536,70 @@
         etaEl.innerText = etaText;
         updateTruckInfoWindow(etaText, loc.ts);
       });
+    }
+
+    // rotating truck overlay using OverlayView
+    class TruckOverlay extends google.maps.OverlayView {
+      constructor(position, map) {
+        super();
+        this.position = position;
+        this.map = map;
+        this.div = null;
+        this.heading = 0;
+        this.setMap(map);
+      }
+
+      onAdd() {
+        const div = document.createElement('div');
+        div.style.position = 'absolute';
+        div.style.zIndex = '999';
+
+        const img = document.createElement('img');
+        img.src = TRUCK_ICON_URL;
+        img.style.width = '72px';
+        img.style.height = 'auto';
+        img.style.transformOrigin = '50% 60%';
+
+        img.onerror = () => {
+          div.style.display = 'none';
+        };
+
+        div.appendChild(img);
+        this.div = div;
+        this.img = img;
+
+        const panes = this.getPanes();
+        panes.overlayMouseTarget.appendChild(div);
+      }
+
+      draw() {
+        if (!this.div) return;
+        const projection = this.getProjection();
+        const point = projection.fromLatLngToDivPixel(this.position);
+        if (!point) return;
+
+        this.div.style.left = point.x + 'px';
+        this.div.style.top = point.y + 'px';
+        this.div.style.transform = `translate(-50%, -70%) rotate(${this.heading}deg)`;
+      }
+
+      onRemove() {
+        if (this.div && this.div.parentNode) {
+          this.div.parentNode.removeChild(this.div);
+        }
+        this.div = null;
+        this.img = null;
+      }
+
+      setPosition(position) {
+        this.position = position;
+        this.draw();
+      }
+
+      setHeading(heading) {
+        this.heading = heading || 0;
+        this.draw();
+      }
     }
 
     // intro zoom
@@ -613,15 +679,21 @@
       }
     }
 
-    function animateMarkerMove(marker, glow, fromPos, toPos, durationMs) {
+    function animateMarkerMove(marker, glow, overlay, fromPos, toPos, durationMs) {
       if (!fromPos || !toPos) {
         marker.setPosition(toPos);
         if (glow) glow.setCenter(toPos);
+        if (overlay) overlay.setPosition(toPos);
         if (followTruck && map) map.panTo(toPos);
         return;
       }
 
       const start = performance.now();
+
+      let heading = 0;
+      if (google.maps.geometry && google.maps.geometry.spherical) {
+        heading = google.maps.geometry.spherical.computeHeading(fromPos, toPos) || 0;
+      }
 
       function step(timestamp) {
         const progress = Math.min((timestamp - start) / durationMs, 1);
@@ -631,6 +703,10 @@
 
         marker.setPosition(current);
         if (glow) glow.setCenter(current);
+        if (overlay) {
+          overlay.setPosition(current);
+          overlay.setHeading(heading);
+        }
 
         if (followTruck && map) {
           map.panTo(current);
