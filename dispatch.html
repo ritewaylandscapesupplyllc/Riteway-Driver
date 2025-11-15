@@ -45,6 +45,8 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      position: relative;
+      overflow-x: hidden;
     }
 
     body::before {
@@ -62,7 +64,7 @@
 
     .header-row {
       position: relative;
-      z-index: 1;
+      z-index: 2;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -434,18 +436,200 @@
       font-size: 0.78rem;
       outline: none;
     }
+
+    /* HAMBURGER + SIDE MENU */
+    .hamburger-btn {
+      width: 38px;
+      height: 34px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(5,8,11,0.92);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+
+    .hamburger-inner {
+      width: 18px;
+      height: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .hamburger-line {
+      height: 2px;
+      border-radius: 999px;
+      background: var(--text);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .side-menu-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 9;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+
+    .side-menu-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .side-menu {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 260px;
+      max-width: 80vw;
+      height: 100%;
+      background: rgba(5,8,11,0.98);
+      border-right: 1px solid var(--border-subtle);
+      box-shadow: 12px 0 30px rgba(0,0,0,0.7);
+      z-index: 10;
+      transform: translateX(-100%);
+      transition: transform 0.24s ease;
+      display: flex;
+      flex-direction: column;
+      padding: 14px 14px 16px;
+    }
+
+    .side-menu.open {
+      transform: translateX(0);
+    }
+
+    .side-menu-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .side-menu-logo {
+      width: 130px;
+      height: auto;
+      filter: drop-shadow(0 0 10px rgba(0,0,0,0.8));
+    }
+
+    .side-menu-close {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      color: var(--text-muted);
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .side-menu-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .side-menu-item {
+      width: 100%;
+      text-align: left;
+      border-radius: 999px;
+      padding: 9px 12px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(10,14,18,0.96);
+      color: var(--text);
+      font-size: 0.84rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .side-menu-item span.label {
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      font-size: 0.75rem;
+    }
+
+    .side-menu-item span.chevron {
+      font-size: 0.9rem;
+      color: var(--accent-strong);
+    }
+
+    .side-menu-footer {
+      margin-top: auto;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
 
+  <!-- Side Menu + Backdrop -->
+  <div id="sideMenuBackdrop" class="side-menu-backdrop" onclick="closeMenu()"></div>
+  <div id="sideMenu" class="side-menu">
+    <div class="side-menu-header">
+      <img src="riteway-logo.png" alt="Riteway Logo" class="side-menu-logo">
+      <button class="side-menu-close" onclick="closeMenu()">✕</button>
+    </div>
+    <div class="side-menu-title">Dispatch Menu</div>
+
+    <button class="side-menu-item" onclick="goToPage('dispatch.html')">
+      <span class="label">Dashboard Home</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <button class="side-menu-item" onclick="goToPage('invite-driver.html')">
+      <span class="label">Invite New Driver</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <!-- You can add more items later:
+    <button class="side-menu-item" onclick="goToPage('drivers.html')">
+      <span class="label">Drivers List</span>
+      <span class="chevron">›</span>
+    </button>
+    -->
+
+    <div class="side-menu-footer">
+      Riteway Dispatch · Ops Console
+    </div>
+  </div>
+
   <div class="header-row">
-    <div class="brand-lockup">
-      <img src="riteway-logo.png" alt="Riteway Logo" class="brand-logo">
-      <div class="brand-text">
-        <div class="brand-title">Riteway Dispatch</div>
-        <div class="brand-subtitle">Live loads · trucks · ETAs</div>
+    <div class="header-left">
+      <button class="hamburger-btn" onclick="toggleMenu()">
+        <div class="hamburger-inner">
+          <div class="hamburger-line"></div>
+          <div class="hamburger-line"></div>
+          <div class="hamburger-line"></div>
+        </div>
+      </button>
+
+      <div class="brand-lockup">
+        <img src="riteway-logo.png" alt="Riteway Logo" class="brand-logo">
+        <div class="brand-text">
+          <div class="brand-title">Riteway Dispatch</div>
+          <div class="brand-subtitle">Live loads · trucks · ETAs</div>
+        </div>
       </div>
     </div>
+
     <div class="header-badge">
       Ops Console · Firebase + Maps
     </div>
@@ -614,6 +798,31 @@
     let deliveries = {};    // raw data
     let statusFilter = 'all';
     let driverFilter = 'all';
+    let autoFitDone = false;  // prevent repeated fitBounds "glitch"
+
+    // --- HAMBURGER + MENU JS ---
+    function openMenu() {
+      document.getElementById('sideMenu').classList.add('open');
+      document.getElementById('sideMenuBackdrop').classList.add('open');
+    }
+
+    function closeMenu() {
+      document.getElementById('sideMenu').classList.remove('open');
+      document.getElementById('sideMenuBackdrop').classList.remove('open');
+    }
+
+    function toggleMenu() {
+      const menu = document.getElementById('sideMenu');
+      if (menu.classList.contains('open')) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    }
+
+    function goToPage(path) {
+      window.location.href = path;
+    }
 
     // --- New Load creation ---
     function createNewLoad() {
@@ -990,8 +1199,10 @@
         }
       });
 
-      if (hasAny) {
+      // Only auto-fit once to avoid jumpy/glitchy behavior on every update
+      if (hasAny && !autoFitDone) {
         map.fitBounds(bounds);
+        autoFitDone = true;
       }
     }
 
