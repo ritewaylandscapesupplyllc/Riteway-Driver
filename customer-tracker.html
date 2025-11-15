@@ -207,6 +207,44 @@
       border-radius:12px;
     }
 
+    /* NEW: loading state container that replaces the map when status = loading */
+    .loading-state {
+      display:none;              /* toggled via JS */
+      align-items:center;
+      justify-content:center;
+      flex-direction:column;
+      text-align:center;
+      padding:24px 14px 18px;
+      min-height:260px;
+      border-radius:12px;
+      background:radial-gradient(circle at top, #151a20 0, #050608 70%);
+    }
+
+    .loading-state img {
+      max-width:280px;
+      width:100%;
+      height:auto;
+      margin-bottom:14px;
+      filter:drop-shadow(0 10px 25px rgba(0,0,0,0.65));
+      border-radius:16px;
+    }
+
+    .loading-heading {
+      font-size:1rem;
+      font-weight:600;
+      letter-spacing:0.06em;
+      text-transform:uppercase;
+      color:var(--accent);
+      margin-bottom:6px;
+    }
+
+    .loading-sub {
+      font-size:0.9rem;
+      color:var(--text-muted);
+      max-width:360px;
+      margin:0 auto;
+    }
+
     #fullscreenToggle {
       margin-top:10px;
       font-size:0.8rem;
@@ -305,9 +343,21 @@
     </div>
 
     <div class="card map-card">
-      <div class="map-wrapper">
+      <!-- MAP WRAPPER -->
+      <div class="map-wrapper" id="mapWrapper">
         <div id="map"></div>
       </div>
+
+      <!-- NEW: LOADING STATE (shows when driver sets status = "loading") -->
+      <div id="loadingState" class="loading-state">
+        <img src="riteway-loading.png" alt="Loading your delivery">
+        <div class="loading-heading">We are loading your delivery</div>
+        <div class="loading-sub">
+          Your driver is at the pit getting your material ready to roll.
+          Once they hit the road, you’ll see live tracking here.
+        </div>
+      </div>
+
       <div style="text-align:right; margin-top:6px;">
         <button id="fullscreenToggle" onclick="toggleFullscreen()">Full Screen Map</button>
       </div>
@@ -345,7 +395,7 @@
     let followTruck = true;
     let internalZoomChange = false;
 
-    // NEW: status & latest location tracking
+    // status & latest location tracking
     let currentStatus = null;   // 'loading', 'en_route', 'complete', etc.
     let latestLoc = null;       // last location object from Firebase
 
@@ -382,9 +432,28 @@
       }
     }
 
-    // --- NEW: Shared ETA helper (uses status + latestLoc) ---
+    // --- NEW: show / hide loading artwork vs map based on status ---
+    function updateLoadingVisual() {
+      const mapWrapper = document.getElementById('mapWrapper');
+      const loadingDiv = document.getElementById('loadingState');
+      const fsBtn = document.getElementById('fullscreenToggle');
+      if (!mapWrapper || !loadingDiv) return;
+
+      if (currentStatus === 'loading') {
+        mapWrapper.style.display = 'none';
+        loadingDiv.style.display = 'flex';
+        if (fsBtn) fsBtn.style.display = 'none';
+      } else {
+        mapWrapper.style.display = 'block';
+        loadingDiv.style.display = 'none';
+        if (fsBtn && isMobile()) {
+          fsBtn.style.display = 'inline-block';
+        }
+      }
+    }
+
+    // --- shared ETA helper (uses status + latestLoc) ---
     function computeEtaText() {
-      // status-based messages
       if (currentStatus === 'loading') {
         return 'Driver is picking up your materials.';
       }
@@ -393,12 +462,10 @@
         return 'Delivery complete.';
       }
 
-      // no GPS yet
       if (!latestLoc) {
         return 'Waiting for driver to start…';
       }
 
-      // with GPS + destination → compute ETA
       if (destLatLng && google.maps.geometry && google.maps.geometry.spherical) {
         const newPos = new google.maps.LatLng(latestLoc.lat, latestLoc.lng);
         const distanceMeters = google.maps.geometry.spherical.computeDistanceBetween(newPos, destLatLng);
@@ -422,7 +489,6 @@
         }
       }
 
-      // fallback
       return 'Driver is en route';
     }
 
@@ -433,7 +499,6 @@
       const etaText = computeEtaText();
       etaEl.innerText = etaText;
 
-      // If we have a timestamp and a marker, keep the info window in sync
       if (tsIso) {
         updateTruckInfoWindow(etaText, tsIso);
       }
@@ -471,7 +536,6 @@
           img.style.transformOrigin = '50% 60%';
 
           img.onerror = () => {
-            // If the image can't be loaded, hide overlay (marker fallback still visible)
             div.style.display = 'none';
           };
 
@@ -554,7 +618,6 @@
         });
       }
 
-      // Now that Google Maps is loaded, safely set up the overlay class
       initTruckOverlayClass();
 
       destLatLng = null;
@@ -565,16 +628,18 @@
 
       currentStatus = null;
       latestLoc = null;
-      refreshEtaText(); // reset ETA text
+      refreshEtaText();
+      updateLoadingVisual();
 
       const deliveryRef = database.ref('deliveries/' + deliveryId);
       deliveryRef.child('location').off();
       deliveryRef.child('status').off();
 
-      // --- NEW: status listener (loading / en_route / complete) ---
+      // status listener
       deliveryRef.child('status').on('value', snapshot => {
         currentStatus = snapshot.val();
         refreshEtaText();
+        updateLoadingVisual();
       });
 
       // details + destination
@@ -619,13 +684,12 @@
         }
       });
 
-      // live location (unchanged movement, now feeds ETA helper)
+      // live location
       deliveryRef.child('location').on('value', snapshot => {
         const loc = snapshot.val();
         latestLoc = loc || null;
 
         if (!loc) {
-          // no GPS yet: rely on status to show the right text
           refreshEtaText();
           return;
         }
@@ -633,19 +697,17 @@
         const newPos = new google.maps.LatLng(loc.lat, loc.lng);
 
         if (!truckMarker) {
-          // If TruckOverlay is available, use invisible marker + overlay
           if (TruckOverlay) {
             truckMarker = new google.maps.Marker({
               map: map,
               position: newPos,
               title: 'Riteway Truck',
-              opacity: 0,          // hidden anchor
+              opacity: 0,
               clickable: true
             });
 
             truckOverlay = new TruckOverlay(newPos, map);
           } else {
-            // Fallback: visible marker with PNG
             truckMarker = new google.maps.Marker({
               map: map,
               position: newPos,
@@ -658,7 +720,6 @@
             });
           }
 
-          // Teal glow circle
           truckGlow = new google.maps.Circle({
             strokeOpacity: 0,
             fillColor: '#12C3A0',
@@ -756,7 +817,6 @@
       }
     }
 
-    // Smooth animation, drives overlay (if present) + glow
     function animateMarkerMove(marker, glow, overlay, fromPos, toPos, durationMs) {
       if (!fromPos || !toPos) {
         marker.setPosition(toPos);
