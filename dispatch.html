@@ -60,21 +60,6 @@
       z-index: 0;
     }
 
-    .app-shell {
-      position: relative;
-      z-index: 1;
-      display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
-      gap: 14px;
-      align-items: stretch;
-    }
-
-    @media (max-width: 960px) {
-      .app-shell {
-        grid-template-columns: 1fr;
-      }
-    }
-
     .header-row {
       position: relative;
       z-index: 1;
@@ -124,6 +109,27 @@
       color: var(--text-muted);
     }
 
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .left-column {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    @media (max-width: 960px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .card {
       background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.78));
       border-radius: var(--radius-lg);
@@ -157,12 +163,80 @@
       background: rgba(5, 8, 11, 0.9);
     }
 
+    /* New load form */
+    .new-load-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .new-load-grid .full-span {
+      grid-column: 1 / -1;
+    }
+
+    .field-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .field-input {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(5, 8, 11, 0.95);
+      padding: 6px 9px;
+      font-size: 0.8rem;
+      color: var(--text);
+      outline: none;
+    }
+
+    .field-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+
+    .new-load-actions {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .btn-primary {
+      border: none;
+      border-radius: var(--radius-pill);
+      padding: 8px 16px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: linear-gradient(135deg, var(--accent), #12e1b5);
+      color: #031210;
+      box-shadow: 0 10px 24px rgba(18, 195, 160, 0.45);
+    }
+
+    .btn-primary:active {
+      transform: translateY(1px);
+      box-shadow: none;
+    }
+
+    .new-load-hint {
+      margin-top: 4px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
     /* Stats row */
     .stats-row {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       margin-bottom: 6px;
+      margin-top: 6px;
     }
 
     .stat-pill {
@@ -348,6 +422,7 @@
       gap: 8px;
       margin-bottom: 6px;
       flex-wrap: wrap;
+      margin-top: 6px;
     }
 
     .filter-select {
@@ -377,69 +452,128 @@
   </div>
 
   <div class="app-shell">
-    <!-- Left: deliveries + stats -->
-    <div class="card">
-      <div class="section-title-row">
-        <div class="section-title">Active Deliveries</div>
-        <div class="pill" id="last-updated">Updated: --</div>
+    <!-- LEFT COLUMN: new load + deliveries -->
+    <div class="left-column">
+
+      <!-- New Load Card -->
+      <div class="card">
+        <div class="section-title-row">
+          <div class="section-title">New Load</div>
+          <div class="pill">Create a delivery for drivers</div>
+        </div>
+
+        <div class="new-load-grid">
+          <div>
+            <div class="field-label">Delivery ID</div>
+            <input id="newDeliveryId" class="field-input" placeholder="E.g. RITE123">
+          </div>
+          <div>
+            <div class="field-label">Customer Name</div>
+            <input id="newCustomerName" class="field-input" placeholder="E.g. John Smith">
+          </div>
+
+          <div class="full-span">
+            <div class="field-label">Address</div>
+            <input id="newAddress" class="field-input" placeholder="Drop location address">
+          </div>
+
+          <div class="full-span">
+            <div class="field-label">Items</div>
+            <input id="newItems" class="field-input" placeholder="E.g. 10 yd topsoil, 5 yd gravel">
+          </div>
+
+          <div>
+            <div class="field-label">Yards</div>
+            <input id="newYards" class="field-input" type="number" step="0.1" placeholder="10">
+          </div>
+          <div>
+            <div class="field-label">Price / Yard ($)</div>
+            <input id="newRatePerYard" class="field-input" type="number" step="0.01" placeholder="20">
+          </div>
+
+          <div>
+            <div class="field-label">Trucking Charge ($)</div>
+            <input id="newTruckingCharge" class="field-input" type="number" step="0.01" placeholder="75">
+          </div>
+          <div>
+            <div class="field-label">Cost / Yard ($)</div>
+            <input id="newCostPerYard" class="field-input" type="number" step="0.01" placeholder="Your material cost">
+          </div>
+        </div>
+
+        <div class="new-load-actions">
+          <button class="btn-primary" onclick="createNewLoad()">Create Load</button>
+        </div>
+        <div class="new-load-hint">
+          Revenue = yards × price/yard + trucking. Profit = revenue − (yards × cost/yard). You can always tweak later.
+        </div>
       </div>
 
-      <div class="stats-row">
-        <div class="stat-pill">
-          <div class="stat-label">Active Loads</div>
-          <div class="stat-value" id="stat-active">0</div>
-          <div class="stat-sub">status not complete</div>
+      <!-- Active Deliveries Card -->
+      <div class="card">
+        <div class="section-title-row">
+          <div class="section-title">Active Deliveries</div>
+          <div class="pill" id="last-updated">Updated: --</div>
         </div>
-        <div class="stat-pill">
-          <div class="stat-label">Completed (Today)</div>
-          <div class="stat-value" id="stat-complete">0</div>
-          <div class="stat-sub">status complete</div>
+
+        <div class="stats-row">
+          <div class="stat-pill">
+            <div class="stat-label">Active Loads</div>
+            <div class="stat-value" id="stat-active">0</div>
+            <div class="stat-sub">status not complete</div>
+          </div>
+          <div class="stat-pill">
+            <div class="stat-label">Completed (Today)</div>
+            <div class="stat-value" id="stat-complete">0</div>
+            <div class="stat-sub">status complete</div>
+          </div>
+          <div class="stat-pill">
+            <div class="stat-label">Total Yardage</div>
+            <div class="stat-value" id="stat-yards">0 yd</div>
+            <div class="stat-sub">from details.yards</div>
+          </div>
+          <div class="stat-pill">
+            <div class="stat-label">Est. Profit</div>
+            <div class="stat-value" id="stat-profit">$0</div>
+            <div class="stat-sub">from details.profit</div>
+          </div>
         </div>
-        <div class="stat-pill">
-          <div class="stat-label">Total Yardage</div>
-          <div class="stat-value" id="stat-yards">0 yd</div>
-          <div class="stat-sub">from details.yards (optional)</div>
+
+        <div class="filter-row">
+          <select id="statusFilter" class="filter-select" onchange="applyFilter()">
+            <option value="all">Status: All</option>
+            <option value="active">Active (not complete)</option>
+            <option value="loading">Loading</option>
+            <option value="en_route">En Route</option>
+            <option value="complete">Complete</option>
+          </select>
+          <select id="driverFilter" class="filter-select" onchange="applyFilter()">
+            <option value="all">Driver: All</option>
+          </select>
         </div>
-        <div class="stat-pill">
-          <div class="stat-label">Est. Profit</div>
-          <div class="stat-value" id="stat-profit">$0</div>
-          <div class="stat-sub">from details.profit (optional)</div>
+
+        <div class="deliveries-table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Customer / Address</th>
+                <th>Items</th>
+                <th>Status</th>
+                <th>Driver</th>
+                <th>ETA</th>
+              </tr>
+            </thead>
+            <tbody id="deliveriesBody">
+              <!-- rows inserted by JS -->
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div class="filter-row">
-        <select id="statusFilter" class="filter-select" onchange="applyFilter()">
-          <option value="all">Status: All</option>
-          <option value="active">Active (not complete)</option>
-          <option value="loading">Loading</option>
-          <option value="en_route">En Route</option>
-          <option value="complete">Complete</option>
-        </select>
-        <select id="driverFilter" class="filter-select" onchange="applyFilter()">
-          <option value="all">Driver: All</option>
-        </select>
-      </div>
-
-      <div class="deliveries-table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Customer / Address</th>
-              <th>Items</th>
-              <th>Status</th>
-              <th>Driver</th>
-              <th>ETA</th>
-            </tr>
-          </thead>
-          <tbody id="deliveriesBody">
-            <!-- rows inserted by JS -->
-          </tbody>
-        </table>
-      </div>
     </div>
 
-    <!-- Right: map -->
+    <!-- RIGHT: map -->
     <div class="card map-card">
       <div class="section-title-row">
         <div class="section-title">Map View</div>
@@ -481,6 +615,68 @@
     let statusFilter = 'all';
     let driverFilter = 'all';
 
+    // --- New Load creation ---
+    function createNewLoad() {
+      const id = document.getElementById('newDeliveryId').value.trim().toUpperCase();
+      const customerName = document.getElementById('newCustomerName').value.trim();
+      const address = document.getElementById('newAddress').value.trim();
+      const items = document.getElementById('newItems').value.trim();
+      const yardsRaw = document.getElementById('newYards').value.trim();
+      const rateRaw = document.getElementById('newRatePerYard').value.trim();
+      const truckingRaw = document.getElementById('newTruckingCharge').value.trim();
+      const costRaw = document.getElementById('newCostPerYard').value.trim();
+
+      if (!id || !address) {
+        alert('Delivery ID and Address are required.');
+        return;
+      }
+
+      const yards = parseFloat(yardsRaw) || 0;
+      const ratePerYard = parseFloat(rateRaw) || 0;
+      const truckingCharge = parseFloat(truckingRaw) || 0;
+      const costPerYard = parseFloat(costRaw) || 0;
+
+      const materialRevenue = yards * ratePerYard;
+      const materialCost = yards * costPerYard;
+      const revenue = materialRevenue + truckingCharge;
+      const profit = revenue - materialCost;
+
+      const details = {
+        customerName: customerName || '',
+        address: address,
+        items: items || '',
+        yards: yards || 0,
+        ratePerYard: ratePerYard || 0,
+        truckingCharge: truckingCharge || 0,
+        costPerYard: costPerYard || 0,
+        revenue: revenue || 0,
+        profit: profit || 0
+      };
+
+      const payload = {
+        details,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+
+      db.ref('deliveries/' + id).set(payload)
+        .then(() => {
+          // Clear form
+          document.getElementById('newDeliveryId').value = '';
+          document.getElementById('newCustomerName').value = '';
+          document.getElementById('newAddress').value = '';
+          document.getElementById('newItems').value = '';
+          document.getElementById('newYards').value = '';
+          document.getElementById('newRatePerYard').value = '';
+          document.getElementById('newTruckingCharge').value = '';
+          document.getElementById('newCostPerYard').value = '';
+        })
+        .catch(err => {
+          console.error('Error creating load:', err);
+          alert('Error creating load. Check console for details.');
+        });
+    }
+
     // Initialize map once Google is ready
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
@@ -509,8 +705,7 @@
           {
             featureType: 'road',
             elementType: 'geometry',
-            stylers: [{ color: '#202b3d' }]
-          },
+            stylers: [{ color: '#202b3d' }] },
           {
             featureType: 'road',
             elementType: 'geometry.stroke',
@@ -573,6 +768,7 @@
       if (s === 'loading') return { label: 'Loading', cls: 'status-loading' };
       if (s === 'en_route') return { label: 'En Route', cls: 'status-en_route' };
       if (s === 'complete') return { label: 'Complete', cls: 'status-complete' };
+      if (s === 'pending') return { label: 'Pending', cls: 'status-unknown' };
       return { label: status, cls: 'status-unknown' };
     }
 
@@ -602,14 +798,10 @@
 
       const driverSet = new Set();
 
-      const now = new Date();
-      const todayStr = now.toISOString().slice(0,10); // crude "today"
-
       Object.entries(deliveries).forEach(([id, d]) => {
         const status = (d.status || '').toLowerCase();
         if (status !== 'complete') activeCount++;
         if (status === 'complete') {
-          // naive: count all completes as "today" unless you store date
           completeCount++;
         }
 
@@ -639,7 +831,6 @@
         opt.textContent = 'Driver: ' + name;
         driverFilterSelect.appendChild(opt);
       });
-      // restore selection if possible
       if ([...driverFilterSelect.options].some(o => o.value === current)) {
         driverFilterSelect.value = current;
       } else {
@@ -659,8 +850,8 @@
         td.textContent = 'No deliveries in progress.';
         td.style.textAlign = 'center';
         td.style.padding = '14px';
-        tbody.appendChild(tr);
         tr.appendChild(td);
+        tbody.appendChild(tr);
         return;
       }
 
@@ -730,6 +921,8 @@
           etaText = computeEtaText(loc, dest);
         } else if (statusRaw.toLowerCase() === 'loading') {
           etaText = 'Loading materials';
+        } else if (statusRaw.toLowerCase() === 'pending') {
+          etaText = 'Pending start';
         }
         tdEta.textContent = etaText;
         tr.appendChild(tdEta);
@@ -767,7 +960,7 @@
         if (driverFilter !== 'all' && assignedDriver !== driverFilter) return;
 
         const loc = d.location;
-        const dest = d._resolvedDestLatLng; // we could resolve addresses, but that’s expensive – skip for now
+        const dest = d._resolvedDestLatLng; // reserved for future geocoding
 
         if (!markers[id]) {
           markers[id] = {};
@@ -795,9 +988,6 @@
             markers[id].truckMarker.setMap(map);
           }
         }
-
-        // Destination marker (optional: if you want to geocode, you can add in future)
-        // For now, we skip geocoding every load automatically to avoid hitting limits.
       });
 
       if (hasAny) {
