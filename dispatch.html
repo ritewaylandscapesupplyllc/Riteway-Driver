@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Riteway Dispatch Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <!-- Google Maps -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA955mtbdY2qg_kvyLxWOV1yWN5NYenHcI&libraries=geometry"></script>
+
+  <style>
+    :root {
+      --bg: #050608;
+      --bg-elevated: #15191f;
+      --bg-elevated-soft: #1b2129;
+      --accent: #12C3A0;
+      --accent-soft: rgba(18,195,160,0.18);
+      --text: #f5f7fb;
+      --text-muted: #a6afb8;
+      --border-subtle: #252c35;
+      --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.55);
+      --radius-lg: 18px;
+      --radius-pill: 999px;
+      --danger: #ff7979;
+      --success: #2ecc71;
+      --warning: #f1c40f;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #151a20 0, #050608 55%, #020203 100%);
+      color: var(--text);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: url("riteway-logo-watermark.png");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: min(55vw, 520px);
+      opacity: 0.04;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    @media (max-width: 960px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .header-row {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 2px;
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 140px;
+      height: auto;
+      filter: drop-shadow(0 0 12px rgba(0,0,0,0.7));
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-title {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.86rem;
+      color: var(--accent);
+    }
+
+    .brand-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .header-badge {
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--accent-soft);
+      background: rgba(5, 8, 11, 0.86);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .card {
+      background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.78));
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(16px);
+      padding: 14px 14px 12px;
+    }
+
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .section-title {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+    }
+
+    .pill {
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: rgba(5, 8, 11, 0.9);
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .stat-pill {
+      flex: 1 1 110px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(5, 8, 11, 0.9);
+      font-size: 0.78rem;
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.65rem;
+      margin-bottom: 2px;
+    }
+
+    .stat-value {
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .stat-sub {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Deliveries table */
+    .deliveries-table-wrapper {
+      margin-top: 6px;
+      max-height: 480px;
+      overflow-y: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(6, 9, 13, 0.95);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+
+    thead {
+      position: sticky;
+      top: 0;
+      background: rgba(4, 7, 11, 0.98);
+      z-index: 2;
+    }
+
+    th, td {
+      padding: 6px 8px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    th {
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    tr:nth-child(even) td {
+      background: rgba(255,255,255,0.01);
+    }
+
+    tr:hover td {
+      background: rgba(18,195,160,0.12);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .status-loading {
+      background: rgba(241,196,15,0.13);
+      color: #f1c40f;
+      border: 1px solid rgba(241,196,15,0.4);
+    }
+
+    .status-en_route {
+      background: rgba(18,195,160,0.14);
+      color: var(--accent);
+      border: 1px solid rgba(18,195,160,0.5);
+    }
+
+    .status-complete {
+      background: rgba(46,204,113,0.16);
+      color: var(--success);
+      border: 1px solid rgba(46,204,113,0.5);
+    }
+
+    .status-unknown {
+      background: rgba(149,165,166,0.16);
+      color: var(--text-muted);
+      border: 1px solid rgba(149,165,166,0.4);
+    }
+
+    .driver-input {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(4,7,11,0.96);
+      color: var(--text);
+      font-size: 0.76rem;
+      padding: 3px 7px;
+      outline: none;
+    }
+
+    .driver-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+
+    .eta-cell {
+      white-space: nowrap;
+      font-size: 0.74rem;
+    }
+
+    .delivery-id {
+      font-family: "JetBrains Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.75rem;
+      color: var(--accent);
+    }
+
+    .map-card {
+      padding: 10px;
+    }
+
+    #map {
+      width: 100%;
+      height: 520px;
+      border-radius: 14px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .map-legend {
+      margin-top: 8px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 6px rgba(18,195,160,0.7);
+    }
+
+    .legend-dest {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      border: 2px solid var(--accent);
+      background: #333;
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+
+    .filter-select {
+      padding: 5px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(4,7,11,0.96);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      outline: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-row">
+    <div class="brand-lockup">
+      <img src="riteway-logo.png" alt="Riteway Logo" class="brand-logo">
+      <div class="brand-text">
+        <div class="brand-title">Riteway Dispatch</div>
+        <div class="brand-subtitle">Live loads · trucks · ETAs</div>
+      </div>
+    </div>
+    <div class="header-badge">
+      Ops Console · Firebase + Maps
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <!-- Left: deliveries + stats -->
+    <div class="card">
+      <div class="section-title-row">
+        <div class="section-title">Active Deliveries</div>
+        <div class="pill" id="last-updated">Updated: --</div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-pill">
+          <div class="stat-label">Active Loads</div>
+          <div class="stat-value" id="stat-active">0</div>
+          <div class="stat-sub">status not complete</div>
+        </div>
+        <div class="stat-pill">
+          <div class="stat-label">Completed (Today)</div>
+          <div class="stat-value" id="stat-complete">0</div>
+          <div class="stat-sub">status complete</div>
+        </div>
+        <div class="stat-pill">
+          <div class="stat-label">Total Yardage</div>
+          <div class="stat-value" id="stat-yards">0 yd</div>
+          <div class="stat-sub">from details.yards (optional)</div>
+        </div>
+        <div class="stat-pill">
+          <div class="stat-label">Est. Profit</div>
+          <div class="stat-value" id="stat-profit">$0</div>
+          <div class="stat-sub">from details.profit (optional)</div>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <select id="statusFilter" class="filter-select" onchange="applyFilter()">
+          <option value="all">Status: All</option>
+          <option value="active">Active (not complete)</option>
+          <option value="loading">Loading</option>
+          <option value="en_route">En Route</option>
+          <option value="complete">Complete</option>
+        </select>
+        <select id="driverFilter" class="filter-select" onchange="applyFilter()">
+          <option value="all">Driver: All</option>
+        </select>
+      </div>
+
+      <div class="deliveries-table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Customer / Address</th>
+              <th>Items</th>
+              <th>Status</th>
+              <th>Driver</th>
+              <th>ETA</th>
+            </tr>
+          </thead>
+          <tbody id="deliveriesBody">
+            <!-- rows inserted by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Right: map -->
+    <div class="card map-card">
+      <div class="section-title-row">
+        <div class="section-title">Map View</div>
+        <div class="pill">All truck locations & destinations</div>
+      </div>
+      <div id="map"></div>
+      <div class="map-legend">
+        <div class="legend-item">
+          <div class="legend-dot"></div> <span>Truck location</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dest"></div> <span>Drop location</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Firebase config (same project)
+    const firebaseConfig = {
+      apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
+      authDomain: "ritewaytracking-3e9d0.firebaseapp.com",
+      databaseURL: "https://ritewaytracking-3e9d0-default-rtdb.firebaseio.com",
+      projectId: "ritewaytracking-3e9d0",
+      storageBucket: "ritewaytracking-3e9d0.firebasestorage.app",
+      messagingSenderId: "817275576166",
+      appId: "1:817275576166:web:56a92bcaf8f60d52a0b2a7"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const AVG_SPEED_MPH = 35;
+    const AVG_SPEED_MPS = AVG_SPEED_MPH * 1609.34 / 3600;
+
+    let map;
+    let markers = {};       // deliveryId -> { truckMarker, destMarker }
+    let deliveries = {};    // raw data
+    let statusFilter = 'all';
+    let driverFilter = 'all';
+
+    // Initialize map once Google is ready
+    function initMap() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 40.612, lng: -112.464 }, // Tooele-ish
+        zoom: 10,
+        mapTypeId: 'roadmap',
+        styles: [
+          { elementType: 'geometry', stylers: [{ color: '#0b1017' }] },
+          { elementType: 'labels.text.stroke', stylers: [{ color: '#0b1017' }] },
+          { elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
+          {
+            featureType: 'administrative.locality',
+            elementType: 'labels.text.fill',
+            stylers: [{ color: '#cbd3ff' }]
+          },
+          {
+            featureType: 'poi',
+            elementType: 'labels.text.fill',
+            stylers: [{ color: '#9ca5b3' }]
+          },
+          {
+            featureType: 'poi.park',
+            elementType: 'geometry',
+            stylers: [{ color: '#10231a' }]
+          },
+          {
+            featureType: 'road',
+            elementType: 'geometry',
+            stylers: [{ color: '#202b3d' }]
+          },
+          {
+            featureType: 'road',
+            elementType: 'geometry.stroke',
+            stylers: [{ color: '#1f2835' }]
+          },
+          {
+            featureType: 'road.highway',
+            elementType: 'geometry',
+            stylers: [{ color: '#2c3e50' }]
+          },
+          {
+            featureType: 'water',
+            elementType: 'geometry',
+            stylers: [{ color: '#0c1723' }]
+          }
+        ]
+      });
+    }
+
+    function waitForMapsThenInit() {
+      if (typeof google !== 'undefined' && google.maps) {
+        initMap();
+        listenForDeliveries();
+      } else {
+        setTimeout(waitForMapsThenInit, 400);
+      }
+    }
+
+    // Compute ETA text based on location + dest
+    function computeEtaText(loc, destLatLng) {
+      if (!loc || !destLatLng || !google.maps.geometry || !google.maps.geometry.spherical) {
+        return 'N/A';
+      }
+
+      const pos = new google.maps.LatLng(loc.lat, loc.lng);
+      const distanceMeters = google.maps.geometry.spherical.computeDistanceBetween(pos, destLatLng);
+      const seconds = distanceMeters / AVG_SPEED_MPS;
+
+      if (seconds < 60) {
+        return '≈ 1 min';
+      } else {
+        const minutes = Math.round(seconds / 60);
+        if (minutes < 60) {
+          return `≈ ${minutes} min`;
+        } else {
+          const hours = Math.floor(minutes / 60);
+          const rem = minutes % 60;
+          if (rem < 5) {
+            return `≈ ${hours} hr`;
+          } else {
+            return `≈ ${hours} hr ${rem} min`;
+          }
+        }
+      }
+    }
+
+    function formatStatus(status) {
+      if (!status) return { label: 'Pending', cls: 'status-unknown' };
+      const s = status.toLowerCase();
+      if (s === 'loading') return { label: 'Loading', cls: 'status-loading' };
+      if (s === 'en_route') return { label: 'En Route', cls: 'status-en_route' };
+      if (s === 'complete') return { label: 'Complete', cls: 'status-complete' };
+      return { label: status, cls: 'status-unknown' };
+    }
+
+    function applyFilter() {
+      statusFilter = document.getElementById('statusFilter').value;
+      driverFilter = document.getElementById('driverFilter').value;
+      renderDeliveriesTable();
+      renderMapMarkers();
+    }
+
+    function listenForDeliveries() {
+      db.ref('deliveries').on('value', snapshot => {
+        deliveries = snapshot.val() || {};
+        updateStatsAndFilters();
+        renderDeliveriesTable();
+        renderMapMarkers();
+        document.getElementById('last-updated').innerText =
+          'Updated: ' + new Date().toLocaleTimeString();
+      });
+    }
+
+    function updateStatsAndFilters() {
+      let activeCount = 0;
+      let completeCount = 0;
+      let totalYards = 0;
+      let totalProfit = 0;
+
+      const driverSet = new Set();
+
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0,10); // crude "today"
+
+      Object.entries(deliveries).forEach(([id, d]) => {
+        const status = (d.status || '').toLowerCase();
+        if (status !== 'complete') activeCount++;
+        if (status === 'complete') {
+          // naive: count all completes as "today" unless you store date
+          completeCount++;
+        }
+
+        const details = d.details || {};
+        const yards = Number(details.yards || 0);
+        const profit = Number(details.profit || 0);
+        if (!isNaN(yards)) totalYards += yards;
+        if (!isNaN(profit)) totalProfit += profit;
+
+        if (details.assignedDriver) {
+          driverSet.add(details.assignedDriver);
+        }
+      });
+
+      document.getElementById('stat-active').innerText = activeCount;
+      document.getElementById('stat-complete').innerText = completeCount;
+      document.getElementById('stat-yards').innerText = totalYards.toFixed(1) + ' yd';
+      document.getElementById('stat-profit').innerText = '$' + totalProfit.toFixed(2);
+
+      // driver filter options
+      const driverFilterSelect = document.getElementById('driverFilter');
+      const current = driverFilterSelect.value;
+      driverFilterSelect.innerHTML = '<option value="all">Driver: All</option>';
+      Array.from(driverSet).sort().forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = 'Driver: ' + name;
+        driverFilterSelect.appendChild(opt);
+      });
+      // restore selection if possible
+      if ([...driverFilterSelect.options].some(o => o.value === current)) {
+        driverFilterSelect.value = current;
+      } else {
+        driverFilterSelect.value = 'all';
+      }
+    }
+
+    function renderDeliveriesTable() {
+      const tbody = document.getElementById('deliveriesBody');
+      tbody.innerHTML = '';
+
+      const entries = Object.entries(deliveries);
+      if (entries.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 6;
+        td.textContent = 'No deliveries in progress.';
+        td.style.textAlign = 'center';
+        td.style.padding = '14px';
+        tbody.appendChild(tr);
+        tr.appendChild(td);
+        return;
+      }
+
+      entries.forEach(([id, d]) => {
+        const details = d.details || {};
+        const statusRaw = d.status || '';
+        const { label: statusLabel, cls: statusCls } = formatStatus(statusRaw);
+
+        // apply filters
+        if (statusFilter === 'active' && statusRaw.toLowerCase() === 'complete') return;
+        if (statusFilter !== 'all' && statusFilter !== 'active' &&
+            statusRaw.toLowerCase() !== statusFilter) return;
+
+        const assignedDriver = (details.assignedDriver || '').trim();
+        if (driverFilter !== 'all' && assignedDriver !== driverFilter) return;
+
+        const tr = document.createElement('tr');
+
+        // ID
+        const tdId = document.createElement('td');
+        tdId.innerHTML = `<span class="delivery-id">${id}</span>`;
+        tr.appendChild(tdId);
+
+        // Customer / Address
+        const tdCust = document.createElement('td');
+        const cust = details.customerName || 'N/A';
+        const addr = details.address || 'N/A';
+        tdCust.innerHTML = `
+          <div style="font-size:0.8rem;">${cust}</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">${addr}</div>
+        `;
+        tr.appendChild(tdCust);
+
+        // Items
+        const tdItems = document.createElement('td');
+        tdItems.textContent = details.items || '';
+        tr.appendChild(tdItems);
+
+        // Status
+        const tdStatus = document.createElement('td');
+        const span = document.createElement('span');
+        span.className = 'status-pill ' + statusCls;
+        span.textContent = statusLabel;
+        tdStatus.appendChild(span);
+        tr.appendChild(tdStatus);
+
+        // Driver (editable)
+        const tdDriver = document.createElement('td');
+        const input = document.createElement('input');
+        input.className = 'driver-input';
+        input.value = assignedDriver;
+        input.placeholder = 'Assign driver';
+        input.addEventListener('change', () => {
+          const newName = input.value.trim();
+          db.ref('deliveries/' + id + '/details/assignedDriver').set(newName || null);
+        });
+        tdDriver.appendChild(input);
+        tr.appendChild(tdDriver);
+
+        // ETA
+        const tdEta = document.createElement('td');
+        tdEta.className = 'eta-cell';
+        const dest = d._resolvedDestLatLng;
+        const loc = d.location;
+        let etaText = 'N/A';
+        if (loc && dest) {
+          etaText = computeEtaText(loc, dest);
+        } else if (statusRaw.toLowerCase() === 'loading') {
+          etaText = 'Loading materials';
+        }
+        tdEta.textContent = etaText;
+        tr.appendChild(tdEta);
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderMapMarkers() {
+      if (!map || typeof google === 'undefined') return;
+
+      // Clear existing markers not in current deliveries
+      Object.keys(markers).forEach(id => {
+        if (!deliveries[id]) {
+          const m = markers[id];
+          if (m.truckMarker) m.truckMarker.setMap(null);
+          if (m.destMarker) m.destMarker.setMap(null);
+          delete markers[id];
+        }
+      });
+
+      const bounds = new google.maps.LatLngBounds();
+      let hasAny = false;
+
+      Object.entries(deliveries).forEach(([id, d]) => {
+        const details = d.details || {};
+        const statusRaw = d.status || '';
+
+        // respect same filters used in table
+        if (statusFilter === 'active' && statusRaw.toLowerCase() === 'complete') return;
+        if (statusFilter !== 'all' && statusFilter !== 'active' &&
+            statusRaw.toLowerCase() !== statusFilter) return;
+
+        const assignedDriver = (details.assignedDriver || '').trim();
+        if (driverFilter !== 'all' && assignedDriver !== driverFilter) return;
+
+        const loc = d.location;
+        const dest = d._resolvedDestLatLng; // we could resolve addresses, but that’s expensive – skip for now
+
+        if (!markers[id]) {
+          markers[id] = {};
+        }
+
+        // Truck marker
+        if (loc) {
+          const pos = new google.maps.LatLng(loc.lat, loc.lng);
+          hasAny = true;
+          bounds.extend(pos);
+
+          if (!markers[id].truckMarker) {
+            markers[id].truckMarker = new google.maps.Marker({
+              position: pos,
+              map: map,
+              title: `Truck · ${id}`,
+              icon: {
+                url: 'riteway-truck-marker.png',
+                scaledSize: new google.maps.Size(44, 44),
+                anchor: new google.maps.Point(22, 22)
+              }
+            });
+          } else {
+            markers[id].truckMarker.setPosition(pos);
+            markers[id].truckMarker.setMap(map);
+          }
+        }
+
+        // Destination marker (optional: if you want to geocode, you can add in future)
+        // For now, we skip geocoding every load automatically to avoid hitting limits.
+      });
+
+      if (hasAny) {
+        map.fitBounds(bounds);
+      }
+    }
+
+    // Kick off once DOM is ready
+    window.addEventListener('load', () => {
+      waitForMapsThenInit();
+    });
+  </script>
+</body>
+</html>
