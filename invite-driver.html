@@ -141,12 +141,8 @@
       border-radius: 999px;
     }
 
-    .menu-button span::before {
-      top: -6px;
-    }
-    .menu-button span::after {
-      top: 6px;
-    }
+    .menu-button span::before { top: -6px; }
+    .menu-button span::after  { top: 6px; }
 
     .side-menu-backdrop {
       position: fixed;
@@ -416,7 +412,8 @@
       <div class="side-menu-header-title">Riteway</div>
       <div class="side-menu-header-sub">Navigation</div>
     </div>
-    <a href="index.html">Dispatch Dashboard</a>
+    <!-- 🔧 FIXED THIS LINE to point to dispatch.html -->
+    <a href="dispatch.html">Dispatch Dashboard</a>
     <a href="invite-driver.html" class="active">Invite Driver</a>
   </nav>
 
@@ -490,7 +487,6 @@
     const db = firebase.database();
 
     // Where your actual DRIVER APP lives:
-    // You gave this earlier: https://ritewaylandscapesupplyllc.github.io/Riteway-Driver/
     const DRIVER_APP_URL = "https://ritewaylandscapesupplyllc.github.io/Riteway-Driver/";
 
     // ---- Side menu toggle ----
