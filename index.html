@@ -5,9 +5,18 @@
   <title>Riteway Driver | Live Tracking</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- PWA bits for homescreen icon (keep your existing files in repo) -->
-  <link rel="manifest" href="manifest.json">
+  <!-- iPhone / iPad homescreen icon -->
   <link rel="apple-touch-icon" href="riteway-driver-icon.png">
+
+  <!-- iOS full-screen mode -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Riteway Driver">
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="theme-color" content="#050608">
 
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -18,8 +27,9 @@
       --bg: #050608;
       --bg-elevated: #15191f;
       --bg-elevated-soft: #1b2129;
-      --accent: #12C3A0;
-      --accent-soft: rgba(18,195,160,0.18);
+      --accent: #1A8F7A;
+      --accent-soft: rgba(26, 143, 122, 0.14);
+      --accent-strong: #12c3a0;
       --text: #f5f7fb;
       --text-muted: #a6afb8;
       --border-subtle: #252c35;
@@ -28,23 +38,18 @@
       --radius-pill: 999px;
     }
 
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
-
     body {
       margin: 0;
       min-height: 100vh;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: radial-gradient(circle at top, #151a20 0, #050608 55%, #020203 100%);
       color: var(--text);
-      display: flex;
-      align-items: center;
-      justify-content: center;
       padding: 18px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
       position: relative;
-      overflow: hidden;
+      overflow-x: hidden;
     }
 
     body::before {
@@ -62,19 +67,39 @@
     }
 
     .app-shell {
-      position: relative;
-      z-index: 1;
       width: 100%;
       max-width: 480px;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Centered logo above card */
+    .logo-wrapper {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+      margin-bottom: -30px;
+      position: relative;
+      z-index: 5;
+    }
+
+    .brand-logo {
+      width: 220px;
+      height: auto;
+      display: block;
+      filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.7));
     }
 
     .card {
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.78));
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.75));
       border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-soft);
       border: 1px solid var(--border-subtle);
-      padding: 20px 20px 18px;
+      box-shadow: var(--shadow-soft);
+      padding: 30px 20px 18px;
       backdrop-filter: blur(16px);
+      position: relative;
+      z-index: 3;
     }
 
     .header {
@@ -82,26 +107,12 @@
       align-items: center;
       justify-content: space-between;
       margin-bottom: 18px;
-      gap: 12px;
-    }
-
-    .brand-lockup {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 4px;
-    }
-
-    .brand-logo {
-      height: 36px;
-      width: auto;
-      display: block;
-      filter: drop-shadow(0 0 10px rgba(0,0,0,0.8));
     }
 
     .brand-subtitle {
-      font-size: 0.82rem;
+      font-size: 0.85rem;
       color: var(--text-muted);
+      margin-left: 4px;
     }
 
     .badge {
@@ -111,7 +122,6 @@
       background: rgba(5, 8, 11, 0.85);
       font-size: 0.75rem;
       color: var(--text-muted);
-      white-space: nowrap;
     }
 
     .inputs {
@@ -161,9 +171,9 @@
 
     .actions {
       display: flex;
-      flex-wrap: wrap;
       gap: 10px;
       margin-top: 14px;
+      flex-wrap: wrap;
     }
 
     button {
@@ -171,28 +181,18 @@
       border: none;
       border-radius: var(--radius-pill);
       padding: 11px 0;
-      font-size: 0.9rem;
+      font-size: 0.98rem;
       font-weight: 600;
       cursor: pointer;
       transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
-      white-space: nowrap;
-    }
-
-    button:active {
-      transform: translateY(1px);
-      box-shadow: none;
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, var(--accent), #19e1b5);
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
       color: #031210;
       box-shadow: 0 10px 24px rgba(18, 195, 160, 0.45);
-    }
-
-    .btn-primary:hover {
-      background: linear-gradient(135deg, #19e1b5, var(--accent));
     }
 
     .btn-ghost {
@@ -211,7 +211,6 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
     }
 
     .status-label {
@@ -223,7 +222,7 @@
 
     .status-value {
       font-weight: 500;
-      color: #19e1b5;
+      color: var(--accent-strong);
       font-size: 0.78rem;
     }
 
@@ -233,42 +232,41 @@
       background: rgba(5, 8, 11, 0.95);
       border-radius: 12px;
       border: 1px dashed var(--border-subtle);
-      font-family: "JetBrains Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-family: "JetBrains Mono", monospace;
       font-size: 0.7rem;
       line-height: 1.4;
       color: var(--text-muted);
       max-height: 160px;
       overflow-y: auto;
     }
-
-    #debug strong {
-      color: #19e1b5;
-    }
-
-    @media (max-width: 480px) {
-      .card {
-        padding: 18px 16px 16px;
-      }
-
-      .header {
-        flex-direction: row;
-        align-items: center;
-      }
-    }
   </style>
 </head>
+
 <body>
   <div class="app-shell">
+
+    <!-- Centered Riteway logo above card -->
+    <div class="logo-wrapper">
+      <img src="riteway-logo.png" class="brand-logo" alt="Riteway Logo">
+    </div>
+
     <div class="card">
       <header class="header">
-        <div class="brand-lockup">
-          <img src="riteway-logo.png" alt="Riteway" class="brand-logo">
-          <div class="brand-subtitle">Driver Live Tracking</div>
-        </div>
+        <div class="brand-subtitle">Driver Live Tracking</div>
         <div class="badge">Driver View</div>
       </header>
 
       <div class="inputs">
+        <div class="field">
+          <label for="customerName">Customer Name</label>
+          <input type="text" id="customerName" placeholder="E.g. John Smith">
+        </div>
+
+        <div class="field">
+          <label for="items">Items Being Delivered</label>
+          <input type="text" id="items" placeholder="E.g. 10 yd topsoil, 5 yd gravel">
+        </div>
+
         <div class="field">
           <label for="deliveryId">Delivery ID</label>
           <input type="text" id="deliveryId" placeholder="E.g. RITE123">
@@ -282,8 +280,8 @@
 
       <div class="actions">
         <button class="btn-ghost" onclick="markLoading()">Loading / Pickup</button>
-        <button class="btn-primary" onclick="start()">Start Route</button>
-        <button class="btn-ghost" onclick="stop()">Stop</button>
+        <button class="btn-primary" onclick="startTracking()">Start Tracking</button>
+        <button class="btn-ghost" onclick="stopTracking()">Stop</button>
       </div>
 
       <div class="status-row">
@@ -313,12 +311,12 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    let interval = null;
+    let interval;
 
     function log(msg) {
       const debug = document.getElementById('debug');
       const time = new Date().toLocaleTimeString();
-      debug.innerHTML += '<br>[' + time + '] ' + msg;
+      debug.innerHTML += `<br>[${time}] ${msg}`;
       debug.scrollTop = debug.scrollHeight;
       console.log(msg);
     }
@@ -327,17 +325,30 @@
       document.getElementById('status-text').innerText = text;
     }
 
-    function saveDeliveryDetails(id, addr) {
-      const details = { address: addr };
+    function getFormValues() {
+      const id = document.getElementById('deliveryId').value.trim().toUpperCase();
+      const addr = document.getElementById('address').value.trim();
+      const customerName = document.getElementById('customerName').value.trim();
+      const items = document.getElementById('items').value.trim();
+
+      return { id, addr, customerName, items };
+    }
+
+    function saveDetails(id, addr, customerName, items) {
+      const details = {
+        address: addr,
+        customerName: customerName || '',
+        items: items || ''
+      };
+
       return db.ref('deliveries/' + id + '/details').set(details)
         .then(() => log('Details saved'))
         .catch(err => log('ERROR saving details: ' + err.message));
     }
 
-    // 1) At the pit – do NOT start GPS yet
+    // 1) At the pit – mark loading, NO GPS yet
     function markLoading() {
-      const id = document.getElementById('deliveryId').value.trim().toUpperCase();
-      const addr = document.getElementById('address').value.trim();
+      const { id, addr, customerName, items } = getFormValues();
 
       if (!id || !addr) {
         alert('Delivery ID and address are required.');
@@ -346,38 +357,37 @@
 
       clearInterval(interval);
 
-      log('<strong>Marked as loading for ' + id + '</strong>');
+      log(`Marked as loading for ${id}`);
       setStatus('Loading / picking up materials…');
 
-      saveDeliveryDetails(id, addr).then(() => {
+      saveDetails(id, addr, customerName, items).then(() => {
         db.ref('deliveries/' + id + '/status').set('loading')
           .then(() => log('Status set to loading'))
           .catch(err => log('ERROR setting status: ' + err.message));
       });
     }
 
-    // 2) Leaving the pit – start route + GPS
-    function start() {
-      const id = document.getElementById('deliveryId').value.trim().toUpperCase();
-      const addr = document.getElementById('address').value.trim();
+    // 2) Leaving the pit – start route + GPS (customers can now see you)
+    function startTracking() {
+      const { id, addr, customerName, items } = getFormValues();
 
       if (!id || !addr) {
-        alert('Delivery ID and address are required to start the route.');
+        alert('Delivery ID and address are required to start tracking.');
         return;
       }
 
       clearInterval(interval);
 
-      log('<strong>Starting route for ' + id + '</strong>');
+      log(`Starting tracking for ${id}`);
       setStatus('Requesting GPS…');
 
-      saveDeliveryDetails(id, addr).then(() => {
+      saveDetails(id, addr, customerName, items).then(() => {
         db.ref('deliveries/' + id + '/status').set('en_route')
           .then(() => log('Status set to en_route'))
           .catch(err => log('ERROR setting status: ' + err.message));
       });
 
-      // send GPS every 5s
+      // send GPS every 5 seconds
       interval = setInterval(() => {
         navigator.geolocation.getCurrentPosition(
           pos => {
@@ -399,7 +409,7 @@
         );
       }, 5000);
 
-      // first immediate GPS
+      // First immediate GPS
       navigator.geolocation.getCurrentPosition(pos => {
         const loc = {
           lat: pos.coords.latitude,
@@ -412,8 +422,8 @@
       });
     }
 
-    // 3) After dumping – mark complete & clear GPS
-    function stop() {
+    // 3) After dumping – mark complete & clear live GPS
+    function stopTracking() {
       clearInterval(interval);
       const id = document.getElementById('deliveryId').value.trim().toUpperCase();
 
@@ -422,14 +432,14 @@
           .then(() => log('Status set to complete'))
           .catch(err => log('ERROR setting status: ' + err.message));
 
-        // Optional: clear live location so the dot disappears
+        // Remove live location so the truck dot disappears
         db.ref('deliveries/' + id + '/location').remove()
           .then(() => log('Location cleared'))
           .catch(err => log('ERROR clearing location: ' + err.message));
       }
 
       setStatus('Delivered / tracking stopped');
-      log('<strong>Tracking stopped</strong>');
+      log('Tracking stopped');
     }
   </script>
 </body>
