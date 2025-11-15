@@ -2,12 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Invite Driver | Riteway Dispatch</title>
+  <title>Riteway – Invite Driver</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
   <style>
@@ -15,15 +14,15 @@
       --bg: #050608;
       --bg-elevated: #15191f;
       --bg-elevated-soft: #1b2129;
-      --accent: #1A8F7A;
-      --accent-soft: rgba(26,143,122,0.18);
-      --accent-strong: #12C3A0;
+      --accent: #12C3A0;
+      --accent-soft: rgba(18,195,160,0.18);
       --text: #f5f7fb;
       --text-muted: #a6afb8;
       --border-subtle: #252c35;
       --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.55);
       --radius-lg: 18px;
       --radius-pill: 999px;
+      --danger: #ff7979;
     }
 
     * {
@@ -37,10 +36,12 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: radial-gradient(circle at top, #151a20 0, #050608 55%, #020203 100%);
       color: var(--text);
-      padding: 18px;
+      padding: 16px;
       display: flex;
-      justify-content: center;
-      align-items: flex-start;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      overflow-x: hidden;
     }
 
     body::before {
@@ -50,35 +51,185 @@
       background-image: url("riteway-logo-watermark.png");
       background-repeat: no-repeat;
       background-position: center;
-      background-size: min(80vw, 520px);
-      opacity: 0.05;
+      background-size: min(55vw, 520px);
+      opacity: 0.04;
       pointer-events: none;
       z-index: 0;
-      filter: drop-shadow(0 0 30px rgba(0,0,0,0.7));
     }
 
-    .app-shell {
-      width: 100%;
-      max-width: 480px;
+    /* HEADER + HAMBURGER MENU */
+    .header-row {
       position: relative;
-      z-index: 1;
-    }
-
-    .logo-wrapper {
-      width: 100%;
+      z-index: 2;
       display: flex;
-      justify-content: center;
-      margin-top: 20px;
-      margin-bottom: -30px;
-      position: relative;
-      z-index: 5;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
     .brand-logo {
-      width: 220px;
+      width: 140px;
       height: auto;
+      filter: drop-shadow(0 0 12px rgba(0,0,0,0.7));
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-title {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.86rem;
+      color: var(--accent);
+    }
+
+    .brand-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .header-badge {
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--accent-soft);
+      background: rgba(5, 8, 11, 0.86);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .menu-button {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(5,8,11,0.92);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      margin-right: 6px;
+    }
+
+    .menu-button span {
       display: block;
-      filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.7));
+      width: 18px;
+      height: 2px;
+      background: var(--text);
+      border-radius: 999px;
+      position: relative;
+    }
+
+    .menu-button span::before,
+    .menu-button span::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      width: 18px;
+      height: 2px;
+      background: var(--text);
+      border-radius: 999px;
+    }
+
+    .menu-button span::before {
+      top: -6px;
+    }
+    .menu-button span::after {
+      top: 6px;
+    }
+
+    .side-menu-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 8;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+    }
+
+    .side-menu-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .side-menu {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 240px;
+      background: #060a10;
+      box-shadow: 6px 0 20px rgba(0,0,0,0.7);
+      z-index: 9;
+      transform: translateX(-260px);
+      transition: transform 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      padding: 16px 14px;
+    }
+
+    .side-menu.open {
+      transform: translateX(0);
+    }
+
+    .side-menu-header {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: 12px;
+    }
+
+    .side-menu-header-title {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+    }
+
+    .side-menu-header-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .side-menu a {
+      display: block;
+      padding: 7px 8px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      margin-top: 4px;
+    }
+
+    .side-menu a:hover {
+      background: rgba(18,195,160,0.1);
+      color: var(--text);
+    }
+
+    .side-menu a.active {
+      background: rgba(18,195,160,0.18);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* MAIN CONTENT */
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      max-width: 520px;
+      width: 100%;
+      margin: 0 auto;
     }
 
     .card {
@@ -87,213 +238,244 @@
       border: 1px solid var(--border-subtle);
       box-shadow: var(--shadow-soft);
       backdrop-filter: blur(16px);
-      padding: 26px 18px 18px;
-      margin-top: 12px;
+      padding: 16px 16px 14px;
+      margin-top: 4px;
     }
 
-    .header-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-    }
-
-    .title-main {
-      font-size: 1rem;
+    .section-title {
+      font-size: 0.95rem;
+      text-transform: uppercase;
       letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--accent-strong);
-    }
-
-    .title-sub {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-
-    .badge {
-      padding: 6px 12px;
-      border-radius: var(--radius-pill);
-      border: 1px solid var(--accent-soft);
-      background: rgba(5, 8, 11, 0.85);
-      font-size: 0.75rem;
-      color: var(--text-muted);
-    }
-
-    .field-group {
-      margin-top: 12px;
-    }
-
-    label {
-      display: block;
-      font-size: 0.78rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
       color: var(--text-muted);
       margin-bottom: 4px;
-      text-align: left;
     }
 
-    .field {
-      background: rgba(10, 13, 18, 0.9);
-      border-radius: 12px;
-      border: 1px solid var(--border-subtle);
-      padding: 8px 10px 4px;
-      transition: border 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
-    }
-
-    .field:focus-within {
-      border-color: var(--accent-strong);
-      box-shadow: 0 0 0 1px rgba(18,195,160,0.35);
-      background: rgba(12,16,22,0.96);
-    }
-
-    input[type="text"],
-    input[type="email"] {
-      width: 100%;
-      border: none;
-      outline: none;
-      background: transparent;
-      color: var(--text);
-      font-size: 0.95rem;
-      padding: 4px 0 8px;
-    }
-
-    input::placeholder {
-      color: rgba(166,175,184,0.7);
-    }
-
-    .hint {
-      margin-top: 8px;
-      font-size: 0.78rem;
+    .section-sub {
+      font-size: 0.8rem;
       color: var(--text-muted);
+      margin-bottom: 12px;
     }
 
-    .actions {
-      margin-top: 18px;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    button {
-      flex: 1;
-      border: none;
-      border-radius: var(--radius-pill);
-      padding: 11px 0;
-      font-size: 0.96rem;
-      font-weight: 600;
-      cursor: pointer;
-      letter-spacing: 0.06em;
+    .field-label {
+      font-size: 0.75rem;
       text-transform: uppercase;
-      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .field-input {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(5, 8, 11, 0.96);
+      padding: 7px 10px;
+      font-size: 0.88rem;
+      color: var(--text);
+      outline: none;
+    }
+
+    .field-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+
+    .actions-row {
+      margin-top: 14px;
+      display: flex;
+      justify-content: flex-end;
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      border: none;
+      border-radius: var(--radius-pill);
+      padding: 9px 18px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: linear-gradient(135deg, var(--accent), #12e1b5);
       color: #031210;
-      box-shadow: 0 12px 26px rgba(18,195,160,0.45);
+      box-shadow: 0 10px 24px rgba(18, 195, 160, 0.45);
     }
 
     .btn-primary:active {
       transform: translateY(1px);
-      box-shadow: 0 6px 18px rgba(0,0,0,0.7);
+      box-shadow: none;
     }
 
-    .btn-ghost {
-      background: rgba(9,12,17,0.9);
+    .status-text {
+      margin-top: 8px;
+      font-size: 0.8rem;
       color: var(--text-muted);
-      border: 1px solid var(--border-subtle);
     }
 
-    .status-box {
+    .status-text strong {
+      color: var(--accent);
+    }
+
+    .invite-result {
       margin-top: 16px;
-      padding: 10px 12px;
+      padding: 12px;
       border-radius: 12px;
-      background: var(--bg-elevated-soft);
-      border: 1px solid rgba(26,143,122,0.25);
+      background: rgba(5,8,11,0.96);
+      border: 1px solid var(--accent-soft);
       font-size: 0.8rem;
+    }
+
+    .invite-link-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
       color: var(--text-muted);
+      margin-bottom: 4px;
     }
 
-    .status-box strong {
-      color: var(--accent-strong);
+    .invite-link-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
     }
 
-    #log {
-      margin-top: 10px;
-      padding: 8px 10px;
-      background: rgba(5,8,11,0.98);
+    .invite-link-input {
+      flex: 1;
       border-radius: 10px;
-      border: 1px dashed var(--border-subtle);
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.7rem;
-      line-height: 1.4;
-      max-height: 150px;
-      overflow-y: auto;
+      border: 1px solid var(--border-subtle);
+      background: rgba(0,0,0,0.7);
+      color: var(--text);
+      font-size: 0.78rem;
+      padding: 7px 9px;
+      outline: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .btn-secondary {
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--accent-soft);
+      background: rgba(5,8,11,0.9);
+      color: var(--text-muted);
+      font-size: 0.76rem;
+      padding: 7px 10px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .invite-hint {
+      margin-top: 6px;
+      font-size: 0.75rem;
       color: var(--text-muted);
     }
 
-    a.back-link {
-      display: inline-block;
-      margin-top: 14px;
-      font-size: 0.8rem;
-      color: var(--accent-strong);
-      text-decoration: none;
+    .toast {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      background: #0d1815;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 0.78rem;
+      color: var(--text);
+      border: 1px solid var(--accent-soft);
+      box-shadow: 0 8px 18px rgba(0,0,0,0.7);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(10px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      z-index: 20;
+    }
+
+    .toast.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 12px;
+      }
+      .header-row {
+        align-items: flex-start;
+      }
+      .brand-text {
+        display: none;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="app-shell">
-    <div class="logo-wrapper">
-      <img src="riteway-logo.png" alt="Riteway Logo" class="brand-logo">
+
+  <!-- Side menu + backdrop -->
+  <div id="sideMenuBackdrop" class="side-menu-backdrop"></div>
+  <nav id="sideMenu" class="side-menu">
+    <div class="side-menu-header">
+      <div class="side-menu-header-title">Riteway</div>
+      <div class="side-menu-header-sub">Navigation</div>
     </div>
+    <a href="index.html">Dispatch Dashboard</a>
+    <a href="invite-driver.html" class="active">Invite Driver</a>
+  </nav>
 
+  <!-- Toast -->
+  <div id="toast" class="toast">Link copied to clipboard</div>
+
+  <!-- Header -->
+  <div class="header-row">
+    <div class="brand-lockup">
+      <button class="menu-button" onclick="toggleMenu()">
+        <span></span>
+      </button>
+      <img src="riteway-logo.png" alt="Riteway Logo" class="brand-logo">
+      <div class="brand-text">
+        <div class="brand-title">Riteway Dispatch</div>
+        <div class="brand-subtitle">Driver invites</div>
+      </div>
+    </div>
+    <div class="header-badge">
+      Invite drivers · Generate links
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="app-shell">
     <div class="card">
-      <div class="header-row">
-        <div>
-          <div class="title-main">Invite New Driver</div>
-          <div class="title-sub">Send a branded email link to join the Riteway Driver app.</div>
+      <div class="section-title">Invite Driver</div>
+      <div class="section-sub">
+        Enter a driver name and generate a unique invite link you can email or text to them.
+      </div>
+
+      <div>
+        <div class="field-label">Driver Name</div>
+        <input id="driverName" class="field-input" placeholder="E.g. Mike Johnson">
+      </div>
+
+      <div class="actions-row">
+        <button class="btn-primary" onclick="generateInvite()">Generate Invite Link</button>
+      </div>
+
+      <div id="statusText" class="status-text">
+        <strong>Status:</strong> Waiting to generate a link.
+      </div>
+
+      <div id="inviteResult" class="invite-result" style="display:none;">
+        <div class="invite-link-label">Invite Link</div>
+        <div class="invite-link-row">
+          <input id="inviteLink" class="invite-link-input" readonly>
+          <button class="btn-secondary" onclick="copyInviteLink()">Copy</button>
         </div>
-        <div class="badge">Dispatch Tool</div>
-      </div>
-
-      <div class="field-group">
-        <label for="driverName">Driver Name</label>
-        <div class="field">
-          <input type="text" id="driverName" placeholder="E.g. Blaine Fowles">
+        <div class="invite-hint">
+          Share this link via text or email. When the driver opens it, they’ll be able to set up and log into the Riteway Driver App.
         </div>
       </div>
-
-      <div class="field-group">
-        <label for="driverEmail">Driver Email</label>
-        <div class="field">
-          <input type="email" id="driverEmail" placeholder="driver@example.com">
-        </div>
-      </div>
-
-      <p class="hint">
-        When you tap <strong>Send invite</strong>, Firebase will email the driver a secure sign-in link using your
-        branded template. We also log the invite in the database under <code>/driverInvites</code>.
-      </p>
-
-      <div class="actions">
-        <button class="btn-primary" onclick="sendInvite()">Send invite</button>
-        <button class="btn-ghost" onclick="clearForm()">Clear</button>
-      </div>
-
-      <div class="status-box" id="statusBox">
-        <strong>Status:</strong> Ready to invite a driver.
-      </div>
-
-      <div id="log"><strong>Log</strong></div>
-
-      <a href="dispatch.html" class="back-link">← Back to dispatch dashboard</a>
     </div>
   </div>
 
   <script>
-    // --- Firebase config (same project as your driver + customer apps) ---
+    // ---- Firebase init ----
     const firebaseConfig = {
       apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
       authDomain: "ritewaytracking-3e9d0.firebaseapp.com",
@@ -305,77 +487,110 @@
     };
 
     firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
     const db = firebase.database();
 
-    // This is where the email-link will send the driver after they tap it.
-    // We'll build this driver-login page later; for now we just wire the link.
-    const actionCodeSettings = {
-      url: "https://ritewaylandscapesupplyllc.github.io/Riteway-Driver/driver-login.html",
-      handleCodeInApp: true
-    };
+    // Where your actual DRIVER APP lives:
+    // You gave this earlier: https://ritewaylandscapesupplyllc.github.io/Riteway-Driver/
+    const DRIVER_APP_URL = "https://ritewaylandscapesupplyllc.github.io/Riteway-Driver/";
 
-    function setStatus(msg) {
-      document.getElementById("statusBox").innerHTML =
-        "<strong>Status:</strong> " + msg;
+    // ---- Side menu toggle ----
+    function toggleMenu(force) {
+      const menu = document.getElementById('sideMenu');
+      const backdrop = document.getElementById('sideMenuBackdrop');
+      const isOpen = menu.classList.contains('open');
+      const shouldOpen = (typeof force === 'boolean') ? force : !isOpen;
+
+      if (shouldOpen) {
+        menu.classList.add('open');
+        backdrop.classList.add('open');
+      } else {
+        menu.classList.remove('open');
+        backdrop.classList.remove('open');
+      }
     }
 
-    function log(msg) {
-      const logBox = document.getElementById("log");
-      const time = new Date().toLocaleTimeString();
-      logBox.innerHTML += "<br>[" + time + "] " + msg;
-      logBox.scrollTop = logBox.scrollHeight;
-      console.log(msg);
+    document.getElementById('sideMenuBackdrop').addEventListener('click', () => {
+      toggleMenu(false);
+    });
+
+    // ---- Toast helper ----
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message || 'Done';
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 1800);
     }
 
-    function clearForm() {
-      document.getElementById("driverName").value = "";
-      document.getElementById("driverEmail").value = "";
-      setStatus("Ready to invite a driver.");
-    }
+    // ---- Invite generation ----
+    function generateInvite() {
+      const nameInput = document.getElementById('driverName');
+      const statusEl = document.getElementById('statusText');
+      const resultEl = document.getElementById('inviteResult');
+      const linkInput = document.getElementById('inviteLink');
 
-    function sendInvite() {
-      const name = document.getElementById("driverName").value.trim();
-      const email = document.getElementById("driverEmail").value.trim().toLowerCase();
+      const name = (nameInput.value || '').trim();
 
-      if (!email) {
-        alert("Please enter the driver's email.");
+      if (!name) {
+        alert('Please enter a driver name.');
         return;
       }
 
-      setStatus("Sending invite…");
-      log("Sending email-link invite to " + email);
+      // Create a unique token
+      const token = 'drv_' +
+        Math.random().toString(36).substr(2, 9) +
+        Date.now().toString(36);
 
-      // Remember the email locally so the driver-login page can prefill it if it's opened on this device.
-      try {
-        window.localStorage.setItem("ritewayInviteEmail", email);
-      } catch (e) {
-        console.warn("Unable to access localStorage:", e);
-      }
+      statusEl.innerHTML = '<strong>Status:</strong> Saving invite…';
 
-      auth.sendSignInLinkToEmail(email, actionCodeSettings)
+      const payload = {
+        name,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+
+      db.ref('driverInvites/' + token).set(payload)
         .then(() => {
-          setStatus("Invite sent to " + email);
-          log("Firebase Auth email-link sent.");
+          const inviteUrl = DRIVER_APP_URL + '?invite=' + encodeURIComponent(token);
+          linkInput.value = inviteUrl;
+          resultEl.style.display = 'block';
 
-          // Log invite in database for your records
-          const inviteRef = db.ref("driverInvites").push();
-          inviteRef.set({
-            name: name || "",
-            email: email,
-            sentAt: new Date().toISOString()
-          }).then(() => {
-            log("Invite saved under /driverInvites/" + inviteRef.key);
-          }).catch(err => {
-            log("ERROR saving invite: " + err.message);
-          });
+          statusEl.innerHTML = '<strong>Status:</strong> Invite link generated.';
         })
-        .catch(error => {
-          console.error(error);
-          setStatus("Error sending invite: " + error.message);
-          log("ERROR sending invite: " + error.message);
-          alert("Error sending invite:\n" + error.message);
+        .catch(err => {
+          console.error('Error saving invite:', err);
+          statusEl.innerHTML = '<strong>Status:</strong> Error saving invite. Check console.';
+          alert('Error creating invite. Please try again.');
         });
+    }
+
+    function copyInviteLink() {
+      const linkInput = document.getElementById('inviteLink');
+      const link = linkInput.value.trim();
+      if (!link) return;
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link)
+          .then(() => showToast('Invite link copied'))
+          .catch(() => fallbackCopy(link));
+      } else {
+        fallbackCopy(link);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const tmp = document.createElement('textarea');
+      tmp.value = text;
+      document.body.appendChild(tmp);
+      tmp.select();
+      try {
+        document.execCommand('copy');
+        showToast('Invite link copied');
+      } catch (e) {
+        alert('Could not copy. Please copy the link manually.');
+      }
+      document.body.removeChild(tmp);
     }
   </script>
 </body>
