@@ -901,12 +901,18 @@
 
         renderLoadsList();
 
-        if (selectedLoadId && (!loadsById[selectedLoadId] ||
-            loadsById[selectedLoadId].status === 'complete')) {
-          selectLoad(null);
-        } else if (!selectedLoadId) {
+        // 🔧 IMPORTANT: refresh UI for the currently selected load
+        if (selectedLoadId && loadsById[selectedLoadId] && loadsById[selectedLoadId].status !== 'complete') {
+          selectLoad(selectedLoadId);
+        } else {
+          // If current selected load disappeared or completed, pick first active or clear
+          selectedLoadId = null;
           const firstId = Object.keys(loadsById).find(id => loadsById[id].status !== 'complete');
-          if (firstId) selectLoad(firstId);
+          if (firstId) {
+            selectLoad(firstId);
+          } else {
+            selectLoad(null);
+          }
         }
       });
     }
@@ -1136,6 +1142,12 @@
         .then(() => {
           log(`Status for ${id} set to loading`);
           setStatusText('Loading at pit / getting ticket…');
+
+          // 🔧 Immediately refresh this load's UI so button changes to "Upload Scale Ticket"
+          if (!loadsById[id]) loadsById[id] = {};
+          loadsById[id].status = 'loading';
+          selectLoad(id);
+
           ensureGpsRunning(id);
         })
         .catch(err => log('ERROR setting status: ' + err.message));
