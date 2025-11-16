@@ -652,668 +652,659 @@
     </div>
   </div>
 
- <script>
-  // --- Firebase Init ---
-  const firebaseConfig = {
-    apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
-    authDomain: "ritewaytracking-3e9d0.firebaseapp.com",
-    databaseURL: "https://ritewaytracking-3e9d0-default-rtdb.firebaseio.com",
-    projectId: "ritewaytracking-3e9d0",
-    storageBucket: "ritewaytracking-3e9d0.firebasestorage.app",
-    messagingSenderId: "817275576166",
-    appId: "1:817275576166:web:56a92bcaf8f60d52a0b2a7"
-  };
+  <script>
+    // --- Firebase Init ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
+      authDomain: "ritewaytracking-3e9d0.firebaseapp.com",
+      databaseURL: "https://ritewaytracking-3e9d0-default-rtdb.firebaseio.com",
+      projectId: "ritewaytracking-3e9d0",
+      storageBucket: "ritewaytracking-3e9d0.firebasestorage.app",
+      messagingSenderId: "817275576166",
+      appId: "1:817275576166:web:56a92bcaf8f60d52a0b2a7"
+    };
 
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-  const auth = firebase.auth();
-  const storage = firebase.storage();
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const auth = firebase.auth();
+    const storage = firebase.storage();
 
-  // --- Globals ---
-  let loadsById = {};         // { deliveryId: {details, location, status, ticketInfo?} }
-  let currentUser = null;
-  let selectedLoadId = null;
-  let gpsInterval = null;
-  let loadsRef = null;
-  let splashTimer = null;
+    // --- Globals ---
+    let loadsById = {};         // { deliveryId: {details, location, status, ticketInfo?} }
+    let currentUser = null;
+    let selectedLoadId = null;
+    let gpsInterval = null;
+    let loadsRef = null;
+    let splashTimer = null;
+    let currentPrimaryHandler = null; // <--- central handler reference
 
-  // --- Small helpers ---
-  function log(msg) {
-    const debug = document.getElementById('debug');
-    if (!debug) return;
-    const time = new Date().toLocaleTimeString();
-    debug.innerHTML += `<br>[${time}] ${msg}`;
-    debug.scrollTop = debug.scrollHeight;
-    console.log(msg);
-  }
-
-  function setStatusText(text) {
-    const el = document.getElementById('status-text');
-    if (el) el.innerText = text;
-  }
-
-  function setPrimaryButton(label, handler, disabled = false) {
-    const btn = document.getElementById('primaryActionBtn');
-    if (!btn) return;
-    btn.innerText = label;
-    btn.onclick = disabled ? null : handler;
-    btn.disabled = disabled;
-  }
-
-  function statusLabel(status) {
-    if (!status || status === 'pending') return 'Pending';
-    if (status === 'loading') return 'Loading';
-    if (status === 'en_route') return 'En Route';
-    if (status === 'complete') return 'Complete';
-    return status;
-  }
-
-  function getDriverDisplayName(user) {
-    if (!user) return '';
-    return user.displayName || user.email || user.phoneNumber || user.uid;
-  }
-
-  function getCurrentPositionPromise(options) {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        return reject(new Error('Geolocation not supported'));
-      }
-      navigator.geolocation.getCurrentPosition(resolve, reject, options || {});
-    });
-  }
-
-  function computeDistanceMeters(lat1, lon1, lat2, lon2) {
-    const R = 6371000; // meters
-    const toRad = deg => deg * Math.PI / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lat2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  // --- Splash handling ---
-  function showSplash(onDone) {
-    const overlay = document.getElementById('splashOverlay');
-    const barFill = document.getElementById('splashBarFill');
-    const percentText = document.getElementById('splashPercent');
-
-    if (!overlay || !barFill || !percentText) {
-      if (onDone) onDone();
-      return;
+    // --- Small helpers ---
+    function log(msg) {
+      const debug = document.getElementById('debug');
+      if (!debug) return;
+      const time = new Date().toLocaleTimeString();
+      debug.innerHTML += `<br>[${time}] ${msg}`;
+      debug.scrollTop = debug.scrollHeight;
+      console.log(msg);
     }
 
-    overlay.style.display = 'flex';
-    barFill.style.width = '0%';
-    percentText.textContent = '0%';
+    // Log JS errors into debug panel
+    window.onerror = function(message, source, lineno, colno, error) {
+      log('JS ERROR: ' + message + ' @ ' + source + ':' + lineno);
+    };
 
-    let progress = 0;
-    if (splashTimer) clearInterval(splashTimer);
+    function setStatusText(text) {
+      const el = document.getElementById('status-text');
+      if (el) el.innerText = text;
+    }
 
-    splashTimer = setInterval(() => {
-      progress += 5;
-      if (progress >= 100) {
-        progress = 100;
-        barFill.style.width = progress + '%';
-        percentText.textContent = progress + '%';
+    function setPrimaryButton(label, handler, disabled = false) {
+      const btn = document.getElementById('primaryActionBtn');
+      if (!btn) return;
+      btn.innerText = label;
+      btn.disabled = disabled;
+      currentPrimaryHandler = (!disabled && typeof handler === 'function') ? handler : null;
+      log('Primary button set to "' + label + '" (disabled=' + disabled + ')');
+    }
+
+    // Single click handler for the primary button (mobile-safe)
+    document.addEventListener('click', function (e) {
+      const btn = document.getElementById('primaryActionBtn');
+      if (!btn) return;
+
+      if (e.target === btn || btn.contains(e.target)) {
+        log('Primary button CLICKED by user. Label: ' + btn.innerText);
+        if (!btn.disabled && typeof currentPrimaryHandler === 'function') {
+          try {
+            currentPrimaryHandler();
+          } catch (err) {
+            log('Primary handler threw error: ' + err.message);
+          }
+        }
+      }
+    });
+
+    function statusLabel(status) {
+      if (!status || status === 'pending') return 'Pending';
+      if (status === 'loading') return 'Loading';
+      if (status === 'en_route') return 'En Route';
+      if (status === 'complete') return 'Complete';
+      return status;
+    }
+
+    function getDriverDisplayName(user) {
+      if (!user) return '';
+      return user.displayName || user.email || user.phoneNumber || user.uid;
+    }
+
+    function getCurrentPositionPromise(options) {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          return reject(new Error('Geolocation not supported'));
+        }
+        navigator.geolocation.getCurrentPosition(resolve, reject, options || {});
+      });
+    }
+
+    function computeDistanceMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371000; // meters
+      const toRad = deg => deg * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lat2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    // --- Splash handling ---
+    function showSplash(onDone) {
+      const overlay = document.getElementById('splashOverlay');
+      const barFill = document.getElementById('splashBarFill');
+      const percentText = document.getElementById('splashPercent');
+
+      if (!overlay || !barFill || !percentText) {
+        if (onDone) onDone();
+        return;
+      }
+
+      overlay.style.display = 'flex';
+      barFill.style.width = '0%';
+      percentText.textContent = '0%';
+
+      let progress = 0;
+      if (splashTimer) clearInterval(splashTimer);
+
+      splashTimer = setInterval(() => {
+        progress += 5;
+        if (progress >= 100) {
+          progress = 100;
+          barFill.style.width = progress + '%';
+          percentText.textContent = progress + '%';
+          clearInterval(splashTimer);
+          splashTimer = null;
+          setTimeout(() => {
+            overlay.style.display = 'none';
+            if (onDone) onDone();
+          }, 200);
+        } else {
+          barFill.style.width = progress + '%';
+          percentText.textContent = progress + '%';
+        }
+      }, 60); // ~1.2 seconds total
+    }
+
+    function hideSplashImmediately() {
+      const overlay = document.getElementById('splashOverlay');
+      if (overlay) overlay.style.display = 'none';
+      if (splashTimer) {
         clearInterval(splashTimer);
         splashTimer = null;
-        setTimeout(() => {
-          overlay.style.display = 'none';
-          if (onDone) onDone();
-        }, 200);
-      } else {
-        barFill.style.width = progress + '%';
-        percentText.textContent = progress + '%';
       }
-    }, 60); // ~1.2 seconds total
-  }
-
-  function hideSplashImmediately() {
-    const overlay = document.getElementById('splashOverlay');
-    if (overlay) overlay.style.display = 'none';
-    if (splashTimer) {
-      clearInterval(splashTimer);
-      splashTimer = null;
-    }
-  }
-
-  // --- Add to Home Screen modal ---
-  function openPwaHint() {
-    const modal = document.getElementById('pwaHintModal');
-    if (modal) modal.style.display = 'flex';
-  }
-
-  function closePwaHint() {
-    const modal = document.getElementById('pwaHintModal');
-    if (modal) modal.style.display = 'none';
-  }
-
-  // --- Auth functions ---
-  function showAuthError(text) {
-    const el = document.getElementById('authError');
-    if (el) el.innerText = text || '';
-  }
-
-  function login() {
-    const email = document.getElementById('authEmail').value.trim();
-    const password = document.getElementById('authPassword').value;
-    showAuthError('');
-
-    if (!email || !password) {
-      showAuthError('Email and password are required.');
-      return;
     }
 
-    auth.signInWithEmailAndPassword(email, password)
-      .then(() => {
-        showAuthError('');
-      })
-      .catch(err => {
-        console.error(err);
-        showAuthError(err.message);
-      });
-  }
-
-  function signup() {
-    const email = document.getElementById('authEmail').value.trim();
-    const password = document.getElementById('authPassword').value;
-    showAuthError('');
-
-    if (!email || !password) {
-      showAuthError('Email and password are required.');
-      return;
+    // --- Add to Home Screen modal ---
+    function openPwaHint() {
+      const modal = document.getElementById('pwaHintModal');
+      if (modal) modal.style.display = 'flex';
     }
 
-    localStorage.setItem('ritewayShowPwaHint', '1');
-
-    auth.createUserWithEmailAndPassword(email, password)
-      .then(() => {
-        showAuthError('Account created. You are now signed in.');
-      })
-      .catch(err => {
-        console.error(err);
-        showAuthError(err.message);
-      });
-  }
-
-  function logout() {
-    stopGps();
-    auth.signOut();
-  }
-
-  // Handle auth state changes
-  auth.onAuthStateChanged(user => {
-    currentUser = user;
-    if (user) {
-      document.getElementById('authCard').style.display = 'none';
-      document.getElementById('driverCard').style.display = 'none';
-
-      showSplash(() => {
-        document.getElementById('driverCard').style.display = 'block';
-        document.getElementById('driverIdentity').innerText =
-          `Logged in as ${user.email}`;
-        subscribeToLoadsForUser(user);
-
-        if (localStorage.getItem('ritewayShowPwaHint') === '1') {
-          localStorage.removeItem('ritewayShowPwaHint');
-          openPwaHint();
-        }
-      });
-    } else {
-      hideSplashImmediately();
-      document.getElementById('driverCard').style.display = 'none';
-      document.getElementById('authCard').style.display = 'block';
-      const idEl = document.getElementById('driverIdentity');
-      if (idEl) idEl.innerText = '';
-      const loadsList = document.getElementById('loadsList');
-      if (loadsList) loadsList.innerHTML = '';
-      document.getElementById('loadDetails').innerHTML =
-        '<div style="color:var(--text-muted); font-size:0.8rem;">Tap a load on the left to see details and start loading.</div>';
-      setPrimaryButton('Select a load', null, true);
-      setStatusText('No load selected');
-      loadsById = {};
-      selectedLoadId = null;
-      setLoadCountBadge(0);
-      if (loadsRef) loadsRef.off();
+    function closePwaHint() {
+      const modal = document.getElementById('pwaHintModal');
+      if (modal) modal.style.display = 'none';
     }
-  });
 
-  // --- Loads subscription ---
-  function subscribeToLoadsForUser(user) {
-    if (!user) return;
-    if (loadsRef) loadsRef.off();
+    // --- Auth functions ---
+    function showAuthError(text) {
+      const el = document.getElementById('authError');
+      if (el) el.innerText = text || '';
+    }
 
-    loadsRef = db.ref('deliveries')
-      .orderByChild('details/assignedDriverEmail')
-      .equalTo(user.email);
+    function login() {
+      const email = document.getElementById('authEmail').value.trim();
+      const password = document.getElementById('authPassword').value;
+      showAuthError('');
 
-    loadsRef.on('value', snapshot => {
-      const val = snapshot.val() || {};
-      loadsById = {};
+      if (!email || !password) {
+        showAuthError('Email and password are required.');
+        return;
+      }
 
-      Object.entries(val).forEach(([id, obj]) => {
-        loadsById[id] = obj;
-      });
+      auth.signInWithEmailAndPassword(email, password)
+        .then(() => {
+          showAuthError('');
+        })
+        .catch(err => {
+          console.error(err);
+          showAuthError(err.message);
+        });
+    }
 
-      renderLoadsList();
+    function signup() {
+      const email = document.getElementById('authEmail').value.trim();
+      const password = document.getElementById('authPassword').value;
+      showAuthError('');
 
-      // Refresh selected load's UI based on latest status
-      if (selectedLoadId && loadsById[selectedLoadId] && loadsById[selectedLoadId].status !== 'complete') {
-        selectLoad(selectedLoadId);
+      if (!email || !password) {
+        showAuthError('Email and password are required.');
+        return;
+      }
+
+      localStorage.setItem('ritewayShowPwaHint', '1');
+
+      auth.createUserWithEmailAndPassword(email, password)
+        .then(() => {
+          showAuthError('Account created. You are now signed in.');
+        })
+        .catch(err => {
+          console.error(err);
+          showAuthError(err.message);
+        });
+    }
+
+    function logout() {
+      stopGps();
+      auth.signOut();
+    }
+
+    // Handle auth state changes
+    auth.onAuthStateChanged(user => {
+      currentUser = user;
+      if (user) {
+        document.getElementById('authCard').style.display = 'none';
+        document.getElementById('driverCard').style.display = 'none';
+
+        showSplash(() => {
+          document.getElementById('driverCard').style.display = 'block';
+          document.getElementById('driverIdentity').innerText =
+            `Logged in as ${user.email}`;
+          subscribeToLoadsForUser(user);
+
+          if (localStorage.getItem('ritewayShowPwaHint') === '1') {
+            localStorage.removeItem('ritewayShowPwaHint');
+            openPwaHint();
+          }
+        });
       } else {
+        hideSplashImmediately();
+        document.getElementById('driverCard').style.display = 'none';
+        document.getElementById('authCard').style.display = 'block';
+        const idEl = document.getElementById('driverIdentity');
+        if (idEl) idEl.innerText = '';
+        const loadsList = document.getElementById('loadsList');
+        if (loadsList) loadsList.innerHTML = '';
+        document.getElementById('loadDetails').innerHTML =
+          '<div style="color:var(--text-muted); font-size:0.8rem;">Tap a load on the left to see details and start loading.</div>';
+        setPrimaryButton('Select a load', null, true);
+        setStatusText('No load selected');
+        loadsById = {};
         selectedLoadId = null;
-        const firstId = Object.keys(loadsById).find(id => loadsById[id].status !== 'complete');
-        if (firstId) {
-          selectLoad(firstId);
-        } else {
-          selectLoad(null);
-        }
+        setLoadCountBadge(0);
+        if (loadsRef) loadsRef.off();
       }
     });
-  }
 
-  function setLoadCountBadge(count) {
-    const badge = document.getElementById('loadCountBadge');
-    if (!badge) return;
-    badge.innerText = `${count} active load${count === 1 ? '' : 's'}`;
-  }
+    // --- Loads subscription ---
+    function subscribeToLoadsForUser(user) {
+      if (!user) return;
+      if (loadsRef) loadsRef.off();
 
-  function renderLoadsList() {
-    const container = document.getElementById('loadsList');
-    if (!container) return;
+      loadsRef = db.ref('deliveries')
+        .orderByChild('details/assignedDriverEmail')
+        .equalTo(user.email);
 
-    const entries = Object.entries(loadsById)
-      .filter(([id, obj]) => obj.status !== 'complete')
-      .sort((a,b) => (a[0] > b[0] ? -1 : 1));
+      loadsRef.on('value', snapshot => {
+        const val = snapshot.val() || {};
+        loadsById = {};
 
-    container.innerHTML = '';
-    setLoadCountBadge(entries.length);
+        Object.entries(val).forEach(([id, obj]) => {
+          loadsById[id] = obj;
+        });
 
-    if (entries.length === 0) {
-      container.innerHTML =
-        '<div style="padding:10px 12px; font-size:0.8rem; color:var(--text-muted);">No active loads assigned yet.</div>';
-      return;
+        renderLoadsList();
+
+        // Refresh selected load's UI based on latest status
+        if (selectedLoadId && loadsById[selectedLoadId] && loadsById[selectedLoadId].status !== 'complete') {
+          selectLoad(selectedLoadId);
+        } else {
+          selectedLoadId = null;
+          const firstId = Object.keys(loadsById).find(id => loadsById[id].status !== 'complete');
+          if (firstId) {
+            selectLoad(firstId);
+          } else {
+            selectLoad(null);
+          }
+        }
+      });
     }
 
-    entries.forEach(([id, obj]) => {
+    function setLoadCountBadge(count) {
+      const badge = document.getElementById('loadCountBadge');
+      if (!badge) return;
+      badge.innerText = `${count} active load${count === 1 ? '' : 's'}`;
+    }
+
+    function renderLoadsList() {
+      const container = document.getElementById('loadsList');
+      if (!container) return;
+
+      const entries = Object.entries(loadsById)
+        .filter(([id, obj]) => obj.status !== 'complete')
+        .sort((a,b) => (a[0] > b[0] ? -1 : 1));
+
+      container.innerHTML = '';
+      setLoadCountBadge(entries.length);
+
+      if (entries.length === 0) {
+        container.innerHTML =
+          '<div style="padding:10px 12px; font-size:0.8rem; color:var(--text-muted);">No active loads assigned yet.</div>';
+        return;
+      }
+
+      entries.forEach(([id, obj]) => {
+        const details = obj.details || {};
+        const status = obj.status || 'pending';
+
+        const div = document.createElement('div');
+        div.className = 'load-item' + (id === selectedLoadId ? ' active' : '');
+        div.onclick = () => selectLoad(id);
+
+        const topRow = document.createElement('div');
+        topRow.className = 'load-header-row';
+
+        const idSpan = document.createElement('span');
+        idSpan.className = 'load-id';
+        idSpan.innerText = id;
+
+        const statusSpan = document.createElement('span');
+        statusSpan.className = 'load-status-pill';
+        statusSpan.innerText = statusLabel(status);
+
+        topRow.appendChild(idSpan);
+        topRow.appendChild(statusSpan);
+
+        const sub = document.createElement('div');
+        sub.className = 'load-sub';
+        const name = details.customerName || 'No customer set';
+        const addr = details.address || 'No address set';
+        sub.innerText = `${name} · ${addr}`;
+
+        div.appendChild(topRow);
+        div.appendChild(sub);
+
+        container.appendChild(div);
+      });
+    }
+
+    // --- Selection & details ---
+    function selectLoad(id) {
+      selectedLoadId = id;
+
+      Array.from(document.querySelectorAll('.load-item')).forEach(el => {
+        el.classList.remove('active');
+      });
+
+      const ticketSection = document.getElementById('ticketUploadSection');
+      const ticketStatusEl = document.getElementById('ticketStatus');
+      if (ticketSection) ticketSection.style.display = 'none';
+      if (ticketStatusEl) ticketStatusEl.textContent = '';
+
+      if (!id || !loadsById[id]) {
+        document.getElementById('loadDetails').innerHTML =
+          '<div style="color:var(--text-muted); font-size:0.8rem;">Tap a load on the left to see details and start loading.</div>';
+        setPrimaryButton('Select a load', null, true);
+        setStatusText('No load selected');
+        stopGps();
+        return;
+      }
+
+      const obj = loadsById[id];
       const details = obj.details || {};
       const status = obj.status || 'pending';
 
-      const div = document.createElement('div');
-      div.className = 'load-item' + (id === selectedLoadId ? ' active' : '');
-      div.onclick = () => selectLoad(id);
+      const html = `
+        <div>
+          <div class="detail-label">Delivery ID</div>
+          <div class="detail-value">${id}</div>
 
-      const topRow = document.createElement('div');
-      topRow.className = 'load-header-row';
+          <div class="detail-label">Customer</div>
+          <div class="detail-value">${details.customerName || '—'}</div>
 
-      const idSpan = document.createElement('span');
-      idSpan.className = 'load-id';
-      idSpan.innerText = id;
+          <div class="detail-label">Address</div>
+          <div class="detail-value">${details.address || '—'}</div>
 
-      const statusSpan = document.createElement('span');
-      statusSpan.className = 'load-status-pill';
-      statusSpan.innerText = statusLabel(status);
+          <div class="detail-label">Items</div>
+          <div class="detail-value">${details.items || '—'}</div>
 
-      topRow.appendChild(idSpan);
-      topRow.appendChild(statusSpan);
+          <div class="detail-label">Status</div>
+          <div class="detail-value">${statusLabel(status)}</div>
+        </div>
+      `;
+      document.getElementById('loadDetails').innerHTML = html;
 
-      const sub = document.createElement('div');
-      sub.className = 'load-sub';
-      const name = details.customerName || 'No customer set';
-      const addr = details.address || 'No address set';
-      sub.innerText = `${name} · ${addr}`;
-
-      div.appendChild(topRow);
-      div.appendChild(sub);
-
-      container.appendChild(div);
-    });
-  }
-
-  // --- Selection & details ---
-  function selectLoad(id) {
-    selectedLoadId = id;
-
-    Array.from(document.querySelectorAll('.load-item')).forEach(el => {
-      el.classList.remove('active');
-    });
-
-    const ticketSection = document.getElementById('ticketUploadSection');
-    const ticketStatusEl = document.getElementById('ticketStatus');
-    if (ticketSection) ticketSection.style.display = 'none';
-    if (ticketStatusEl) ticketStatusEl.textContent = '';
-
-    if (!id || !loadsById[id]) {
-      document.getElementById('loadDetails').innerHTML =
-        '<div style="color:var(--text-muted); font-size:0.8rem;">Tap a load on the left to see details and start loading.</div>';
-      setPrimaryButton('Select a load', null, true);
-      setStatusText('No load selected');
-      stopGps();
-      return;
-    }
-
-    const obj = loadsById[id];
-    const details = obj.details || {};
-    const status = obj.status || 'pending';
-
-    const html = `
-      <div>
-        <div class="detail-label">Delivery ID</div>
-        <div class="detail-value">${id}</div>
-
-        <div class="detail-label">Customer</div>
-        <div class="detail-value">${details.customerName || '—'}</div>
-
-        <div class="detail-label">Address</div>
-        <div class="detail-value">${details.address || '—'}</div>
-
-        <div class="detail-label">Items</div>
-        <div class="detail-value">${details.items || '—'}</div>
-
-        <div class="detail-label">Status</div>
-        <div class="detail-value">${statusLabel(status)}</div>
-      </div>
-    `;
-    document.getElementById('loadDetails').innerHTML = html;
-
-    if (status === 'loading') {
-      if (ticketSection) ticketSection.style.display = 'block';
-      setPrimaryButton('Upload Scale Ticket', uploadScaleTicketForSelected);
-      setStatusText('Loading at pit / getting ticket…');
-      ensureGpsRunning(id);
-    } else if (status === 'en_route') {
-      if (ticketSection) ticketSection.style.display = 'none';
-      setPrimaryButton('Complete Delivery', completeSelected);
-      setStatusText('En route to customer…');
-      ensureGpsRunning(id);
-    } else if (status === 'complete') {
-      if (ticketSection) ticketSection.style.display = 'none';
-      setPrimaryButton('Completed', null, true);
-      setStatusText('Delivery complete');
-      stopGps();
-    } else {
-      if (ticketSection) ticketSection.style.display = 'none';
-      setPrimaryButton('Start Loading', startLoadingForSelected);
-      setStatusText('Ready to start');
-      stopGps();
-    }
-
-    const container = document.getElementById('loadsList');
-    if (container) {
-      Array.from(container.children).forEach(child => {
-        if (child.onclick && child.onclick.toString().includes(`"${id}"`)) {
-          child.classList.add('active');
-        }
-      });
-    }
-  }
-
-  // --- GPS helpers ---
-  function stopGps() {
-    if (gpsInterval) {
-      clearInterval(gpsInterval);
-      gpsInterval = null;
-      log('GPS interval stopped');
-    }
-  }
-
-  function ensureGpsRunning(deliveryId) {
-    if (!deliveryId) return;
-    if (gpsInterval && gpsInterval._forId === deliveryId) return;
-
-    stopGps();
-
-    const sendGpsOnce = () => {
-      getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 10000 })
-        .then(pos => {
-          const loc = {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            ts: new Date().toISOString()
-          };
-
-          const deliveryRef = db.ref('deliveries/' + deliveryId);
-
-          deliveryRef.child('location').set(loc)
-            .then(() => log(`GPS sent for ${deliveryId}: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`))
-            .catch(err => log('ERROR sending GPS: ' + err.message));
-
-          // Customer-facing gating
-          const obj = loadsById[deliveryId] || {};
-          const ticketInfo = obj.ticketInfo;
-
-          if (!ticketInfo || !ticketInfo.ticketUploadedAt) {
-            // No ticket yet -> customer sees full live location
-            deliveryRef.child('customerLocation').set(loc)
-              .catch(err => log('ERROR setting customerLocation: ' + err.message));
-          } else if (ticketInfo.pitLat != null && ticketInfo.pitLng != null) {
-            const dist = computeDistanceMeters(
-              loc.lat,
-              loc.lng,
-              ticketInfo.pitLat,
-              ticketInfo.pitLng
-            );
-            const ONE_MILE_METERS = 1609.34;
-
-            if (dist >= ONE_MILE_METERS) {
-              deliveryRef.child('customerLocation').set(loc)
-                .catch(err => log('ERROR setting customerLocation: ' + err.message));
-            } else {
-              // Hide location from customer while within 1 mile of where ticket was taken
-              deliveryRef.child('customerLocation').set(null)
-                .catch(err => log('ERROR clearing customerLocation: ' + err.message));
-            }
-          } else {
-            // Ticket exists but no pit location -> fall back to full location
-            deliveryRef.child('customerLocation').set(loc)
-              .catch(err => log('ERROR setting customerLocation: ' + err.message));
-          }
-        })
-        .catch(err => {
-          log('GPS ERROR: ' + err.message);
-          setStatusText('GPS error: ' + err.message);
-        });
-    };
-
-    sendGpsOnce();
-
-    gpsInterval = setInterval(sendGpsOnce, 5000);
-    gpsInterval._forId = deliveryId;
-    log('GPS interval started for ' + deliveryId);
-  }
-
-  // --- Status transitions for selected load ---
-  function startLoadingForSelected() {
-    if (!selectedLoadId) {
-      log('startLoadingForSelected called but no selectedLoadId');
-      return;
-    }
-    const id = selectedLoadId;
-    const obj = loadsById[id] || {};
-    const details = obj.details || {};
-    log('startLoadingForSelected for ' + id);
-
-    if (currentUser && (!details.assignedDriverEmail || details.assignedDriverEmail !== currentUser.email)) {
-      db.ref('deliveries/' + id + '/details/assignedDriverEmail').set(currentUser.email);
-    }
-
-    db.ref('deliveries/' + id + '/status').set('loading')
-      .then(() => {
-        log(`Status for ${id} set to loading`);
+      if (status === 'loading') {
+        if (ticketSection) ticketSection.style.display = 'block';
+        setPrimaryButton('Upload Scale Ticket', uploadScaleTicketForSelected);
         setStatusText('Loading at pit / getting ticket…');
-
-        if (!loadsById[id]) loadsById[id] = {};
-        loadsById[id].status = 'loading';
-        selectLoad(id);
-
         ensureGpsRunning(id);
-      })
-      .catch(err => log('ERROR setting status: ' + err.message));
-  }
-
-  async function uploadScaleTicketForSelected() {
-    if (!selectedLoadId) {
-      log('uploadScaleTicketForSelected called but no selectedLoadId');
-      return;
-    }
-    const id = selectedLoadId;
-    const user = currentUser;
-    const statusEl = document.getElementById('ticketStatus');
-    const fileInput = document.getElementById('ticketFileInput');
-
-    log('uploadScaleTicketForSelected for ' + id);
-
-    if (statusEl) statusEl.textContent = '';
-
-    if (!user) {
-      alert('Please sign in before uploading a ticket.');
-      return;
-    }
-
-    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-      alert('Please choose or take a photo of the scale ticket.');
-      return;
-    }
-
-    const file = fileInput.files[0];
-
-    try {
-      if (statusEl) statusEl.textContent = 'Getting location & uploading ticket…';
-
-      let pitLocation = null;
-      try {
-        const pos = await getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 15000 });
-        pitLocation = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude
-        };
-      } catch (geoErr) {
-        log('Could not get pit location for ticket: ' + geoErr.message);
+      } else if (status === 'en_route') {
+        if (ticketSection) ticketSection.style.display = 'none';
+        setPrimaryButton('Complete Delivery', completeSelected);
+        setStatusText('En route to customer…');
+        ensureGpsRunning(id);
+      } else if (status === 'complete') {
+        if (ticketSection) ticketSection.style.display = 'none';
+        setPrimaryButton('Completed', null, true);
+        setStatusText('Delivery complete');
+        stopGps();
+      } else {
+        if (ticketSection) ticketSection.style.display = 'none';
+        setPrimaryButton('Start Loading', startLoadingForSelected);
+        setStatusText('Ready to start');
+        stopGps();
       }
 
-      const now = new Date();
-      const year = now.getFullYear();
-      const ticketId = Date.now().toString();
+      const container = document.getElementById('loadsList');
+      if (container) {
+        Array.from(container.children).forEach(child => {
+          if (child.onclick && child.onclick.toString().includes(`"${id}"`)) {
+            child.classList.add('active');
+          }
+        });
+      }
+    }
 
-      const storagePath = `scaleTickets/${year}/${user.uid}/${ticketId}.jpg`;
-      const storageRef = storage.ref(storagePath);
+    // --- GPS helpers ---
+    function stopGps() {
+      if (gpsInterval) {
+        clearInterval(gpsInterval);
+        gpsInterval = null;
+        log('GPS interval stopped');
+      }
+    }
 
-      const metadata = {
-        customMetadata: {
+    function ensureGpsRunning(deliveryId) {
+      if (!deliveryId) return;
+      if (gpsInterval && gpsInterval._forId === deliveryId) return;
+
+      stopGps();
+
+      const sendGpsOnce = () => {
+        getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 10000 })
+          .then(pos => {
+            const loc = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              ts: new Date().toISOString()
+            };
+
+            const deliveryRef = db.ref('deliveries/' + deliveryId);
+
+            deliveryRef.child('location').set(loc)
+              .then(() => log(`GPS sent for ${deliveryId}: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`))
+              .catch(err => log('ERROR sending GPS: ' + err.message));
+
+            // Customer-facing gating
+            const obj = loadsById[deliveryId] || {};
+            const ticketInfo = obj.ticketInfo;
+
+            if (!ticketInfo || !ticketInfo.ticketUploadedAt) {
+              // No ticket yet -> customer sees full live location
+              deliveryRef.child('customerLocation').set(loc)
+                .catch(err => log('ERROR setting customerLocation: ' + err.message));
+            } else if (ticketInfo.pitLat != null && ticketInfo.pitLng != null) {
+              const dist = computeDistanceMeters(
+                loc.lat,
+                loc.lng,
+                ticketInfo.pitLat,
+                ticketInfo.pitLng
+              );
+              const ONE_MILE_METERS = 1609.34;
+
+              if (dist >= ONE_MILE_METERS) {
+                deliveryRef.child('customerLocation').set(loc)
+                  .catch(err => log('ERROR setting customerLocation: ' + err.message));
+              } else {
+                // Hide location from customer while within 1 mile of where ticket was taken
+                deliveryRef.child('customerLocation').set(null)
+                  .catch(err => log('ERROR clearing customerLocation: ' + err.message));
+              }
+            } else {
+              // Ticket exists but no pit location -> fall back to full location
+              deliveryRef.child('customerLocation').set(loc)
+                .catch(err => log('ERROR setting customerLocation: ' + err.message));
+            }
+          })
+          .catch(err => {
+            log('GPS ERROR: ' + err.message);
+            setStatusText('GPS error: ' + err.message);
+          });
+      };
+
+      sendGpsOnce();
+
+      gpsInterval = setInterval(sendGpsOnce, 5000);
+      gpsInterval._forId = deliveryId;
+      log('GPS interval started for ' + deliveryId);
+    }
+
+    // --- Status transitions for selected load ---
+    function startLoadingForSelected() {
+      if (!selectedLoadId || !loadsById[selectedLoadId]) return;
+      const id = selectedLoadId;
+      const obj = loadsById[id];
+      const details = obj.details || {};
+
+      if (currentUser && (!details.assignedDriverEmail || details.assignedDriverEmail !== currentUser.email)) {
+        db.ref('deliveries/' + id + '/details/assignedDriverEmail').set(currentUser.email);
+      }
+
+      db.ref('deliveries/' + id + '/status').set('loading')
+        .then(() => {
+          log(`Status for ${id} set to loading`);
+          setStatusText('Loading at pit / getting ticket…');
+
+          if (!loadsById[id]) loadsById[id] = {};
+          loadsById[id].status = 'loading';
+          selectLoad(id);
+
+          ensureGpsRunning(id);
+        })
+        .catch(err => log('ERROR setting status: ' + err.message));
+    }
+
+    async function uploadScaleTicketForSelected() {
+      if (!selectedLoadId || !loadsById[selectedLoadId]) return;
+      const id = selectedLoadId;
+      const user = currentUser;
+      const statusEl = document.getElementById('ticketStatus');
+      const fileInput = document.getElementById('ticketFileInput');
+
+      if (statusEl) statusEl.textContent = '';
+
+      if (!user) {
+        alert('Please sign in before uploading a ticket.');
+        return;
+      }
+
+      if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        alert('Please choose or take a photo of the scale ticket.');
+        return;
+      }
+
+      const file = fileInput.files[0];
+
+      try {
+        if (statusEl) statusEl.textContent = 'Getting location & uploading ticket…';
+
+        let pitLocation = null;
+        try {
+          const pos = await getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 15000 });
+          pitLocation = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude
+          };
+        } catch (geoErr) {
+          log('Could not get pit location for ticket: ' + geoErr.message);
+        }
+
+        const now = new Date();
+        const year = now.getFullYear();
+        const ticketId = Date.now().toString();
+
+        const storagePath = `scaleTickets/${year}/${user.uid}/${ticketId}.jpg`;
+        const storageRef = storage.ref(storagePath);
+
+        const metadata = {
+          customMetadata: {
+            driverUid: user.uid,
+            driverName: getDriverDisplayName(user),
+            deliveryId: id,
+            createdAt: now.toISOString()
+          }
+        };
+
+        const snapshot = await storageRef.put(file, metadata);
+        const downloadUrl = await snapshot.ref.getDownloadURL();
+
+        const ticketRecord = {
+          ticketId: ticketId,
           driverUid: user.uid,
           driverName: getDriverDisplayName(user),
           deliveryId: id,
-          createdAt: now.toISOString()
-        }
-      };
+          createdAt: now.getTime(),
+          createdAtISO: now.toISOString(),
+          storagePath: storagePath,
+          downloadUrl: downloadUrl
+        };
 
-      const snapshot = await storageRef.put(file, metadata);
-      const downloadUrl = await snapshot.ref.getDownloadURL();
+        await db.ref('scaleTicketsMetadata/' + ticketId).set(ticketRecord);
 
-      const ticketRecord = {
-        ticketId: ticketId,
-        driverUid: user.uid,
-        driverName: getDriverDisplayName(user),
-        deliveryId: id,
-        createdAt: now.getTime(),
-        createdAtISO: now.toISOString(),
-        storagePath: storagePath,
-        downloadUrl: downloadUrl
-      };
+        const ticketInfo = {
+          pitLat: pitLocation ? pitLocation.lat : null,
+          pitLng: pitLocation ? pitLocation.lng : null,
+          ticketUploadedAt: now.toISOString()
+        };
 
-      await db.ref('scaleTicketsMetadata/' + ticketId).set(ticketRecord);
+        await db.ref('deliveries/' + id + '/ticketInfo').set(ticketInfo);
 
-      const ticketInfo = {
-        pitLat: pitLocation ? pitLocation.lat : null,
-        pitLng: pitLocation ? pitLocation.lng : null,
-        ticketUploadedAt: now.toISOString()
-      };
+        if (!loadsById[id]) loadsById[id] = {};
+        loadsById[id].ticketInfo = ticketInfo;
 
-      await db.ref('deliveries/' + id + '/ticketInfo').set(ticketInfo);
+        await db.ref('deliveries/' + id + '/status').set('en_route');
+        loadsById[id].status = 'en_route';
 
-      if (!loadsById[id]) loadsById[id] = {};
-      loadsById[id].ticketInfo = ticketInfo;
-
-      await db.ref('deliveries/' + id + '/status').set('en_route');
-      loadsById[id].status = 'en_route';
-
-      if (statusEl) statusEl.textContent = 'Ticket uploaded. You are now en route to customer.';
-      setStatusText('En route to customer…');
-      setPrimaryButton('Complete Delivery', completeSelected);
-
-      if (fileInput) fileInput.value = '';
-
-      log(`Scale ticket uploaded for ${id}, ticketId=${ticketId}`);
-    } catch (err) {
-      console.error('Error uploading scale ticket:', err);
-      const msg = (err && (err.code || err.message)) ? `${err.code || ''} ${err.message || ''}` : 'Unknown error';
-      log('UPLOAD ERROR: ' + msg);
-      if (statusEl) statusEl.textContent = 'Upload failed: ' + msg;
-      alert('Error uploading ticket: ' + msg);
-    }
-  }
-
-  function startTrackingForSelected() {
-    if (!selectedLoadId) {
-      log('startTrackingForSelected called but no selectedLoadId');
-      return;
-    }
-    const id = selectedLoadId;
-    log('startTrackingForSelected for ' + id);
-
-    db.ref('deliveries/' + id + '/status').set('en_route')
-      .then(() => {
-        log(`Status for ${id} set to en_route`);
+        if (statusEl) statusEl.textContent = 'Ticket uploaded. You are now en route to customer.';
         setStatusText('En route to customer…');
-        ensureGpsRunning(id);
-      })
-      .catch(err => log('ERROR setting status: ' + err.message));
-  }
+        setPrimaryButton('Complete Delivery', completeSelected);
 
-  function completeSelected() {
-    if (!selectedLoadId) {
-      log('completeSelected called but no selectedLoadId');
-      return;
-    }
-    const id = selectedLoadId;
-    log('completeSelected for ' + id);
+        if (fileInput) fileInput.value = '';
 
-    db.ref('deliveries/' + id + '/status').set('complete')
-      .then(() => {
-        log(`Status for ${id} set to complete`);
-        setStatusText('Delivery complete');
-      })
-      .catch(err => log('ERROR setting status: ' + err.message));
-
-    db.ref('deliveries/' + id + '/location').remove()
-      .then(() => log('Location cleared for ' + id))
-      .catch(err => log('ERROR clearing location: ' + err.message));
-
-    db.ref('deliveries/' + id + '/customerLocation').remove()
-      .then(() => log('customerLocation cleared for ' + id))
-      .catch(err => log('ERROR clearing customerLocation: ' + err.message));
-
-    stopGps();
-  }
-
-  // --- Debug primary button clicks (helps verify taps) ---
-  (function hookPrimaryButtonClicks() {
-    function attach() {
-      const btn = document.getElementById('primaryActionBtn');
-      if (!btn) return;
-      btn.addEventListener('click', () => {
-        log('Primary button CLICKED by user. Label: ' + btn.innerText);
-      });
+        log(`Scale ticket uploaded for ${id}, ticketId=${ticketId}`);
+      } catch (err) {
+        console.error('Error uploading scale ticket:', err);
+        log('Error uploading ticket: ' + err.message);
+        if (statusEl) statusEl.textContent = 'Upload failed. Please try again.';
+        alert('Error uploading ticket. Check connection and try again.');
+      }
     }
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', attach);
-    } else {
-      attach();
+    function startTrackingForSelected() {
+      if (!selectedLoadId || !loadsById[selectedLoadId]) return;
+      const id = selectedLoadId;
+
+      db.ref('deliveries/' + id + '/status').set('en_route')
+        .then(() => {
+          log(`Status for ${id} set to en_route`);
+          setStatusText('En route to customer…');
+          ensureGpsRunning(id);
+        })
+        .catch(err => log('ERROR setting status: ' + err.message));
     }
-  })();
-</script>
+
+    function completeSelected() {
+      if (!selectedLoadId || !loadsById[selectedLoadId]) return;
+      const id = selectedLoadId;
+
+      db.ref('deliveries/' + id + '/status').set('complete')
+        .then(() => {
+          log(`Status for ${id} set to complete`);
+          setStatusText('Delivery complete');
+        })
+        .catch(err => log('ERROR setting status: ' + err.message));
+
+      db.ref('deliveries/' + id + '/location').remove()
+        .then(() => log('Location cleared for ' + id))
+        .catch(err => log('ERROR clearing location: ' + err.message));
+
+      db.ref('deliveries/' + id + '/customerLocation').remove()
+        .then(() => log('customerLocation cleared for ' + id))
+        .catch(err => log('ERROR clearing customerLocation: ' + err.message));
+
+      stopGps();
+    }
+  </script>
+</body>
+</html>
