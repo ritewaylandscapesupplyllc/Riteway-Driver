@@ -652,7 +652,7 @@
     </div>
   </div>
 
-  <script>
+    <script>
     // --- Firebase Init ---
     const firebaseConfig = {
       apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
@@ -676,7 +676,7 @@
     let gpsInterval = null;
     let loadsRef = null;
     let splashTimer = null;
-    let currentPrimaryHandler = null; // <--- central handler reference
+    let currentPrimaryHandler = null; // central handler reference
 
     // --- Small helpers ---
     function log(msg) {
@@ -707,12 +707,15 @@
       log('Primary button set to "' + label + '" (disabled=' + disabled + ')');
     }
 
-    // Single click handler for the primary button (mobile-safe)
-    document.addEventListener('click', function (e) {
+    // Attach handlers directly to the primary button (click + touchend)
+    function attachPrimaryButtonHandlers() {
       const btn = document.getElementById('primaryActionBtn');
-      if (!btn) return;
+      if (!btn) {
+        log('Primary button not found when trying to attach handlers');
+        return;
+      }
 
-      if (e.target === btn || btn.contains(e.target)) {
+      function handlePrimary() {
         log('Primary button CLICKED by user. Label: ' + btn.innerText);
         if (!btn.disabled && typeof currentPrimaryHandler === 'function') {
           try {
@@ -720,9 +723,34 @@
           } catch (err) {
             log('Primary handler threw error: ' + err.message);
           }
+        } else {
+          log('Primary handler missing or button disabled');
         }
       }
-    });
+
+      // Avoid double attaching
+      if (!btn._handlersAttached) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          handlePrimary();
+        });
+
+        btn.addEventListener('touchend', function (e) {
+          e.preventDefault();
+          handlePrimary();
+        }, { passive: false });
+
+        btn._handlersAttached = true;
+        log('Primary button handlers attached (click + touchend)');
+      }
+    }
+
+    // Attach once DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', attachPrimaryButtonHandlers);
+    } else {
+      attachPrimaryButtonHandlers();
+    }
 
     function statusLabel(status) {
       if (!status || status === 'pending') return 'Pending';
