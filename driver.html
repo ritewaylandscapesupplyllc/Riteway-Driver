@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Driver Profile — Riteway Dispatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    :root {
+      --bg: #050608;
+      --bg-elevated: #15191f;
+      --bg-soft: #1b2129;
+      --accent: #12C3A0;
+      --text: #f5f7fb;
+      --text-muted: #a6afb8;
+      --radius: 16px;
+    }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      background: #050608;
+      font-family: system-ui, sans-serif;
+      color: var(--text);
+    }
+
+    .hamburger {
+      width: 40px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+      cursor: pointer;
+    }
+
+    .hamburger div {
+      width: 18px;
+      height: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .hamburger-line {
+      height: 2px;
+      background: white;
+      border-radius: 2px;
+    }
+
+    /* SIDE MENU */
+    .menu-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      display: none;
+    }
+
+    .menu-backdrop.open {
+      display: block;
+    }
+
+    .side-menu {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 260px;
+      height: 100%;
+      background: #111417;
+      border-right: 1px solid #222;
+      padding: 14px;
+      transform: translateX(-100%);
+      transition: 0.25s ease;
+    }
+
+    .side-menu.open {
+      transform: translateX(0);
+    }
+
+    .menu-item {
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 10px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.8rem;
+    }
+
+    .card {
+      background: #15191f;
+      padding: 14px;
+      border-radius: var(--radius);
+      margin-bottom: 14px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .section-title {
+      font-size: 0.88rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 10px;
+      color: var(--text-muted);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      color: var(--text);
+    }
+
+    th, td {
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      text-align: left;
+    }
+
+    th {
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .placeholder {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      padding: 8px 4px;
+    }
+  </style>
+
+</head>
+<body>
+
+  <!-- HAMBURGER -->
+  <div class="hamburger" onclick="toggleMenu()">
+    <div>
+      <div class="hamburger-line"></div>
+      <div class="hamburger-line"></div>
+      <div class="hamburger-line"></div>
+    </div>
+  </div>
+
+  <!-- BACKDROP -->
+  <div id="menuBackdrop" class="menu-backdrop" onclick="toggleMenu()"></div>
+
+  <!-- SIDE MENU -->
+  <div id="sideMenu" class="side-menu">
+    <div class="menu-item" onclick="go('dispatch.html')">Dashboard Home</div>
+    <div class="menu-item" onclick="go('drivers.html')">All Drivers</div>
+    <div class="menu-item" onclick="go('invite-driver.html')">Invite Driver</div>
+  </div>
+
+
+  <!-- MAIN CONTENT -->
+  <h2 id="driverName">Driver</h2>
+  <div id="driverEmail" style="color:var(--text-muted); margin-bottom:12px;"></div>
+
+  <!-- PROFILE CARD -->
+  <div class="card">
+    <div class="section-title">Profile Details</div>
+    <div id="profileDetails">Loading...</div>
+  </div>
+
+  <!-- LOADS CARD -->
+  <div class="card">
+    <div class="section-title">Loads Completed / Assigned</div>
+    <div id="loadsTableContainer">Loading...</div>
+  </div>
+
+  <!-- SCALE TICKETS CARD -->
+  <div class="card">
+    <div class="section-title">Scale Tickets (Future)</div>
+    <div class="placeholder">No scale tickets uploaded yet.</div>
+  </div>
+
+  <!-- RATINGS CARD -->
+  <div class="card">
+    <div class="section-title">Customer Ratings & Comments (Future)</div>
+    <div class="placeholder">No customer feedback yet.</div>
+  </div>
+
+<script>
+  const API_BASE = "https://riteway-admin-api.onrender.com";
+  const ADMIN_KEY = "riteway-super-secret-928374";
+
+  function go(path) {
+    window.location.href = path;
+  }
+
+  function toggleMenu() {
+    document.getElementById("sideMenu").classList.toggle("open");
+    document.getElementById("menuBackdrop").classList.toggle("open");
+  }
+
+  // ---- GET UID FROM URL ----
+  const params = new URLSearchParams(window.location.search);
+  const uid = params.get("uid");
+
+  if (!uid) {
+    document.body.innerHTML = "<h2 style='color:white'>Invalid driver: no UID provided</h2>";
+    throw new Error("No UID");
+  }
+
+  // ---- FETCH DRIVER DETAILS FROM ADMIN API ----
+  async function loadDriver() {
+    try {
+      const res = await fetch(`${API_BASE}/driver-details?uid=${uid}`, {
+        headers: {
+          "x-admin-api-key": ADMIN_KEY
+        }
+      });
+
+      const data = await res.json();
+
+      if (data.error) {
+        document.body.innerHTML = "<h2 style='color:white'>Driver not found</h2>";
+        return;
+      }
+
+      const profile = data.profile;
+      const loads = data.loads || [];
+
+      // Header
+      document.getElementById("driverName").textContent =
+        profile.displayName || "Unnamed Driver";
+
+      document.getElementById("driverEmail").textContent =
+        profile.email || "No email";
+
+      // Profile block
+      document.getElementById("profileDetails").innerHTML = `
+        <div><strong>UID:</strong> ${profile.uid}</div>
+        <div><strong>Email:</strong> ${profile.email || "N/A"}</div>
+        <div><strong>Phone:</strong> ${profile.phoneNumber || "N/A"}</div>
+        <div><strong>Created:</strong> ${profile.creationTime}</div>
+        <div><strong>Last Sign-In:</strong> ${profile.lastSignInTime || "Never"}</div>
+      `;
+
+      // Loads table
+      if (loads.length === 0) {
+        document.getElementById("loadsTableContainer").innerHTML =
+          `<div class='placeholder'>No loads assigned to this driver.</div>`;
+      } else {
+        let html = `
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Customer</th>
+                <th>Address</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+
+        loads.forEach(l => {
+          html += `
+            <tr>
+              <td>${l.id}</td>
+              <td>${l.details.customerName || ""}</td>
+              <td>${l.details.address || ""}</td>
+              <td>${l.status}</td>
+            </tr>
+          `;
+        });
+
+        html += "</tbody></table>";
+
+        document.getElementById("loadsTableContainer").innerHTML = html;
+      }
+
+    } catch (err) {
+      console.error(err);
+      document.getElementById("profileDetails").innerHTML =
+        "<div style='color:red'>Error loading driver</div>";
+    }
+  }
+
+  loadDriver();
+</script>
+
+</body>
+</html>
