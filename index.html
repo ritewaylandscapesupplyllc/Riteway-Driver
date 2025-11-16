@@ -45,7 +45,6 @@
     }
 
     html, body {
-      -webkit-touch-callout: none;
       -webkit-text-size-adjust: 100%;
     }
 
@@ -61,13 +60,6 @@
       align-items: flex-start;
       position: relative;
       overflow-x: hidden;
-      -webkit-user-select: none;
-      user-select: none;
-    }
-
-    input, textarea {
-      -webkit-user-select: text;
-      user-select: text;
     }
 
     body::before {
@@ -585,12 +577,7 @@
           <div id="ticketUploadSection" style="margin-top:12px; display:none;">
             <div class="detail-label">Scale Ticket</div>
             <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">
-              When you’re at the pit scale, enter the pit name and take a clear photo of the ticket.
-            </div>
-
-            <div class="field">
-              <label for="pitNameInput">Pit / Material Source</label>
-              <input type="text" id="pitNameInput" placeholder="e.g. Staker Parson Lakepoint">
+              When you’re at the pit scale, take a clear photo of the ticket.
             </div>
 
             <input
@@ -739,7 +726,7 @@
       const R = 6371000; // meters
       const toRad = deg => deg * Math.PI / 180;
       const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lon2 - lon1);
+      const dLon = toRad(lat2 - lon1);
       const a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
@@ -1170,19 +1157,12 @@
       const id = selectedLoadId;
       const user = currentUser;
       const statusEl = document.getElementById('ticketStatus');
-      const pitInput = document.getElementById('pitNameInput');
       const fileInput = document.getElementById('ticketFileInput');
 
       if (statusEl) statusEl.textContent = '';
 
       if (!user) {
         alert('Please sign in before uploading a ticket.');
-        return;
-      }
-
-      const pitName = (pitInput && pitInput.value || '').trim();
-      if (!pitName) {
-        alert('Please enter the pit / material source name.');
         return;
       }
 
@@ -1218,7 +1198,6 @@
           customMetadata: {
             driverUid: user.uid,
             driverName: getDriverDisplayName(user),
-            pitName: pitName,
             deliveryId: id,
             createdAt: now.toISOString()
           }
@@ -1231,7 +1210,6 @@
           ticketId: ticketId,
           driverUid: user.uid,
           driverName: getDriverDisplayName(user),
-          pitName: pitName,
           deliveryId: id,
           createdAt: now.getTime(),
           createdAtISO: now.toISOString(),
@@ -1242,7 +1220,6 @@
         await db.ref('scaleTicketsMetadata/' + ticketId).set(ticketRecord);
 
         const ticketInfo = {
-          pitName: pitName,
           pitLat: pitLocation ? pitLocation.lat : null,
           pitLng: pitLocation ? pitLocation.lng : null,
           ticketUploadedAt: now.toISOString()
@@ -1260,7 +1237,6 @@
         setStatusText('En route to customer…');
         setPrimaryButton('Complete Delivery', completeSelected);
 
-        if (pitInput) pitInput.value = '';
         if (fileInput) fileInput.value = '';
 
         log(`Scale ticket uploaded for ${id}, ticketId=${ticketId}`);
@@ -1306,7 +1282,7 @@
       stopGps();
     }
 
-    // --- Debug primary button clicks so we can see taps in the log ---
+    // --- Debug primary button clicks (helps verify taps) ---
     (function hookPrimaryButtonClicks() {
       function attach() {
         const btn = document.getElementById('primaryActionBtn');
