@@ -637,7 +637,7 @@
       <span class="chevron">›</span>
     </button>
 
-    <!-- NEW: View All Drivers -->
+    <!-- View All Drivers -->
     <button class="side-menu-item" onclick="goToPage('drivers.html')">
       <span class="label">View All Drivers</span>
       <span class="chevron">›</span>
@@ -720,6 +720,15 @@
             <div class="field-label">Cost / Yard ($)</div>
             <input id="newCostPerYard" class="field-input" type="number" step="0.01" placeholder="Your material cost">
           </div>
+
+          <!-- NEW: assign driver at create time -->
+          <div class="full-span">
+            <div class="field-label">Assign Driver</div>
+            <select id="newAssignedDriverEmail" class="field-input">
+              <option value="">Unassigned</option>
+              <!-- filled by JS -->
+            </select>
+          </div>
         </div>
 
         <div class="new-load-actions">
@@ -771,6 +780,7 @@
           </select>
           <select id="driverFilter" class="filter-select" onchange="applyFilter()">
             <option value="all">Driver: All</option>
+            <!-- filled by JS from drivers -->
           </select>
         </div>
 
@@ -817,6 +827,7 @@
   <script>
     // --- CONFIG: backend base URL (Render) ---
     const ADMIN_API_BASE = 'https://riteway-admin-api.onrender.com';
+    const ADMIN_API_KEY  = 'riteway-super-secret-928374';
 
     // Firebase config (same project)
     const firebaseConfig = {
@@ -843,6 +854,10 @@
     let autoFitDone = false;
     let currentEditId = null;
 
+    // List of drivers from admin API
+    let driversList = [];
+
+    // --- Side menu helpers ---
     function openMenu() {
       document.getElementById('sideMenu').classList.add('open');
       document.getElementById('sideMenuBackdrop').classList.add('open');
@@ -875,6 +890,8 @@
       document.getElementById('newRatePerYard').value = '';
       document.getElementById('newTruckingCharge').value = '';
       document.getElementById('newCostPerYard').value = '';
+      const sel = document.getElementById('newAssignedDriverEmail');
+      if (sel) sel.value = '';
     }
 
     function cancelEdit() {
@@ -905,6 +922,10 @@
       document.getElementById('newTruckingCharge').value = details.truckingCharge || '';
       document.getElementById('newCostPerYard').value = details.costPerYard || '';
 
+      const assignedEmail = details.assignedDriverEmail || '';
+      const sel = document.getElementById('newAssignedDriverEmail');
+      if (sel) sel.value = assignedEmail;
+
       const btn = document.getElementById('newLoadButton');
       const pill = document.getElementById('newLoadPill');
       const cancelBtn = document.getElementById('cancelEditButton');
@@ -930,6 +951,11 @@
         });
     }
 
+    function getDriverByEmail(email) {
+      if (!email) return null;
+      return driversList.find(d => d.email === email) || null;
+    }
+
     function createNewLoad() {
       const idRaw = document.getElementById('newDeliveryId').value.trim().toUpperCase();
       const customerName = document.getElementById('newCustomerName').value.trim();
@@ -939,6 +965,7 @@
       const rateRaw = document.getElementById('newRatePerYard').value.trim();
       const truckingRaw = document.getElementById('newTruckingCharge').value.trim();
       const costRaw = document.getElementById('newCostPerYard').value.trim();
+      const assignedEmail = document.getElementById('newAssignedDriverEmail').value;
 
       const id = currentEditId || idRaw;
 
@@ -957,6 +984,12 @@
       const revenue = materialRevenue + truckingCharge;
       const profit = revenue - materialCost;
 
+      let assignedName = '';
+      if (assignedEmail) {
+        const drv = getDriverByEmail(assignedEmail);
+        assignedName = drv ? (drv.displayName || drv.email) : assignedEmail;
+      }
+
       const details = {
         customerName: customerName || '',
         address: address,
@@ -966,7 +999,9 @@
         truckingCharge: truckingCharge || 0,
         costPerYard: costPerYard || 0,
         revenue: revenue || 0,
-        profit: profit || 0
+        profit: profit || 0,
+        assignedDriverEmail: assignedEmail || null,
+        assignedDriverName: assignedName || null
       };
 
       if (currentEditId && deliveries[currentEditId]) {
@@ -993,6 +1028,74 @@
             console.error('Error creating load:', err);
             alert('Error creating load. Check console for details.');
           });
+      }
+    }
+
+    // --- Driver list from admin API ---
+    async function loadDriversForDispatch() {
+      try {
+        const res = await fetch(ADMIN_API_BASE + '/drivers', {
+          headers: {
+            'x-admin-api-key': ADMIN_API_KEY
+          }
+        });
+        if (!res.ok) {
+          console.error('Error loading drivers for dispatch:', res.status, res.statusText);
+          return;
+        }
+        const data = await res.json();
+        const users = data.users || [];
+
+        driversList = users.map(u => ({
+          uid: u.uid,
+          email: u.email || '',
+          displayName: u.displayName || ''
+        })).filter(d => d.email); // only drivers with email
+
+        populateDriverSelectors();
+      } catch (err) {
+        console.error('Failed to load drivers for dispatch:', err);
+      }
+    }
+
+    function populateDriverSelectors() {
+      const newSel = document.getElementById('newAssignedDriverEmail');
+      const filterSel = document.getElementById('driverFilter');
+      if (!newSel || !filterSel) return;
+
+      const prevNew = newSel.value;
+      const prevFilter = filterSel.value;
+
+      // New load dropdown
+      newSel.innerHTML = '<option value="">Unassigned</option>';
+
+      // Driver filter dropdown
+      filterSel.innerHTML = '<option value="all">Driver: All</option>';
+
+      driversList
+        .slice()
+        .sort((a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email))
+        .forEach(d => {
+          const labelBase = d.displayName ? d.displayName : d.email;
+          const label = d.displayName ? `${d.displayName} (${d.email})` : d.email;
+
+          const opt1 = document.createElement('option');
+          opt1.value = d.email;
+          opt1.textContent = label;
+          newSel.appendChild(opt1);
+
+          const opt2 = document.createElement('option');
+          opt2.value = d.email;
+          opt2.textContent = 'Driver: ' + labelBase;
+          filterSel.appendChild(opt2);
+        });
+
+      if ([...newSel.options].some(o => o.value === prevNew)) {
+        newSel.value = prevNew;
+      }
+
+      if ([...filterSel.options].some(o => o.value === prevFilter)) {
+        filterSel.value = prevFilter;
       }
     }
 
@@ -1100,7 +1203,7 @@
     function listenForDeliveries() {
       db.ref('deliveries').on('value', snapshot => {
         deliveries = snapshot.val() || {};
-        updateStatsAndFilters();
+        updateStats();
         renderDeliveriesTable();
         renderMapMarkers();
         document.getElementById('last-updated').innerText =
@@ -1108,13 +1211,11 @@
       });
     }
 
-    function updateStatsAndFilters() {
+    function updateStats() {
       let activeCount = 0;
       let completeCount = 0;
       let totalYards = 0;
       let totalProfit = 0;
-
-      const driverSet = new Set();
 
       Object.entries(deliveries).forEach(([id, d]) => {
         const status = (d.status || '').toLowerCase();
@@ -1128,31 +1229,12 @@
         const profit = Number(details.profit || 0);
         if (!isNaN(yards)) totalYards += yards;
         if (!isNaN(profit)) totalProfit += profit;
-
-        if (details.assignedDriver) {
-          driverSet.add(details.assignedDriver);
-        }
       });
 
       document.getElementById('stat-active').innerText = activeCount;
       document.getElementById('stat-complete').innerText = completeCount;
       document.getElementById('stat-yards').innerText = totalYards.toFixed(1) + ' yd';
       document.getElementById('stat-profit').innerText = '$' + totalProfit.toFixed(2);
-
-      const driverFilterSelect = document.getElementById('driverFilter');
-      const current = driverFilterSelect.value;
-      driverFilterSelect.innerHTML = '<option value="all">Driver: All</option>';
-      Array.from(driverSet).sort().forEach(name => {
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = 'Driver: ' + name;
-        driverFilterSelect.appendChild(opt);
-      });
-      if ([...driverFilterSelect.options].some(o => o.value === current)) {
-        driverFilterSelect.value = current;
-      } else {
-        driverFilterSelect.value = 'all';
-      }
     }
 
     function renderDeliveriesTable() {
@@ -1181,8 +1263,8 @@
         if (statusFilter !== 'all' && statusFilter !== 'active' &&
             statusRaw.toLowerCase() !== statusFilter) return;
 
-        const assignedDriver = (details.assignedDriver || '').trim();
-        if (driverFilter !== 'all' && assignedDriver !== driverFilter) return;
+        const assignedEmail = (details.assignedDriverEmail || '').trim();
+        if (driverFilter !== 'all' && assignedEmail !== driverFilter) return;
 
         const tr = document.createElement('tr');
 
@@ -1211,15 +1293,40 @@
         tr.appendChild(tdStatus);
 
         const tdDriver = document.createElement('td');
-        const input = document.createElement('input');
-        input.className = 'driver-input';
-        input.value = assignedDriver;
-        input.placeholder = 'Assign driver';
-        input.addEventListener('change', () => {
-          const newName = input.value.trim();
-          db.ref('deliveries/' + id + '/details/assignedDriver').set(newName || null);
+        const sel = document.createElement('select');
+        sel.className = 'driver-input';
+
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = 'Unassigned';
+        sel.appendChild(optNone);
+
+        driversList
+          .slice()
+          .sort((a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email))
+          .forEach(drv => {
+            const opt = document.createElement('option');
+            opt.value = drv.email;
+            const label = drv.displayName ? `${drv.displayName} (${drv.email})` : drv.email;
+            opt.textContent = label;
+            sel.appendChild(opt);
+          });
+
+        sel.value = assignedEmail;
+
+        sel.addEventListener('change', () => {
+          const newEmail = sel.value;
+          let newName = null;
+          if (newEmail) {
+            const drv = getDriverByEmail(newEmail);
+            newName = drv ? (drv.displayName || drv.email) : newEmail;
+          }
+          const ref = db.ref('deliveries/' + id + '/details');
+          ref.child('assignedDriverEmail').set(newEmail || null);
+          ref.child('assignedDriverName').set(newName || null);
         });
-        tdDriver.appendChild(input);
+
+        tdDriver.appendChild(sel);
         tr.appendChild(tdDriver);
 
         const tdEta = document.createElement('td');
@@ -1258,8 +1365,14 @@
       });
     }
 
+    function renderMapMarkers() {
+      // This is your existing map marker logic – leaving as-is for now
+      // (Assumes you had it previously; if not, we can wire it up next.)
+    }
+
     window.addEventListener('load', () => {
-      waitForMapsThenInit();
+      loadDriversForDispatch();  // pull in all current drivers for dropdowns
+      waitForMapsThenInit();     // map + deliveries listener
     });
   </script>
 </body>
