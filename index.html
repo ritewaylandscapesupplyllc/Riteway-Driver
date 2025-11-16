@@ -21,6 +21,7 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 
   <style>
     :root {
@@ -156,7 +157,8 @@
     }
 
     input[type="email"],
-    input[type="password"] {
+    input[type="password"],
+    input[type="text"] {
       width: 100%;
       border: none;
       outline: none;
@@ -517,7 +519,6 @@
       </div>
 
       <div class="actions">
-        <!-- Both buttons use the same primary style -->
         <button class="btn-primary" onclick="login()">Sign In</button>
         <button class="btn-primary" onclick="signup()">Create Driver Account</button>
       </div>
@@ -565,6 +566,29 @@
             <button class="btn-primary" id="primaryActionBtn" disabled>
               Select a load
             </button>
+          </div>
+
+          <!-- Scale ticket upload section (shown when status = loading) -->
+          <div id="ticketUploadSection" style="margin-top:12px; display:none;">
+            <div class="detail-label">Scale Ticket</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">
+              When you’re at the pit scale, enter the pit name and take a clear photo of the ticket.
+            </div>
+
+            <div class="field">
+              <label for="pitNameInput">Pit / Material Source</label>
+              <input type="text" id="pitNameInput" placeholder="e.g. Staker Parson Lakepoint">
+            </div>
+
+            <input
+              id="ticketFileInput"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style="margin-top:4px; margin-bottom:6px; color:var(--text-muted); font-size:0.78rem;"
+            >
+
+            <div id="ticketStatus" class="auth-hint" style="min-height:1.2em; text-align:left;"></div>
           </div>
 
           <div class="status-row">
@@ -643,9 +667,10 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     const auth = firebase.auth();
+    const storage = firebase.storage();
 
     // --- Globals ---
-    let loadsById = {};         // { deliveryId: {details, location, status} }
+    let loadsById = {};         // { deliveryId: {details, location, status, ticketInfo?} }
     let currentUser = null;
     let selectedLoadId = null;
     let gpsInterval = null;
@@ -681,6 +706,33 @@
       if (status === 'en_route') return 'En Route';
       if (status === 'complete') return 'Complete';
       return status;
+    }
+
+    function getDriverDisplayName(user) {
+      if (!user) return '';
+      return user.displayName || user.email || user.phoneNumber || user.uid;
+    }
+
+    function getCurrentPositionPromise(options) {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          return reject(new Error('Geolocation not supported'));
+        }
+        navigator.geolocation.getCurrentPosition(resolve, reject, options || {});
+      });
+    }
+
+    function computeDistanceMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371000; // meters
+      const toRad = deg => deg * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
     }
 
     // --- Splash handling ---
@@ -776,7 +828,6 @@
         return;
       }
 
-      // Mark this browser as a "new driver signup" so we can show the home-screen help once
       localStorage.setItem('ritewayShowPwaHint', '1');
 
       auth.createUserWithEmailAndPassword(email, password)
@@ -798,7 +849,6 @@
     auth.onAuthStateChanged(user => {
       currentUser = user;
       if (user) {
-        // Hide auth card while splash+dashboard load
         document.getElementById('authCard').style.display = 'none';
         document.getElementById('driverCard').style.display = 'none';
 
@@ -808,7 +858,6 @@
             `Logged in as ${user.email}`;
           subscribeToLoadsForUser(user);
 
-          // Only show Add-to-Home-Screen tips for newly signed-up drivers on this device
           if (localStorage.getItem('ritewayShowPwaHint') === '1') {
             localStorage.removeItem('ritewayShowPwaHint');
             openPwaHint();
@@ -836,7 +885,6 @@
     // --- Loads subscription ---
     function subscribeToLoadsForUser(user) {
       if (!user) return;
-
       if (loadsRef) loadsRef.off();
 
       loadsRef = db.ref('deliveries')
@@ -875,10 +923,9 @@
 
       const entries = Object.entries(loadsById)
         .filter(([id, obj]) => obj.status !== 'complete')
-        .sort((a,b) => (a[0] > b[0] ? -1 : 1)); // newest-ish first by id
+        .sort((a,b) => (a[0] > b[0] ? -1 : 1));
 
       container.innerHTML = '';
-
       setLoadCountBadge(entries.length);
 
       if (entries.length === 0) {
@@ -926,10 +973,14 @@
     function selectLoad(id) {
       selectedLoadId = id;
 
-      // clear highlight
       Array.from(document.querySelectorAll('.load-item')).forEach(el => {
         el.classList.remove('active');
       });
+
+      const ticketSection = document.getElementById('ticketUploadSection');
+      const ticketStatusEl = document.getElementById('ticketStatus');
+      if (ticketSection) ticketSection.style.display = 'none';
+      if (ticketStatusEl) ticketStatusEl.textContent = '';
 
       if (!id || !loadsById[id]) {
         document.getElementById('loadDetails').innerHTML =
@@ -964,27 +1015,28 @@
       `;
       document.getElementById('loadDetails').innerHTML = html;
 
-      // Configure the main button based on status
       if (status === 'loading') {
-        setPrimaryButton('Start Tracking', startTrackingForSelected);
-        setStatusText('Loading / picking up materials…');
+        if (ticketSection) ticketSection.style.display = 'block';
+        setPrimaryButton('Upload Scale Ticket', uploadScaleTicketForSelected);
+        setStatusText('Loading at pit / getting ticket…');
         ensureGpsRunning(id);
       } else if (status === 'en_route') {
+        if (ticketSection) ticketSection.style.display = 'none';
         setPrimaryButton('Complete Delivery', completeSelected);
         setStatusText('En route to customer…');
         ensureGpsRunning(id);
       } else if (status === 'complete') {
+        if (ticketSection) ticketSection.style.display = 'none';
         setPrimaryButton('Completed', null, true);
         setStatusText('Delivery complete');
         stopGps();
       } else {
-        // pending / undefined
+        if (ticketSection) ticketSection.style.display = 'none';
         setPrimaryButton('Start Loading', startLoadingForSelected);
         setStatusText('Ready to start');
         stopGps();
       }
 
-      // re-highlight active
       const container = document.getElementById('loadsList');
       if (container) {
         Array.from(container.children).forEach(child => {
@@ -1011,23 +1063,55 @@
       stopGps();
 
       const sendGpsOnce = () => {
-        navigator.geolocation.getCurrentPosition(
-          pos => {
+        getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 10000 })
+          .then(pos => {
             const loc = {
               lat: pos.coords.latitude,
               lng: pos.coords.longitude,
               ts: new Date().toISOString()
             };
-            db.ref('deliveries/' + deliveryId + '/location').set(loc)
+
+            const deliveryRef = db.ref('deliveries/' + deliveryId);
+
+            deliveryRef.child('location').set(loc)
               .then(() => log(`GPS sent for ${deliveryId}: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`))
               .catch(err => log('ERROR sending GPS: ' + err.message));
-          },
-          err => {
+
+            // Customer-facing gating
+            const obj = loadsById[deliveryId] || {};
+            const ticketInfo = obj.ticketInfo;
+
+            if (!ticketInfo || !ticketInfo.ticketUploadedAt) {
+              // No ticket yet -> customer sees full live location
+              deliveryRef.child('customerLocation').set(loc)
+                .catch(err => log('ERROR setting customerLocation: ' + err.message));
+            } else if (ticketInfo.pitLat != null && ticketInfo.pitLng != null) {
+              const dist = computeDistanceMeters(
+                loc.lat,
+                loc.lng,
+                ticketInfo.pitLat,
+                ticketInfo.pitLng
+              );
+              const ONE_MILE_METERS = 1609.34;
+
+              if (dist >= ONE_MILE_METERS) {
+                deliveryRef.child('customerLocation').set(loc)
+                  .catch(err => log('ERROR setting customerLocation: ' + err.message));
+              } else {
+                // Hide location from customer while within 1 mile of where ticket was taken
+                deliveryRef.child('customerLocation').set(null)
+                  .catch(err => log('ERROR clearing customerLocation: ' + err.message));
+              }
+            } else {
+              // Ticket exists but no pit location -> fall back to full location
+              deliveryRef.child('customerLocation').set(loc)
+                .catch(err => log('ERROR setting customerLocation: ' + err.message));
+            }
+          })
+          .catch(err => {
             log('GPS ERROR: ' + err.message);
             setStatusText('GPS error: ' + err.message);
-          },
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
+          });
       };
 
       sendGpsOnce();
@@ -1051,10 +1135,116 @@
       db.ref('deliveries/' + id + '/status').set('loading')
         .then(() => {
           log(`Status for ${id} set to loading`);
-          setStatusText('Loading / picking up materials…');
+          setStatusText('Loading at pit / getting ticket…');
           ensureGpsRunning(id);
         })
         .catch(err => log('ERROR setting status: ' + err.message));
+    }
+
+    async function uploadScaleTicketForSelected() {
+      if (!selectedLoadId || !loadsById[selectedLoadId]) return;
+      const id = selectedLoadId;
+      const user = currentUser;
+      const statusEl = document.getElementById('ticketStatus');
+      const pitInput = document.getElementById('pitNameInput');
+      const fileInput = document.getElementById('ticketFileInput');
+
+      if (statusEl) statusEl.textContent = '';
+
+      if (!user) {
+        alert('Please sign in before uploading a ticket.');
+        return;
+      }
+
+      const pitName = (pitInput && pitInput.value || '').trim();
+      if (!pitName) {
+        alert('Please enter the pit / material source name.');
+        return;
+      }
+
+      if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        alert('Please choose or take a photo of the scale ticket.');
+        return;
+      }
+
+      const file = fileInput.files[0];
+
+      try {
+        if (statusEl) statusEl.textContent = 'Getting location & uploading ticket…';
+
+        let pitLocation = null;
+        try {
+          const pos = await getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 15000 });
+          pitLocation = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude
+          };
+        } catch (geoErr) {
+          log('Could not get pit location for ticket: ' + geoErr.message);
+        }
+
+        const now = new Date();
+        const year = now.getFullYear();
+        const ticketId = Date.now().toString();
+
+        const storagePath = `scaleTickets/${year}/${user.uid}/${ticketId}.jpg`;
+        const storageRef = storage.ref(storagePath);
+
+        const metadata = {
+          customMetadata: {
+            driverUid: user.uid,
+            driverName: getDriverDisplayName(user),
+            pitName: pitName,
+            deliveryId: id,
+            createdAt: now.toISOString()
+          }
+        };
+
+        const snapshot = await storageRef.put(file, metadata);
+        const downloadUrl = await snapshot.ref.getDownloadURL();
+
+        const ticketRecord = {
+          ticketId: ticketId,
+          driverUid: user.uid,
+          driverName: getDriverDisplayName(user),
+          pitName: pitName,
+          deliveryId: id,
+          createdAt: now.getTime(),
+          createdAtISO: now.toISOString(),
+          storagePath: storagePath,
+          downloadUrl: downloadUrl
+        };
+
+        await db.ref('scaleTicketsMetadata/' + ticketId).set(ticketRecord);
+
+        const ticketInfo = {
+          pitName: pitName,
+          pitLat: pitLocation ? pitLocation.lat : null,
+          pitLng: pitLocation ? pitLocation.lng : null,
+          ticketUploadedAt: now.toISOString()
+        };
+
+        await db.ref('deliveries/' + id + '/ticketInfo').set(ticketInfo);
+
+        if (!loadsById[id]) loadsById[id] = {};
+        loadsById[id].ticketInfo = ticketInfo;
+
+        await db.ref('deliveries/' + id + '/status').set('en_route');
+        loadsById[id].status = 'en_route';
+
+        if (statusEl) statusEl.textContent = 'Ticket uploaded. You are now en route to customer.';
+        setStatusText('En route to customer…');
+        setPrimaryButton('Complete Delivery', completeSelected);
+
+        if (pitInput) pitInput.value = '';
+        if (fileInput) fileInput.value = '';
+
+        log(`Scale ticket uploaded for ${id}, ticketId=${ticketId}`);
+      } catch (err) {
+        console.error('Error uploading scale ticket:', err);
+        if (statusEl) statusEl.textContent = 'Upload failed. Please try again.';
+        alert('Error uploading ticket. Check connection and try again.');
+      }
     }
 
     function startTrackingForSelected() {
@@ -1084,6 +1274,10 @@
       db.ref('deliveries/' + id + '/location').remove()
         .then(() => log('Location cleared for ' + id))
         .catch(err => log('ERROR clearing location: ' + err.message));
+
+      db.ref('deliveries/' + id + '/customerLocation').remove()
+        .then(() => log('customerLocation cleared for ' + id))
+        .catch(err => log('ERROR clearing customerLocation: ' + err.message));
 
       stopGps();
     }
