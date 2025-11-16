@@ -165,7 +165,6 @@
       background: rgba(5, 8, 11, 0.9);
     }
 
-    /* New load form */
     .new-load-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -250,7 +249,6 @@
       color: var(--text-muted);
     }
 
-    /* Stats row */
     .stats-row {
       display: flex;
       flex-wrap: wrap;
@@ -287,7 +285,6 @@
       margin-top: 2px;
     }
 
-    /* Deliveries table */
     .deliveries-table-wrapper {
       margin-top: 6px;
       max-height: 480px;
@@ -455,7 +452,6 @@
       outline: none;
     }
 
-    /* HAMBURGER + SIDE MENU */
     .hamburger-btn {
       width: 38px;
       height: 34px;
@@ -585,7 +581,7 @@
 
     .side-menu-item span.chevron {
       font-size: 0.9rem;
-      color: var(--accent-strong);
+      color: var(--accent);
     }
 
     .side-menu-footer {
@@ -595,7 +591,6 @@
       opacity: 0.7;
     }
 
-    /* Row action buttons (Edit / Delete) */
     .action-btn {
       border-radius: 999px;
       border: 1px solid transparent;
@@ -639,6 +634,12 @@
 
     <button class="side-menu-item" onclick="goToPage('invite-driver.html')">
       <span class="label">Invite New Driver</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <!-- NEW: View All Drivers -->
+    <button class="side-menu-item" onclick="goToPage('drivers.html')">
+      <span class="label">View All Drivers</span>
       <span class="chevron">›</span>
     </button>
 
@@ -814,6 +815,9 @@
   </div>
 
   <script>
+    // --- CONFIG: backend base URL (Render) ---
+    const ADMIN_API_BASE = 'https://riteway-admin-api.onrender.com';
+
     // Firebase config (same project)
     const firebaseConfig = {
       apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
@@ -832,16 +836,13 @@
     const AVG_SPEED_MPS = AVG_SPEED_MPH * 1609.34 / 3600;
 
     let map;
-    let markers = {};       // deliveryId -> { truckMarker, destMarker }
-    let deliveries = {};    // raw data
+    let markers = {};
+    let deliveries = {};
     let statusFilter = 'all';
     let driverFilter = 'all';
-    let autoFitDone = false;  // prevent repeated fitBounds "glitch"
-
-    // Track which load (if any) we are editing
+    let autoFitDone = false;
     let currentEditId = null;
 
-    // --- HAMBURGER + MENU JS ---
     function openMenu() {
       document.getElementById('sideMenu').classList.add('open');
       document.getElementById('sideMenuBackdrop').classList.add('open');
@@ -888,7 +889,6 @@
       cancelBtn.style.display = 'none';
     }
 
-    // Start editing an existing load
     function startEditLoad(id) {
       const d = deliveries[id];
       if (!d) return;
@@ -913,11 +913,9 @@
       pill.textContent = 'Editing existing load: ' + id;
       cancelBtn.style.display = 'inline-block';
 
-      // Scroll up to the form so you can see it
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Delete a load
     function deleteLoad(id) {
       const d = deliveries[id] || {};
       const details = d.details || {};
@@ -932,7 +930,6 @@
         });
     }
 
-    // --- New Load creation / editing ---
     function createNewLoad() {
       const idRaw = document.getElementById('newDeliveryId').value.trim().toUpperCase();
       const customerName = document.getElementById('newCustomerName').value.trim();
@@ -943,7 +940,6 @@
       const truckingRaw = document.getElementById('newTruckingCharge').value.trim();
       const costRaw = document.getElementById('newCostPerYard').value.trim();
 
-      // If editing an existing load, we ignore changes to Delivery ID
       const id = currentEditId || idRaw;
 
       if (!id || !address) {
@@ -973,7 +969,6 @@
         profit: profit || 0
       };
 
-      // If we are editing: only update details, keep status/location as-is
       if (currentEditId && deliveries[currentEditId]) {
         db.ref('deliveries/' + currentEditId + '/details').set(details)
           .then(() => {
@@ -984,7 +979,6 @@
             alert('Error updating load. Check console for details.');
           });
       } else {
-        // Creating a brand new load
         const payload = {
           details,
           status: 'pending',
@@ -1002,10 +996,9 @@
       }
     }
 
-    // Initialize map once Google is ready
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
-        center: { lat: 40.612, lng: -112.464 }, // Tooele-ish
+        center: { lat: 40.612, lng: -112.464 },
         zoom: 10,
         mapTypeId: 'roadmap',
         styles: [
@@ -1030,7 +1023,8 @@
           {
             featureType: 'road',
             elementType: 'geometry',
-            stylers: [{ color: '#202b3d' }] },
+            stylers: [{ color: '#202b3d' }]
+          },
           {
             featureType: 'road',
             elementType: 'geometry.stroke',
@@ -1059,7 +1053,6 @@
       }
     }
 
-    // Compute ETA text based on location + dest
     function computeEtaText(loc, destLatLng) {
       if (!loc || !destLatLng || !google.maps.geometry || !google.maps.geometry.spherical) {
         return 'N/A';
@@ -1146,7 +1139,6 @@
       document.getElementById('stat-yards').innerText = totalYards.toFixed(1) + ' yd';
       document.getElementById('stat-profit').innerText = '$' + totalProfit.toFixed(2);
 
-      // driver filter options
       const driverFilterSelect = document.getElementById('driverFilter');
       const current = driverFilterSelect.value;
       driverFilterSelect.innerHTML = '<option value="all">Driver: All</option>';
@@ -1185,7 +1177,6 @@
         const statusRaw = d.status || '';
         const { label: statusLabel, cls: statusCls } = formatStatus(statusRaw);
 
-        // apply filters
         if (statusFilter === 'active' && statusRaw.toLowerCase() === 'complete') return;
         if (statusFilter !== 'all' && statusFilter !== 'active' &&
             statusRaw.toLowerCase() !== statusFilter) return;
@@ -1195,12 +1186,10 @@
 
         const tr = document.createElement('tr');
 
-        // ID
         const tdId = document.createElement('td');
         tdId.innerHTML = `<span class="delivery-id">${id}</span>`;
         tr.appendChild(tdId);
 
-        // Customer / Address
         const tdCust = document.createElement('td');
         const cust = details.customerName || 'N/A';
         const addr = details.address || 'N/A';
@@ -1210,12 +1199,10 @@
         `;
         tr.appendChild(tdCust);
 
-        // Items
         const tdItems = document.createElement('td');
         tdItems.textContent = details.items || '';
         tr.appendChild(tdItems);
 
-        // Status
         const tdStatus = document.createElement('td');
         const span = document.createElement('span');
         span.className = 'status-pill ' + statusCls;
@@ -1223,7 +1210,6 @@
         tdStatus.appendChild(span);
         tr.appendChild(tdStatus);
 
-        // Driver (editable)
         const tdDriver = document.createElement('td');
         const input = document.createElement('input');
         input.className = 'driver-input';
@@ -1236,7 +1222,6 @@
         tdDriver.appendChild(input);
         tr.appendChild(tdDriver);
 
-        // ETA
         const tdEta = document.createElement('td');
         tdEta.className = 'eta-cell';
         const dest = d._resolvedDestLatLng;
@@ -1252,7 +1237,6 @@
         tdEta.textContent = etaText;
         tr.appendChild(tdEta);
 
-        // Actions (Edit / Delete)
         const tdActions = document.createElement('td');
         tdActions.style.whiteSpace = 'nowrap';
 
@@ -1274,73 +1258,6 @@
       });
     }
 
-    function renderMapMarkers() {
-      if (!map || typeof google === 'undefined') return;
-
-      // Clear existing markers not in current deliveries
-      Object.keys(markers).forEach(id => {
-        if (!deliveries[id]) {
-          const m = markers[id];
-          if (m.truckMarker) m.truckMarker.setMap(null);
-          if (m.destMarker) m.destMarker.setMap(null);
-          delete markers[id];
-        }
-      });
-
-      const bounds = new google.maps.LatLngBounds();
-      let hasAny = false;
-
-      Object.entries(deliveries).forEach(([id, d]) => {
-        const details = d.details || {};
-        const statusRaw = d.status || '';
-
-        // respect same filters used in table
-        if (statusFilter === 'active' && statusRaw.toLowerCase() === 'complete') return;
-        if (statusFilter !== 'all' && statusFilter !== 'active' &&
-            statusRaw.toLowerCase() !== statusFilter) return;
-
-        const assignedDriver = (details.assignedDriver || '').trim();
-        if (driverFilter !== 'all' && assignedDriver !== driverFilter) return;
-
-        const loc = d.location;
-        const dest = d._resolvedDestLatLng; // reserved for future geocoding
-
-        if (!markers[id]) {
-          markers[id] = {};
-        }
-
-        // Truck marker
-        if (loc) {
-          const pos = new google.maps.LatLng(loc.lat, loc.lng);
-          hasAny = true;
-          bounds.extend(pos);
-
-          if (!markers[id].truckMarker) {
-            markers[id].truckMarker = new google.maps.Marker({
-              position: pos,
-              map: map,
-              title: `Truck · ${id}`,
-              icon: {
-                url: 'riteway-truck-marker.png',
-                scaledSize: new google.maps.Size(44, 44),
-                anchor: new google.maps.Point(22, 22)
-              }
-            });
-          } else {
-            markers[id].truckMarker.setPosition(pos);
-            markers[id].truckMarker.setMap(map);
-          }
-        }
-      });
-
-      // Only auto-fit once to avoid jumpy/glitchy behavior on every update
-      if (hasAny && !autoFitDone) {
-        map.fitBounds(bounds);
-        autoFitDone = true;
-      }
-    }
-
-    // Kick off once DOM is ready
     window.addEventListener('load', () => {
       waitForMapsThenInit();
     });
