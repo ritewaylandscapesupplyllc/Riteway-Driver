@@ -1,42 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Driver Profile — Riteway Dispatch</title>
+  <meta charset="utf-8">
+  <title>Riteway Driver · Dispatch</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
     :root {
       --bg: #050608;
       --bg-elevated: #15191f;
-      --bg-soft: #1b2129;
+      --bg-elevated-soft: #1b2129;
       --accent: #12C3A0;
+      --accent-soft: rgba(18,195,160,0.18);
       --text: #f5f7fb;
       --text-muted: #a6afb8;
-      --radius: 16px;
+      --border-subtle: #252c35;
+      --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.55);
+      --radius-lg: 18px;
+      --radius-pill: 999px;
+      --danger: #ff7979;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
       margin: 0;
-      padding: 16px;
-      background: #050608;
-      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #151a20 0, #050608 55%, #020203 100%);
       color: var(--text);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      overflow-x: hidden;
     }
 
-    .hamburger {
-      width: 40px;
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: url("riteway-logo-watermark.png");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: min(55vw, 520px);
+      opacity: 0.04;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* HEADER + BRANDING */
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 130px;
+      height: auto;
+      filter: drop-shadow(0 0 12px rgba(0,0,0,0.7));
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-title {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.86rem;
+      color: var(--accent);
+    }
+
+    .brand-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .header-badge {
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--accent-soft);
+      background: rgba(5, 8, 11, 0.86);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* HAMBURGER + SIDE MENU (matches dispatch/drivers) */
+
+    .hamburger-btn {
+      width: 38px;
       height: 34px;
-      border-radius: 10px;
-      background: rgba(255,255,255,0.06);
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(5,8,11,0.92);
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 12px;
       cursor: pointer;
+      margin-right: 8px;
     }
 
-    .hamburger div {
+    .hamburger-inner {
       width: 18px;
       height: 14px;
       display: flex;
@@ -46,20 +140,23 @@
 
     .hamburger-line {
       height: 2px;
-      background: white;
-      border-radius: 2px;
+      border-radius: 999px;
+      background: var(--text);
     }
 
-    /* SIDE MENU */
-    .menu-backdrop {
+    .side-menu-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.35);
-      display: none;
+      background: rgba(0,0,0,0.35);
+      z-index: 9;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
     }
 
-    .menu-backdrop.open {
-      display: block;
+    .side-menu-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
     }
 
     .side-menu {
@@ -67,223 +164,457 @@
       top: 0;
       left: 0;
       width: 260px;
+      max-width: 80vw;
       height: 100%;
-      background: #111417;
-      border-right: 1px solid #222;
-      padding: 14px;
+      background: rgba(5,8,11,0.98);
+      border-right: 1px solid var(--border-subtle);
+      box-shadow: 12px 0 30px rgba(0,0,0,0.7);
+      z-index: 10;
       transform: translateX(-100%);
-      transition: 0.25s ease;
+      transition: transform 0.24s ease;
+      display: flex;
+      flex-direction: column;
+      padding: 14px 14px 16px;
     }
 
     .side-menu.open {
       transform: translateX(0);
     }
 
-    .menu-item {
-      padding: 10px 14px;
-      margin-bottom: 10px;
-      background: rgba(255,255,255,0.06);
-      border-radius: 10px;
+    .side-menu-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .side-menu-logo {
+      width: 130px;
+      height: auto;
+      filter: drop-shadow(0 0 10px rgba(0,0,0,0.8));
+    }
+
+    .side-menu-close {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      color: var(--text-muted);
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .side-menu-title {
+      font-size: 0.78rem;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .side-menu-item {
+      width: 100%;
+      text-align: left;
+      border-radius: 999px;
+      padding: 9px 12px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(10,14,18,0.96);
+      color: var(--text);
+      font-size: 0.84rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .side-menu-item span.label {
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      font-size: 0.75rem;
+    }
+
+    .side-menu-item span.chevron {
+      font-size: 0.9rem;
+      color: var(--accent);
+    }
+
+    .side-menu-footer {
+      margin-top: auto;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      opacity: 0.7;
+    }
+
+    /* CARDS & CONTENT */
+
+    .page-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin: 4px 0 2px;
     }
 
     .card {
-      background: #15191f;
+      margin-top: 10px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.78));
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(16px);
       padding: 14px;
-      border-radius: var(--radius);
-      margin-bottom: 14px;
-      border: 1px solid rgba(255,255,255,0.05);
     }
 
-    .section-title {
-      font-size: 0.88rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 10px;
-      color: var(--text-muted);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
+    .card-title {
       font-size: 0.8rem;
-      color: var(--text);
-    }
-
-    th, td {
-      padding: 6px 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      text-align: left;
-    }
-
-    th {
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .muted {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .profile-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 24px;
+      font-size: 0.86rem;
+    }
+
+    .profile-label {
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
       font-size: 0.7rem;
       color: var(--text-muted);
+      margin-bottom: 2px;
     }
 
-    .placeholder {
+    .profile-value {
+      font-size: 0.86rem;
+    }
+
+    .uid {
+      font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      color: var(--accent);
+      font-size: 0.78rem;
+    }
+
+    .tag-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(5,8,11,0.9);
       color: var(--text-muted);
-      font-size: 0.8rem;
-      padding: 8px 4px;
+    }
+
+    .tag-pill.active {
+      border-color: rgba(18,195,160,0.5);
+      color: var(--accent);
+      background: rgba(18,195,160,0.12);
+    }
+
+    .loads-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+      font-size: 0.82rem;
+    }
+
+    .loads-list li {
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .loads-list li:last-child {
+      border-bottom: none;
+    }
+
+    .load-id {
+      font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.78rem;
+      color: var(--accent);
     }
   </style>
-
 </head>
 <body>
+  <!-- Side Menu + Backdrop -->
+  <div id="sideMenuBackdrop" class="side-menu-backdrop" onclick="closeMenu()"></div>
+  <div id="sideMenu" class="side-menu">
+    <div class="side-menu-header">
+      <img src="riteway-logo.png" alt="Riteway Logo" class="side-menu-logo">
+      <button class="side-menu-close" onclick="closeMenu()">✕</button>
+    </div>
+    <div class="side-menu-title">Dispatch Menu</div>
 
-  <!-- HAMBURGER -->
-  <div class="hamburger" onclick="toggleMenu()">
-    <div>
-      <div class="hamburger-line"></div>
-      <div class="hamburger-line"></div>
-      <div class="hamburger-line"></div>
+    <button class="side-menu-item" onclick="goToPage('dispatch.html')">
+      <span class="label">Dashboard Home</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <button class="side-menu-item" onclick="goToPage('drivers.html')">
+      <span class="label">All Drivers</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <button class="side-menu-item" onclick="goToPage('invite-driver.html')">
+      <span class="label">Invite New Driver</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <div class="side-menu-footer">
+      Riteway Dispatch · Ops Console
     </div>
   </div>
 
-  <!-- BACKDROP -->
-  <div id="menuBackdrop" class="menu-backdrop" onclick="toggleMenu()"></div>
+  <div class="page">
+    <!-- Header -->
+    <div class="header-row">
+      <div class="header-left">
+        <button class="hamburger-btn" onclick="toggleMenu()">
+          <div class="hamburger-inner">
+            <div class="hamburger-line"></div>
+            <div class="hamburger-line"></div>
+            <div class="hamburger-line"></div>
+          </div>
+        </button>
 
-  <!-- SIDE MENU -->
-  <div id="sideMenu" class="side-menu">
-    <div class="menu-item" onclick="go('dispatch.html')">Dashboard Home</div>
-    <div class="menu-item" onclick="go('drivers.html')">All Drivers</div>
-    <div class="menu-item" onclick="go('invite-driver.html')">Invite Driver</div>
+        <div class="brand-lockup">
+          <img src="riteway-logo.png" alt="Riteway Logo" class="brand-logo">
+          <div class="brand-text">
+            <div class="brand-title">Riteway Dispatch</div>
+            <div class="brand-subtitle" id="driverHeaderSubtitle">Driver Profile</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-badge" id="driverHeaderBadge">
+        Loading driver…
+      </div>
+    </div>
+
+    <div class="page-title" id="driverTitle">Driver</div>
+
+    <!-- Profile card -->
+    <div class="card">
+      <div class="card-title">Profile Details</div>
+      <div id="profileContent" class="muted">Loading…</div>
+    </div>
+
+    <!-- Loads card -->
+    <div class="card">
+      <div class="card-title">Loads Completed / Assigned</div>
+      <div id="loadsContent" class="muted">Loading…</div>
+    </div>
+
+    <!-- Scale tickets (future) -->
+    <div class="card">
+      <div class="card-title">Scale Tickets (Future)</div>
+      <div class="muted">
+        No scale tickets uploaded yet.
+      </div>
+    </div>
+
+    <!-- Ratings (future) -->
+    <div class="card">
+      <div class="card-title">Customer Ratings &amp; Comments (Future)</div>
+      <div class="muted">
+        No customer feedback yet.
+      </div>
+    </div>
   </div>
 
+  <script>
+    // IMPORTANT: same as other pages
+    const ADMIN_API_BASE = 'https://riteway-admin-api.onrender.com';
+    const ADMIN_API_KEY  = 'riteway-super-secret-928374';
 
-  <!-- MAIN CONTENT -->
-  <h2 id="driverName">Driver</h2>
-  <div id="driverEmail" style="color:var(--text-muted); margin-bottom:12px;"></div>
+    // --- Hamburger menu helpers ---
+    function openMenu() {
+      document.getElementById('sideMenu').classList.add('open');
+      document.getElementById('sideMenuBackdrop').classList.add('open');
+    }
 
-  <!-- PROFILE CARD -->
-  <div class="card">
-    <div class="section-title">Profile Details</div>
-    <div id="profileDetails">Loading...</div>
-  </div>
+    function closeMenu() {
+      document.getElementById('sideMenu').classList.remove('open');
+      document.getElementById('sideMenuBackdrop').classList.remove('open');
+    }
 
-  <!-- LOADS CARD -->
-  <div class="card">
-    <div class="section-title">Loads Completed / Assigned</div>
-    <div id="loadsTableContainer">Loading...</div>
-  </div>
+    function toggleMenu() {
+      const menu = document.getElementById('sideMenu');
+      if (menu.classList.contains('open')) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    }
 
-  <!-- SCALE TICKETS CARD -->
-  <div class="card">
-    <div class="section-title">Scale Tickets (Future)</div>
-    <div class="placeholder">No scale tickets uploaded yet.</div>
-  </div>
+    function goToPage(path) {
+      window.location.href = path;
+    }
 
-  <!-- RATINGS CARD -->
-  <div class="card">
-    <div class="section-title">Customer Ratings & Comments (Future)</div>
-    <div class="placeholder">No customer feedback yet.</div>
-  </div>
+    function getQueryParam(name) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
+    }
 
-<script>
-  const API_BASE = "https://riteway-admin-api.onrender.com";
-  const ADMIN_KEY = "riteway-super-secret-928374";
+    async function loadDriverPage() {
+      const uid = getQueryParam('uid');
+      const profileEl = document.getElementById('profileContent');
+      const loadsEl = document.getElementById('loadsContent');
+      const titleEl = document.getElementById('driverTitle');
+      const badgeEl = document.getElementById('driverHeaderBadge');
+      const subtitleEl = document.getElementById('driverHeaderSubtitle');
 
-  function go(path) {
-    window.location.href = path;
-  }
-
-  function toggleMenu() {
-    document.getElementById("sideMenu").classList.toggle("open");
-    document.getElementById("menuBackdrop").classList.toggle("open");
-  }
-
-  // ---- GET UID FROM URL ----
-  const params = new URLSearchParams(window.location.search);
-  const uid = params.get("uid");
-
-  if (!uid) {
-    document.body.innerHTML = "<h2 style='color:white'>Invalid driver: no UID provided</h2>";
-    throw new Error("No UID");
-  }
-
-  // ---- FETCH DRIVER DETAILS FROM ADMIN API ----
-  async function loadDriver() {
-    try {
-      const res = await fetch(`${API_BASE}/driver-details?uid=${uid}`, {
-        headers: {
-          "x-admin-api-key": ADMIN_KEY
-        }
-      });
-
-      const data = await res.json();
-
-      if (data.error) {
-        document.body.innerHTML = "<h2 style='color:white'>Driver not found</h2>";
+      if (!uid) {
+        profileEl.textContent = 'No driver selected (missing uid in URL).';
+        loadsEl.textContent = 'Cannot load loads because uid is missing.';
+        badgeEl.textContent = 'Missing UID';
         return;
       }
 
-      const profile = data.profile;
-      const loads = data.loads || [];
-
-      // Header
-      document.getElementById("driverName").textContent =
-        profile.displayName || "Unnamed Driver";
-
-      document.getElementById("driverEmail").textContent =
-        profile.email || "No email";
-
-      // Profile block
-      document.getElementById("profileDetails").innerHTML = `
-        <div><strong>UID:</strong> ${profile.uid}</div>
-        <div><strong>Email:</strong> ${profile.email || "N/A"}</div>
-        <div><strong>Phone:</strong> ${profile.phoneNumber || "N/A"}</div>
-        <div><strong>Created:</strong> ${profile.creationTime}</div>
-        <div><strong>Last Sign-In:</strong> ${profile.lastSignInTime || "Never"}</div>
-      `;
-
-      // Loads table
-      if (loads.length === 0) {
-        document.getElementById("loadsTableContainer").innerHTML =
-          `<div class='placeholder'>No loads assigned to this driver.</div>`;
-      } else {
-        let html = `
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Customer</th>
-                <th>Address</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-        `;
-
-        loads.forEach(l => {
-          html += `
-            <tr>
-              <td>${l.id}</td>
-              <td>${l.details.customerName || ""}</td>
-              <td>${l.details.address || ""}</td>
-              <td>${l.status}</td>
-            </tr>
-          `;
+      // 1) Load profile
+      try {
+        const res = await fetch(`${ADMIN_API_BASE}/drivers/${encodeURIComponent(uid)}`, {
+          headers: { 'x-admin-api-key': ADMIN_API_KEY }
         });
 
-        html += "</tbody></table>";
+        if (!res.ok) {
+          throw new Error(`Profile API error ${res.status}`);
+        }
 
-        document.getElementById("loadsTableContainer").innerHTML = html;
+        const data = await res.json();
+        const user = data.user;
+
+        if (!user) {
+          profileEl.textContent = 'Driver not found.';
+          badgeEl.textContent = 'Driver not found';
+          return;
+        }
+
+        const name = user.displayName || '(No name)';
+        const email = user.email || '—';
+        const phone = user.phoneNumber || '—';
+        const created = user.creationTime || '—';
+        const lastSignIn = user.lastSignInTime || '—';
+        const disabled = !!user.disabled;
+
+        titleEl.textContent = name;
+        subtitleEl.textContent = `Driver · ${email !== '—' ? email : 'no email'}`;
+        badgeEl.textContent = disabled ? 'Status: Disabled' : 'Status: Active';
+
+        profileEl.innerHTML = `
+          <div class="profile-row">
+            <div>
+              <div class="profile-label">Name</div>
+              <div class="profile-value">${escapeHtml(name)}</div>
+            </div>
+            <div>
+              <div class="profile-label">Email</div>
+              <div class="profile-value">${escapeHtml(email)}</div>
+            </div>
+            <div>
+              <div class="profile-label">Phone</div>
+              <div class="profile-value">${escapeHtml(phone)}</div>
+            </div>
+            <div>
+              <div class="profile-label">UID</div>
+              <div class="profile-value uid">${escapeHtml(uid)}</div>
+            </div>
+            <div>
+              <div class="profile-label">Created</div>
+              <div class="profile-value">${escapeHtml(created)}</div>
+            </div>
+            <div>
+              <div class="profile-label">Last Sign-In</div>
+              <div class="profile-value">${escapeHtml(lastSignIn)}</div>
+            </div>
+            <div>
+              <div class="profile-label">Status</div>
+              <div class="profile-value">
+                <span class="tag-pill ${disabled ? '' : 'active'}">
+                  ${disabled ? 'Disabled' : 'Active'}
+                </span>
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        console.error('Error loading driver profile:', err);
+        profileEl.textContent = 'Error loading driver.';
+        badgeEl.textContent = 'Error';
       }
 
-    } catch (err) {
-      console.error(err);
-      document.getElementById("profileDetails").innerHTML =
-        "<div style='color:red'>Error loading driver</div>";
+      // 2) Load loads (placeholder data from API)
+      try {
+        const res = await fetch(`${ADMIN_API_BASE}/driver-loads/${encodeURIComponent(uid)}`, {
+          headers: { 'x-admin-api-key': ADMIN_API_KEY }
+        });
+
+        if (!res.ok) {
+          throw new Error(`Loads API error ${res.status}`);
+        }
+
+        const data = await res.json();
+        const loads = data.loads || [];
+
+        if (!loads.length) {
+          loadsEl.textContent = 'No loads associated with this driver yet.';
+          return;
+        }
+
+        const ul = document.createElement('ul');
+        ul.className = 'loads-list';
+
+        loads.forEach(load => {
+          const li = document.createElement('li');
+          const id = load.id || '(no id)';
+          const status = (load.status || 'unknown').toLowerCase();
+          const customer = load.customerName || '';
+          const address = load.address || '';
+          const created = load.createdAt || '';
+
+          li.innerHTML = `
+            <div><span class="load-id">${escapeHtml(id)}</span> · ${escapeHtml(status)}</div>
+            <div class="muted">
+              ${escapeHtml(customer)}${customer && address ? ' · ' : ''}${escapeHtml(address)}
+            </div>
+            <div class="muted">${escapeHtml(created)}</div>
+          `;
+          ul.appendChild(li);
+        });
+
+        loadsEl.innerHTML = '';
+        loadsEl.appendChild(ul);
+      } catch (err) {
+        console.error('Error loading driver loads:', err);
+        loadsEl.textContent = 'Error loading loads for this driver.';
+      }
     }
-  }
 
-  loadDriver();
-</script>
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
 
+    document.addEventListener('DOMContentLoaded', loadDriverPage);
+  </script>
 </body>
 </html>
