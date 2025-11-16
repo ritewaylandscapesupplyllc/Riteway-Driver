@@ -11,6 +11,7 @@
       --bg-elevated: #15191f;
       --accent: #12C3A0;
       --accent-soft: rgba(18,195,160,0.18);
+      --accent-strong: #12e1b5;
       --text: #f5f7fb;
       --text-muted: #a6afb8;
       --border-subtle: #252c35;
@@ -35,6 +36,8 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      position: relative;
+      overflow-x: hidden;
     }
 
     body::before {
@@ -250,22 +253,211 @@
       text-align: center;
       padding: 14px;
     }
+
+    .driver-link {
+      color: var(--accent-strong);
+      text-decoration: none;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .driver-link:hover {
+      text-decoration: underline;
+    }
+
+    /* HAMBURGER + SIDE MENU (match dispatch.html) */
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hamburger-btn {
+      width: 38px;
+      height: 34px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(5,8,11,0.92);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      margin-right: 4px;
+    }
+
+    .hamburger-inner {
+      width: 18px;
+      height: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .hamburger-line {
+      height: 2px;
+      border-radius: 999px;
+      background: var(--text);
+    }
+
+    .side-menu-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 9;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+
+    .side-menu-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .side-menu {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 260px;
+      max-width: 80vw;
+      height: 100%;
+      background: rgba(5,8,11,0.98);
+      border-right: 1px solid var(--border-subtle);
+      box-shadow: 12px 0 30px rgba(0,0,0,0.7);
+      z-index: 10;
+      transform: translateX(-100%);
+      transition: transform 0.24s ease;
+      display: flex;
+      flex-direction: column;
+      padding: 14px 14px 16px;
+    }
+
+    .side-menu.open {
+      transform: translateX(0);
+    }
+
+    .side-menu-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .side-menu-logo {
+      width: 130px;
+      height: auto;
+      filter: drop-shadow(0 0 10px rgba(0,0,0,0.8));
+    }
+
+    .side-menu-close {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      color: var(--text-muted);
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .side-menu-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .side-menu-item {
+      width: 100%;
+      text-align: left;
+      border-radius: 999px;
+      padding: 9px 12px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(10,14,18,0.96);
+      color: var(--text);
+      font-size: 0.84rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .side-menu-item span.label {
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      font-size: 0.75rem;
+    }
+
+    .side-menu-item span.chevron {
+      font-size: 0.9rem;
+      color: var(--accent-strong);
+    }
+
+    .side-menu-footer {
+      margin-top: auto;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
+
+  <!-- Side Menu + Backdrop -->
+  <div id="sideMenuBackdrop" class="side-menu-backdrop" onclick="closeMenu()"></div>
+  <div id="sideMenu" class="side-menu">
+    <div class="side-menu-header">
+      <img src="riteway-logo.png" alt="Riteway Logo" class="side-menu-logo">
+      <button class="side-menu-close" onclick="closeMenu()">✕</button>
+    </div>
+    <div class="side-menu-title">Dispatch Menu</div>
+
+    <button class="side-menu-item" onclick="goToPage('dispatch.html')">
+      <span class="label">Dashboard Home</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <button class="side-menu-item" onclick="goToPage('drivers.html')">
+      <span class="label">All Drivers</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <button class="side-menu-item" onclick="goToPage('invite-driver.html')">
+      <span class="label">Invite Driver</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <div class="side-menu-footer">
+      Riteway Dispatch · Driver Directory
+    </div>
+  </div>
+
   <div class="page">
     <div class="header-row">
-      <div class="brand-lockup">
-        <img src="riteway-logo.png" class="brand-logo" alt="Riteway Logo">
-        <div class="brand-text">
-          <div class="brand-title">Riteway Dispatch</div>
-          <div class="brand-subtitle">Driver Directory · Firebase Auth</div>
+      <div class="header-left">
+        <button class="hamburger-btn" onclick="toggleMenu()">
+          <div class="hamburger-inner">
+            <div class="hamburger-line"></div>
+            <div class="hamburger-line"></div>
+            <div class="hamburger-line"></div>
+          </div>
+        </button>
+
+        <div class="brand-lockup">
+          <img src="riteway-logo.png" class="brand-logo" alt="Riteway Logo">
+          <div class="brand-text">
+            <div class="brand-title">Riteway Dispatch</div>
+            <div class="brand-subtitle">Driver Directory · Firebase Auth</div>
+          </div>
         </div>
       </div>
+
       <div class="header-actions">
-        <button class="btn" onclick="window.location.href='dispatch.html'">
-          ← Back to Dashboard
-        </button>
         <button class="btn btn-primary" onclick="window.location.href='invite-driver.html'">
           Invite New Driver
         </button>
@@ -282,7 +474,7 @@
         <table>
           <thead>
             <tr>
-              <th>Name</th>
+              <th>Name (click for profile)</th>
               <th>Email</th>
               <th>Phone</th>
               <th>UID</th>
@@ -301,12 +493,35 @@
   </div>
 
   <script>
-    // IMPORTANT:
-    // 1) ADMIN_API_BASE must match your Render URL
-    // 2) ADMIN_API_KEY must match the ADMIN_API_KEY env var in Render
+    // Admin API settings
     const ADMIN_API_BASE = 'https://riteway-admin-api.onrender.com';
     const ADMIN_API_KEY  = 'riteway-super-secret-928374';
 
+    // ---- HAMBURGER MENU ----
+    function openMenu() {
+      document.getElementById('sideMenu').classList.add('open');
+      document.getElementById('sideMenuBackdrop').classList.add('open');
+    }
+
+    function closeMenu() {
+      document.getElementById('sideMenu').classList.remove('open');
+      document.getElementById('sideMenuBackdrop').classList.remove('open');
+    }
+
+    function toggleMenu() {
+      const menu = document.getElementById('sideMenu');
+      if (menu.classList.contains('open')) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    }
+
+    function goToPage(path) {
+      window.location.href = path;
+    }
+
+    // ---- LOAD DRIVERS & MAKE NAME CLICKABLE ----
     async function loadDrivers() {
       const metaEl = document.getElementById('driversMeta');
       const tbody = document.getElementById('driversBody');
@@ -343,8 +558,14 @@
           const created = user.creationTime || '—';
           const lastSignIn = user.lastSignInTime || '—';
 
+          const driverUrl = 'driver.html?uid=' + encodeURIComponent(user.uid);
+
           tr.innerHTML = `
-            <td>${escapeHtml(name)}</td>
+            <td>
+              <a href="${driverUrl}" class="driver-link">
+                ${escapeHtml(name)}
+              </a>
+            </td>
             <td>${escapeHtml(email)}</td>
             <td>${escapeHtml(phone)}</td>
             <td><span class="uid">${escapeHtml(user.uid)}</span></td>
