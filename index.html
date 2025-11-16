@@ -194,12 +194,6 @@
       box-shadow: 0 10px 24px rgba(18, 195, 160, 0.45);
     }
 
-    .btn-ghost {
-      background: rgba(9,12,17,0.9);
-      color: var(--text-muted);
-      border: 1px solid var(--border-subtle);
-    }
-
     .btn-small {
       padding: 7px 10px;
       font-size: 0.78rem;
@@ -354,171 +348,151 @@
       margin-bottom: 6px;
     }
 
-    /* Loading splash overlay */
-    .loading-overlay {
+    /* Splash overlay (logo + progress bar) */
+    .splash-overlay {
       position: fixed;
       inset: 0;
       background: radial-gradient(circle at top, #151a20 0, #050608 55%, #020203 100%);
       display: none;
       align-items: center;
       justify-content: center;
-      flex-direction: column;
       z-index: 50;
     }
 
-    .loading-content {
-      text-align: center;
-      max-width: 260px;
-      width: 80%;
-    }
-
-    .loading-logo {
-      width: 200px;
-      max-width: 70vw;
-      margin: 0 auto 18px;
-      display: block;
-      filter: drop-shadow(0 0 14px rgba(0,0,0,0.8));
-    }
-
-    .loading-bar-outer {
-      width: 100%;
-      height: 10px;
-      border-radius: 999px;
+    .splash-card {
+      width: 260px;
+      max-width: 80vw;
+      background: rgba(5,8,11,0.95);
+      border-radius: 18px;
       border: 1px solid var(--border-subtle);
-      background: rgba(5,8,11,0.9);
+      box-shadow: var(--shadow-soft);
+      padding: 18px 18px 16px;
+      text-align: center;
+    }
+
+    .splash-logo {
+      width: 160px;
+      height: auto;
+      margin: 0 auto 12px;
+      display: block;
+      filter: drop-shadow(0 0 12px rgba(0,0,0,0.7));
+    }
+
+    .splash-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .splash-bar {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: #11151c;
+      border: 1px solid var(--border-subtle);
       overflow: hidden;
       margin-bottom: 6px;
     }
 
-    .loading-bar-inner {
-      width: 0%;
+    .splash-bar-fill {
       height: 100%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, var(--accent), var(--accent-strong));
-      transition: width 0.18s ease-out;
+      width: 0;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      transition: width 0.06s linear;
     }
 
-    .loading-percent {
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      margin-bottom: 6px;
-    }
-
-    .loading-text {
+    .splash-percent {
       font-size: 0.8rem;
       color: var(--text-muted);
     }
 
-    /* Home-screen help modal */
-    .modal-backdrop {
+    /* Add to Home Screen modal */
+    .pwa-modal {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.7);
       display: none;
       align-items: center;
       justify-content: center;
       z-index: 60;
     }
 
-    .modal {
-      background: rgba(10,13,18,0.98);
+    .pwa-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+    }
+
+    .pwa-modal-card {
+      position: relative;
+      z-index: 61;
+      width: 320px;
+      max-width: 90vw;
+      background: rgba(5,8,11,0.97);
       border-radius: 18px;
       border: 1px solid var(--border-subtle);
       box-shadow: var(--shadow-soft);
-      padding: 16px 18px 14px;
-      max-width: 360px;
-      width: 90%;
-      font-size: 0.85rem;
+      padding: 16px 16px 14px;
     }
 
-    .modal-title {
-      font-size: 0.95rem;
-      font-weight: 600;
+    .pwa-modal-title {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .pwa-modal-sub {
+      font-size: 0.84rem;
+      color: var(--text);
       margin-bottom: 8px;
     }
 
-    .modal-sub {
-      font-size: 0.8rem;
+    .pwa-list {
+      font-size: 0.78rem;
       color: var(--text-muted);
-      margin-bottom: 10px;
+      margin: 0 0 4px 0;
+      padding-left: 16px;
     }
 
-    .modal-list {
-      padding-left: 18px;
-      margin: 0 0 10px;
-      color: var(--text-muted);
-      font-size: 0.8rem;
+    .pwa-list li {
+      margin-bottom: 2px;
     }
 
-    .modal-footer {
+    .pwa-modal-footer {
       margin-top: 8px;
-      text-align: right;
+      display: flex;
+      justify-content: flex-end;
     }
 
-    .btn-modal {
+    .btn-ghost-small {
       border-radius: var(--radius-pill);
-      padding: 7px 14px;
-      font-size: 0.8rem;
-      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-      color: #031210;
-      border: none;
+      border: 1px solid var(--border-subtle);
+      background: rgba(8,11,16,0.96);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      padding: 6px 12px;
       cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
 
     @media (max-width: 640px) {
       body {
-        padding: 18px 12px;
+        padding: 12px;
       }
-      .header-row {
+      .header {
+        flex-direction: column;
         align-items: flex-start;
-      }
-      .brand-text {
-        display: none;
+        gap: 8px;
       }
     }
   </style>
 </head>
 
 <body>
-  <!-- Loading splash -->
-  <div id="loadingOverlay" class="loading-overlay">
-    <div class="loading-content">
-      <img src="riteway-logo.png" alt="Riteway Logo" class="loading-logo">
-      <div class="loading-bar-outer">
-        <div id="loadingBarInner" class="loading-bar-inner"></div>
-      </div>
-      <div id="loadingPercent" class="loading-percent">0%</div>
-      <div class="loading-text">Preparing your driver dashboard…</div>
-    </div>
-  </div>
-
-  <!-- Home-screen help modal -->
-  <div id="homescreenModal" class="modal-backdrop">
-    <div class="modal">
-      <div class="modal-title">Add Riteway Driver to your home screen</div>
-      <div class="modal-sub">
-        So you can open it like an app with one tap.
-      </div>
-      <div style="margin-bottom:6px; font-weight:600; font-size:0.8rem;">On iPhone (Safari):</div>
-      <ul class="modal-list">
-        <li>Tap the <strong>Share</strong> icon at the bottom.</li>
-        <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
-        <li>Tap <strong>Add</strong>.</li>
-      </ul>
-
-      <div style="margin-bottom:6px; font-weight:600; font-size:0.8rem;">On Android (Chrome):</div>
-      <ul class="modal-list">
-        <li>Tap the <strong>⋮</strong> menu in the top-right.</li>
-        <li>Tap <strong>Add to Home screen</strong> or <strong>Install app</strong>.</li>
-        <li>Confirm to add it.</li>
-      </ul>
-
-      <div class="modal-footer">
-        <button class="btn-modal" onclick="closeHomescreenModal()">Got it</button>
-      </div>
-    </div>
-  </div>
-
   <div class="app-shell">
 
     <div class="logo-wrapper">
@@ -543,8 +517,9 @@
       </div>
 
       <div class="actions">
+        <!-- Both buttons use the same primary style -->
         <button class="btn-primary" onclick="login()">Sign In</button>
-        <button class="btn-ghost" onclick="signup()">Create Driver Account</button>
+        <button class="btn-primary" onclick="signup()">Create Driver Account</button>
       </div>
 
       <div class="auth-hint">
@@ -564,7 +539,7 @@
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
           <span class="badge" id="loadCountBadge">0 active loads</span>
-          <button class="btn-ghost btn-small" onclick="logout()">Logout</button>
+          <button class="btn-small" style="background:rgba(9,12,17,0.9);border:1px solid var(--border-subtle);color:var(--text-muted);" onclick="logout()">Logout</button>
         </div>
       </div>
 
@@ -608,6 +583,51 @@
     </div>
   </div>
 
+  <!-- Splash overlay: logo + loading bar -->
+  <div id="splashOverlay" class="splash-overlay">
+    <div class="splash-card">
+      <img src="riteway-logo.png" alt="Riteway Logo" class="splash-logo">
+      <div class="splash-label">Loading driver workspace</div>
+      <div class="splash-bar">
+        <div id="splashBarFill" class="splash-bar-fill"></div>
+      </div>
+      <div id="splashPercent" class="splash-percent">0%</div>
+    </div>
+  </div>
+
+  <!-- Add to Home Screen modal (only for newly signed-up drivers) -->
+  <div id="pwaHintModal" class="pwa-modal">
+    <div class="pwa-modal-backdrop" onclick="closePwaHint()"></div>
+    <div class="pwa-modal-card">
+      <div class="pwa-modal-title">Add to your home screen</div>
+      <div class="pwa-modal-sub">
+        For faster access, add the Riteway Driver app to your phone’s home screen.
+      </div>
+
+      <div style="font-size:0.78rem; color:var(--accent-strong); margin-bottom:4px;">
+        On iPhone (Safari):
+      </div>
+      <ul class="pwa-list">
+        <li>Tap the <strong>Share</strong> icon at the bottom.</li>
+        <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+        <li>Tap <strong>Add</strong> to confirm.</li>
+      </ul>
+
+      <div style="font-size:0.78rem; color:var(--accent-strong); margin:6px 0 4px;">
+        On Android (Chrome):
+      </div>
+      <ul class="pwa-list">
+        <li>Tap the <strong>⋮</strong> menu in the top right.</li>
+        <li>Choose <strong>Add to Home screen</strong> or <strong>Install app</strong>.</li>
+        <li>Confirm to pin it to your home screen.</li>
+      </ul>
+
+      <div class="pwa-modal-footer">
+        <button class="btn-ghost-small" onclick="closePwaHint()">Got it</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // --- Firebase Init ---
     const firebaseConfig = {
@@ -630,8 +650,7 @@
     let selectedLoadId = null;
     let gpsInterval = null;
     let loadsRef = null;
-
-    const HOMESCREEN_KEY = 'riteway_driver_seen_homescreen_hint_v1';
+    let splashTimer = null;
 
     // --- Small helpers ---
     function log(msg) {
@@ -664,71 +683,61 @@
       return status;
     }
 
-    // --- Loading splash ---
-    function showLoadingSplash(onDone) {
-      const overlay = document.getElementById('loadingOverlay');
-      const bar = document.getElementById('loadingBarInner');
-      const percentEl = document.getElementById('loadingPercent');
+    // --- Splash handling ---
+    function showSplash(onDone) {
+      const overlay = document.getElementById('splashOverlay');
+      const barFill = document.getElementById('splashBarFill');
+      const percentText = document.getElementById('splashPercent');
 
-      if (!overlay || !bar || !percentEl) {
+      if (!overlay || !barFill || !percentText) {
         if (onDone) onDone();
         return;
       }
 
       overlay.style.display = 'flex';
-      let p = 0;
+      barFill.style.width = '0%';
+      percentText.textContent = '0%';
 
-      const step = () => {
-        // Jump by 10–25%
-        const increment = Math.floor(Math.random() * 16) + 10;
-        p += increment;
-        if (p > 100) p = 100;
+      let progress = 0;
+      if (splashTimer) clearInterval(splashTimer);
 
-        bar.style.width = p + '%';
-        percentEl.innerText = p + '%';
-
-        if (p >= 100) {
+      splashTimer = setInterval(() => {
+        progress += 5;
+        if (progress >= 100) {
+          progress = 100;
+          barFill.style.width = progress + '%';
+          percentText.textContent = progress + '%';
+          clearInterval(splashTimer);
+          splashTimer = null;
           setTimeout(() => {
             overlay.style.display = 'none';
             if (onDone) onDone();
-          }, 300);
+          }, 200);
         } else {
-          setTimeout(step, 150);
+          barFill.style.width = progress + '%';
+          percentText.textContent = progress + '%';
         }
-      };
-
-      // reset
-      bar.style.width = '0%';
-      percentEl.innerText = '0%';
-      setTimeout(step, 120);
+      }, 60); // ~1.2 seconds total
     }
 
-    // --- Home-screen modal ---
-    function maybeShowHomescreenHint() {
-      let seen = false;
-      try {
-        seen = localStorage.getItem(HOMESCREEN_KEY) === '1';
-      } catch (e) {
-        seen = false;
-      }
-      if (seen) return;
-
-      const modal = document.getElementById('homescreenModal');
-      if (modal) {
-        modal.style.display = 'flex';
+    function hideSplashImmediately() {
+      const overlay = document.getElementById('splashOverlay');
+      if (overlay) overlay.style.display = 'none';
+      if (splashTimer) {
+        clearInterval(splashTimer);
+        splashTimer = null;
       }
     }
 
-    function closeHomescreenModal() {
-      const modal = document.getElementById('homescreenModal');
-      if (modal) {
-        modal.style.display = 'none';
-      }
-      try {
-        localStorage.setItem(HOMESCREEN_KEY, '1');
-      } catch (e) {
-        // ignore
-      }
+    // --- Add to Home Screen modal ---
+    function openPwaHint() {
+      const modal = document.getElementById('pwaHintModal');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closePwaHint() {
+      const modal = document.getElementById('pwaHintModal');
+      if (modal) modal.style.display = 'none';
     }
 
     // --- Auth functions ---
@@ -767,6 +776,9 @@
         return;
       }
 
+      // Mark this browser as a "new driver signup" so we can show the home-screen help once
+      localStorage.setItem('ritewayShowPwaHint', '1');
+
       auth.createUserWithEmailAndPassword(email, password)
         .then(() => {
           showAuthError('Account created. You are now signed in.');
@@ -786,24 +798,30 @@
     auth.onAuthStateChanged(user => {
       currentUser = user;
       if (user) {
-        // hide auth card immediately
+        // Hide auth card while splash+dashboard load
         document.getElementById('authCard').style.display = 'none';
+        document.getElementById('driverCard').style.display = 'none';
 
-        // Show loading splash, then dashboard
-        showLoadingSplash(() => {
+        showSplash(() => {
           document.getElementById('driverCard').style.display = 'block';
           document.getElementById('driverIdentity').innerText =
             `Logged in as ${user.email}`;
           subscribeToLoadsForUser(user);
-          maybeShowHomescreenHint();
+
+          // Only show Add-to-Home-Screen tips for newly signed-up drivers on this device
+          if (localStorage.getItem('ritewayShowPwaHint') === '1') {
+            localStorage.removeItem('ritewayShowPwaHint');
+            openPwaHint();
+          }
         });
       } else {
-        // logged out
+        hideSplashImmediately();
         document.getElementById('driverCard').style.display = 'none';
         document.getElementById('authCard').style.display = 'block';
-        const driverIdEl = document.getElementById('driverIdentity');
-        if (driverIdEl) driverIdEl.innerText = '';
-        document.getElementById('loadsList').innerHTML = '';
+        const idEl = document.getElementById('driverIdentity');
+        if (idEl) idEl.innerText = '';
+        const loadsList = document.getElementById('loadsList');
+        if (loadsList) loadsList.innerHTML = '';
         document.getElementById('loadDetails').innerHTML =
           '<div style="color:var(--text-muted); font-size:0.8rem;">Tap a load on the left to see details and start loading.</div>';
         setPrimaryButton('Select a load', null, true);
@@ -811,6 +829,7 @@
         loadsById = {};
         selectedLoadId = null;
         setLoadCountBadge(0);
+        if (loadsRef) loadsRef.off();
       }
     });
 
@@ -818,7 +837,6 @@
     function subscribeToLoadsForUser(user) {
       if (!user) return;
 
-      // Stop old listener
       if (loadsRef) loadsRef.off();
 
       loadsRef = db.ref('deliveries')
@@ -835,12 +853,10 @@
 
         renderLoadsList();
 
-        // If currently selected load disappeared or is complete, clear selection
         if (selectedLoadId && (!loadsById[selectedLoadId] ||
             loadsById[selectedLoadId].status === 'complete')) {
           selectLoad(null);
         } else if (!selectedLoadId) {
-          // auto-select first active
           const firstId = Object.keys(loadsById).find(id => loadsById[id].status !== 'complete');
           if (firstId) selectLoad(firstId);
         }
@@ -859,7 +875,7 @@
 
       const entries = Object.entries(loadsById)
         .filter(([id, obj]) => obj.status !== 'complete')
-        .sort((a,b) => (a[0] > b[0] ? -1 : 1)); // newest first by id
+        .sort((a,b) => (a[0] > b[0] ? -1 : 1)); // newest-ish first by id
 
       container.innerHTML = '';
 
@@ -924,16 +940,6 @@
         return;
       }
 
-      // highlight active
-      const container = document.getElementById('loadsList');
-      if (container) {
-        Array.from(container.children).forEach(child => {
-          if (child.onclick && child.onclick.toString().includes(`"${id}"`)) {
-            child.classList.add('active');
-          }
-        });
-      }
-
       const obj = loadsById[id];
       const details = obj.details || {};
       const status = obj.status || 'pending';
@@ -977,6 +983,16 @@
         setStatusText('Ready to start');
         stopGps();
       }
+
+      // re-highlight active
+      const container = document.getElementById('loadsList');
+      if (container) {
+        Array.from(container.children).forEach(child => {
+          if (child.onclick && child.onclick.toString().includes(`"${id}"`)) {
+            child.classList.add('active');
+          }
+        });
+      }
     }
 
     // --- GPS helpers ---
@@ -990,7 +1006,6 @@
 
     function ensureGpsRunning(deliveryId) {
       if (!deliveryId) return;
-      // if already running for this id, leave it
       if (gpsInterval && gpsInterval._forId === deliveryId) return;
 
       stopGps();
@@ -1015,10 +1030,8 @@
         );
       };
 
-      // first immediate ping
       sendGpsOnce();
 
-      // interval every 5s
       gpsInterval = setInterval(sendGpsOnce, 5000);
       gpsInterval._forId = deliveryId;
       log('GPS interval started for ' + deliveryId);
@@ -1031,7 +1044,6 @@
       const obj = loadsById[id];
       const details = obj.details || {};
 
-      // Make sure driver assignment matches current user
       if (currentUser && (!details.assignedDriverEmail || details.assignedDriverEmail !== currentUser.email)) {
         db.ref('deliveries/' + id + '/details/assignedDriverEmail').set(currentUser.email);
       }
@@ -1069,7 +1081,6 @@
         })
         .catch(err => log('ERROR setting status: ' + err.message));
 
-      // Remove live location so customer / dispatch stop seeing the truck moving
       db.ref('deliveries/' + id + '/location').remove()
         .then(() => log('Location cleared for ' + id))
         .catch(err => log('ERROR clearing location: ' + err.message));
