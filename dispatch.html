@@ -205,6 +205,7 @@
       margin-top: 10px;
       display: flex;
       justify-content: flex-end;
+      gap: 6px;
     }
 
     .btn-primary {
@@ -222,6 +223,23 @@
     }
 
     .btn-primary:active {
+      transform: translateY(1px);
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-subtle);
+      background: rgba(5,8,11,0.9);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      padding: 8px 14px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .btn-secondary:active {
       transform: translateY(1px);
       box-shadow: none;
     }
@@ -576,6 +594,31 @@
       color: var(--text-muted);
       opacity: 0.7;
     }
+
+    /* Row action buttons (Edit / Delete) */
+    .action-btn {
+      border-radius: 999px;
+      border: 1px solid transparent;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      cursor: pointer;
+      background: rgba(5,8,11,0.9);
+      margin-right: 4px;
+    }
+
+    .action-btn-edit {
+      border-color: rgba(18,195,160,0.5);
+      color: var(--accent);
+      background: rgba(18,195,160,0.12);
+    }
+
+    .action-btn-delete {
+      border-color: rgba(255,121,121,0.6);
+      color: var(--danger);
+      background: rgba(255,121,121,0.12);
+    }
   </style>
 </head>
 <body>
@@ -598,13 +641,6 @@
       <span class="label">Invite New Driver</span>
       <span class="chevron">›</span>
     </button>
-
-    <!-- You can add more items later:
-    <button class="side-menu-item" onclick="goToPage('drivers.html')">
-      <span class="label">Drivers List</span>
-      <span class="chevron">›</span>
-    </button>
-    -->
 
     <div class="side-menu-footer">
       Riteway Dispatch · Ops Console
@@ -643,7 +679,7 @@
       <div class="card">
         <div class="section-title-row">
           <div class="section-title">New Load</div>
-          <div class="pill">Create a delivery for drivers</div>
+          <div class="pill" id="newLoadPill">Create a delivery for drivers</div>
         </div>
 
         <div class="new-load-grid">
@@ -686,7 +722,8 @@
         </div>
 
         <div class="new-load-actions">
-          <button class="btn-primary" onclick="createNewLoad()">Create Load</button>
+          <button class="btn-secondary" id="cancelEditButton" style="display:none;" onclick="cancelEdit()">Cancel Edit</button>
+          <button class="btn-primary" id="newLoadButton" onclick="createNewLoad()">Create Load</button>
         </div>
         <div class="new-load-hint">
           Revenue = yards × price/yard + trucking. Profit = revenue − (yards × cost/yard). You can always tweak later.
@@ -746,6 +783,7 @@
                 <th>Status</th>
                 <th>Driver</th>
                 <th>ETA</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="deliveriesBody">
@@ -800,6 +838,9 @@
     let driverFilter = 'all';
     let autoFitDone = false;  // prevent repeated fitBounds "glitch"
 
+    // Track which load (if any) we are editing
+    let currentEditId = null;
+
     // --- HAMBURGER + MENU JS ---
     function openMenu() {
       document.getElementById('sideMenu').classList.add('open');
@@ -824,9 +865,76 @@
       window.location.href = path;
     }
 
-    // --- New Load creation ---
+    function resetForm() {
+      document.getElementById('newDeliveryId').value = '';
+      document.getElementById('newCustomerName').value = '';
+      document.getElementById('newAddress').value = '';
+      document.getElementById('newItems').value = '';
+      document.getElementById('newYards').value = '';
+      document.getElementById('newRatePerYard').value = '';
+      document.getElementById('newTruckingCharge').value = '';
+      document.getElementById('newCostPerYard').value = '';
+    }
+
+    function cancelEdit() {
+      currentEditId = null;
+      resetForm();
+      const btn = document.getElementById('newLoadButton');
+      const pill = document.getElementById('newLoadPill');
+      const cancelBtn = document.getElementById('cancelEditButton');
+
+      btn.textContent = 'Create Load';
+      pill.textContent = 'Create a delivery for drivers';
+      cancelBtn.style.display = 'none';
+    }
+
+    // Start editing an existing load
+    function startEditLoad(id) {
+      const d = deliveries[id];
+      if (!d) return;
+      const details = d.details || {};
+
+      currentEditId = id;
+
+      document.getElementById('newDeliveryId').value = id;
+      document.getElementById('newCustomerName').value = details.customerName || '';
+      document.getElementById('newAddress').value = details.address || '';
+      document.getElementById('newItems').value = details.items || '';
+      document.getElementById('newYards').value = details.yards || '';
+      document.getElementById('newRatePerYard').value = details.ratePerYard || '';
+      document.getElementById('newTruckingCharge').value = details.truckingCharge || '';
+      document.getElementById('newCostPerYard').value = details.costPerYard || '';
+
+      const btn = document.getElementById('newLoadButton');
+      const pill = document.getElementById('newLoadPill');
+      const cancelBtn = document.getElementById('cancelEditButton');
+
+      btn.textContent = 'Save Changes';
+      pill.textContent = 'Editing existing load: ' + id;
+      cancelBtn.style.display = 'inline-block';
+
+      // Scroll up to the form so you can see it
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Delete a load
+    function deleteLoad(id) {
+      const d = deliveries[id] || {};
+      const details = d.details || {};
+      const name = details.customerName || '';
+      const confirmText = `Delete load ${id}${name ? ' for ' + name : ''}? This cannot be undone.`;
+      if (!confirm(confirmText)) return;
+
+      db.ref('deliveries/' + id).remove()
+        .catch(err => {
+          console.error('Error deleting load:', err);
+          alert('Error deleting load. Check console for details.');
+        });
+    }
+
+    // --- New Load creation / editing ---
     function createNewLoad() {
-      const id = document.getElementById('newDeliveryId').value.trim().toUpperCase();
+      const idRaw = document.getElementById('newDeliveryId').value.trim().toUpperCase();
       const customerName = document.getElementById('newCustomerName').value.trim();
       const address = document.getElementById('newAddress').value.trim();
       const items = document.getElementById('newItems').value.trim();
@@ -834,6 +942,9 @@
       const rateRaw = document.getElementById('newRatePerYard').value.trim();
       const truckingRaw = document.getElementById('newTruckingCharge').value.trim();
       const costRaw = document.getElementById('newCostPerYard').value.trim();
+
+      // If editing an existing load, we ignore changes to Delivery ID
+      const id = currentEditId || idRaw;
 
       if (!id || !address) {
         alert('Delivery ID and Address are required.');
@@ -862,28 +973,33 @@
         profit: profit || 0
       };
 
-      const payload = {
-        details,
-        status: 'pending',
-        createdAt: new Date().toISOString()
-      };
+      // If we are editing: only update details, keep status/location as-is
+      if (currentEditId && deliveries[currentEditId]) {
+        db.ref('deliveries/' + currentEditId + '/details').set(details)
+          .then(() => {
+            cancelEdit();
+          })
+          .catch(err => {
+            console.error('Error updating load:', err);
+            alert('Error updating load. Check console for details.');
+          });
+      } else {
+        // Creating a brand new load
+        const payload = {
+          details,
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        };
 
-      db.ref('deliveries/' + id).set(payload)
-        .then(() => {
-          // Clear form
-          document.getElementById('newDeliveryId').value = '';
-          document.getElementById('newCustomerName').value = '';
-          document.getElementById('newAddress').value = '';
-          document.getElementById('newItems').value = '';
-          document.getElementById('newYards').value = '';
-          document.getElementById('newRatePerYard').value = '';
-          document.getElementById('newTruckingCharge').value = '';
-          document.getElementById('newCostPerYard').value = '';
-        })
-        .catch(err => {
-          console.error('Error creating load:', err);
-          alert('Error creating load. Check console for details.');
-        });
+        db.ref('deliveries/' + id).set(payload)
+          .then(() => {
+            resetForm();
+          })
+          .catch(err => {
+            console.error('Error creating load:', err);
+            alert('Error creating load. Check console for details.');
+          });
+      }
     }
 
     // Initialize map once Google is ready
@@ -1055,7 +1171,7 @@
       if (entries.length === 0) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = 6;
+        td.colSpan = 7;
         td.textContent = 'No deliveries in progress.';
         td.style.textAlign = 'center';
         td.style.padding = '14px';
@@ -1135,6 +1251,24 @@
         }
         tdEta.textContent = etaText;
         tr.appendChild(tdEta);
+
+        // Actions (Edit / Delete)
+        const tdActions = document.createElement('td');
+        tdActions.style.whiteSpace = 'nowrap';
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'action-btn action-btn-edit';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', () => startEditLoad(id));
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'action-btn action-btn-delete';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.addEventListener('click', () => deleteLoad(id));
+
+        tdActions.appendChild(editBtn);
+        tdActions.appendChild(deleteBtn);
+        tr.appendChild(tdActions);
 
         tbody.appendChild(tr);
       });
