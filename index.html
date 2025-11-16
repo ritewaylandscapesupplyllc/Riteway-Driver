@@ -353,10 +353,172 @@
       font-size: 0.9rem;
       margin-bottom: 6px;
     }
+
+    /* Loading splash overlay */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at top, #151a20 0, #050608 55%, #020203 100%);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 50;
+    }
+
+    .loading-content {
+      text-align: center;
+      max-width: 260px;
+      width: 80%;
+    }
+
+    .loading-logo {
+      width: 200px;
+      max-width: 70vw;
+      margin: 0 auto 18px;
+      display: block;
+      filter: drop-shadow(0 0 14px rgba(0,0,0,0.8));
+    }
+
+    .loading-bar-outer {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(5,8,11,0.9);
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .loading-bar-inner {
+      width: 0%;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+      transition: width 0.18s ease-out;
+    }
+
+    .loading-percent {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .loading-text {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Home-screen help modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 60;
+    }
+
+    .modal {
+      background: rgba(10,13,18,0.98);
+      border-radius: 18px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-soft);
+      padding: 16px 18px 14px;
+      max-width: 360px;
+      width: 90%;
+      font-size: 0.85rem;
+    }
+
+    .modal-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .modal-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .modal-list {
+      padding-left: 18px;
+      margin: 0 0 10px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .modal-footer {
+      margin-top: 8px;
+      text-align: right;
+    }
+
+    .btn-modal {
+      border-radius: var(--radius-pill);
+      padding: 7px 14px;
+      font-size: 0.8rem;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: #031210;
+      border: none;
+      cursor: pointer;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 18px 12px;
+      }
+      .header-row {
+        align-items: flex-start;
+      }
+      .brand-text {
+        display: none;
+      }
+    }
   </style>
 </head>
 
 <body>
+  <!-- Loading splash -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-content">
+      <img src="riteway-logo.png" alt="Riteway Logo" class="loading-logo">
+      <div class="loading-bar-outer">
+        <div id="loadingBarInner" class="loading-bar-inner"></div>
+      </div>
+      <div id="loadingPercent" class="loading-percent">0%</div>
+      <div class="loading-text">Preparing your driver dashboard…</div>
+    </div>
+  </div>
+
+  <!-- Home-screen help modal -->
+  <div id="homescreenModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-title">Add Riteway Driver to your home screen</div>
+      <div class="modal-sub">
+        So you can open it like an app with one tap.
+      </div>
+      <div style="margin-bottom:6px; font-weight:600; font-size:0.8rem;">On iPhone (Safari):</div>
+      <ul class="modal-list">
+        <li>Tap the <strong>Share</strong> icon at the bottom.</li>
+        <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+        <li>Tap <strong>Add</strong>.</li>
+      </ul>
+
+      <div style="margin-bottom:6px; font-weight:600; font-size:0.8rem;">On Android (Chrome):</div>
+      <ul class="modal-list">
+        <li>Tap the <strong>⋮</strong> menu in the top-right.</li>
+        <li>Tap <strong>Add to Home screen</strong> or <strong>Install app</strong>.</li>
+        <li>Confirm to add it.</li>
+      </ul>
+
+      <div class="modal-footer">
+        <button class="btn-modal" onclick="closeHomescreenModal()">Got it</button>
+      </div>
+    </div>
+  </div>
+
   <div class="app-shell">
 
     <div class="logo-wrapper">
@@ -467,6 +629,9 @@
     let currentUser = null;
     let selectedLoadId = null;
     let gpsInterval = null;
+    let loadsRef = null;
+
+    const HOMESCREEN_KEY = 'riteway_driver_seen_homescreen_hint_v1';
 
     // --- Small helpers ---
     function log(msg) {
@@ -497,6 +662,73 @@
       if (status === 'en_route') return 'En Route';
       if (status === 'complete') return 'Complete';
       return status;
+    }
+
+    // --- Loading splash ---
+    function showLoadingSplash(onDone) {
+      const overlay = document.getElementById('loadingOverlay');
+      const bar = document.getElementById('loadingBarInner');
+      const percentEl = document.getElementById('loadingPercent');
+
+      if (!overlay || !bar || !percentEl) {
+        if (onDone) onDone();
+        return;
+      }
+
+      overlay.style.display = 'flex';
+      let p = 0;
+
+      const step = () => {
+        // Jump by 10–25%
+        const increment = Math.floor(Math.random() * 16) + 10;
+        p += increment;
+        if (p > 100) p = 100;
+
+        bar.style.width = p + '%';
+        percentEl.innerText = p + '%';
+
+        if (p >= 100) {
+          setTimeout(() => {
+            overlay.style.display = 'none';
+            if (onDone) onDone();
+          }, 300);
+        } else {
+          setTimeout(step, 150);
+        }
+      };
+
+      // reset
+      bar.style.width = '0%';
+      percentEl.innerText = '0%';
+      setTimeout(step, 120);
+    }
+
+    // --- Home-screen modal ---
+    function maybeShowHomescreenHint() {
+      let seen = false;
+      try {
+        seen = localStorage.getItem(HOMESCREEN_KEY) === '1';
+      } catch (e) {
+        seen = false;
+      }
+      if (seen) return;
+
+      const modal = document.getElementById('homescreenModal');
+      if (modal) {
+        modal.style.display = 'flex';
+      }
+    }
+
+    function closeHomescreenModal() {
+      const modal = document.getElementById('homescreenModal');
+      if (modal) {
+        modal.style.display = 'none';
+      }
+      try {
+        localStorage.setItem(HOMESCREEN_KEY, '1');
+      } catch (e) {
+        // ignore
+      }
     }
 
     // --- Auth functions ---
@@ -554,15 +786,23 @@
     auth.onAuthStateChanged(user => {
       currentUser = user;
       if (user) {
+        // hide auth card immediately
         document.getElementById('authCard').style.display = 'none';
-        document.getElementById('driverCard').style.display = 'block';
-        document.getElementById('driverIdentity').innerText =
-          `Logged in as ${user.email}`;
-        subscribeToLoadsForUser(user);
+
+        // Show loading splash, then dashboard
+        showLoadingSplash(() => {
+          document.getElementById('driverCard').style.display = 'block';
+          document.getElementById('driverIdentity').innerText =
+            `Logged in as ${user.email}`;
+          subscribeToLoadsForUser(user);
+          maybeShowHomescreenHint();
+        });
       } else {
+        // logged out
         document.getElementById('driverCard').style.display = 'none';
         document.getElementById('authCard').style.display = 'block';
-        document.getElementById('driverIdentity').innerText = '';
+        const driverIdEl = document.getElementById('driverIdentity');
+        if (driverIdEl) driverIdEl.innerText = '';
         document.getElementById('loadsList').innerHTML = '';
         document.getElementById('loadDetails').innerHTML =
           '<div style="color:var(--text-muted); font-size:0.8rem;">Tap a load on the left to see details and start loading.</div>';
@@ -575,8 +815,6 @@
     });
 
     // --- Loads subscription ---
-    let loadsRef = null;
-
     function subscribeToLoadsForUser(user) {
       if (!user) return;
 
@@ -591,12 +829,12 @@
         const val = snapshot.val() || {};
         loadsById = {};
 
-        // Filter out completed loads for the list, but still keep them
         Object.entries(val).forEach(([id, obj]) => {
           loadsById[id] = obj;
         });
 
         renderLoadsList();
+
         // If currently selected load disappeared or is complete, clear selection
         if (selectedLoadId && (!loadsById[selectedLoadId] ||
             loadsById[selectedLoadId].status === 'complete')) {
@@ -724,7 +962,7 @@
       if (status === 'loading') {
         setPrimaryButton('Start Tracking', startTrackingForSelected);
         setStatusText('Loading / picking up materials…');
-        ensureGpsRunning(id);  // GPS should be on while loading so dispatch can see you
+        ensureGpsRunning(id);
       } else if (status === 'en_route') {
         setPrimaryButton('Complete Delivery', completeSelected);
         setStatusText('En route to customer…');
