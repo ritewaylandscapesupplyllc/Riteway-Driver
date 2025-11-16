@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Riteway Drivers · Dispatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    :root {
+      --bg: #050608;
+      --bg-elevated: #15191f;
+      --accent: #12C3A0;
+      --accent-soft: rgba(18,195,160,0.18);
+      --text: #f5f7fb;
+      --text-muted: #a6afb8;
+      --border-subtle: #252c35;
+      --danger: #ff7979;
+      --radius-lg: 18px;
+      --radius-pill: 999px;
+      --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.55);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #151a20 0, #050608 55%, #020203 100%);
+      color: var(--text);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: url("riteway-logo-watermark.png");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: min(55vw, 520px);
+      opacity: 0.04;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 130px;
+      filter: drop-shadow(0 0 12px rgba(0,0,0,0.7));
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-title {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.86rem;
+      color: var(--accent);
+    }
+
+    .brand-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-subtle);
+      background: rgba(5,8,11,0.92);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      padding: 7px 14px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .btn-primary {
+      border: none;
+      background: linear-gradient(135deg, var(--accent), #12e1b5);
+      color: #031210;
+      box-shadow: 0 10px 24px rgba(18, 195, 160, 0.45);
+      font-weight: 600;
+    }
+
+    .card {
+      margin-top: 6px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.78));
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(16px);
+      padding: 14px;
+    }
+
+    .section-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .section-title {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+    }
+
+    .pill {
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: rgba(5, 8, 11, 0.9);
+    }
+
+    .table-wrapper {
+      margin-top: 4px;
+      max-height: 540px;
+      overflow-y: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(6,9,13,0.96);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+
+    thead {
+      position: sticky;
+      top: 0;
+      background: rgba(4,7,11,0.98);
+      z-index: 2;
+    }
+
+    th, td {
+      padding: 6px 8px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    th {
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    tr:nth-child(even) td {
+      background: rgba(255,255,255,0.01);
+    }
+
+    tr:hover td {
+      background: rgba(18,195,160,0.10);
+    }
+
+    .uid {
+      font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.72rem;
+      color: var(--accent);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .status-active {
+      background: rgba(18,195,160,0.14);
+      color: var(--accent);
+      border: 1px solid rgba(18,195,160,0.5);
+    }
+
+    .status-disabled {
+      background: rgba(255,121,121,0.14);
+      color: var(--danger);
+      border: 1px solid rgba(255,121,121,0.5);
+    }
+
+    .action-btn-delete {
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(255,121,121,0.6);
+      background: rgba(255,121,121,0.12);
+      color: var(--danger);
+      font-size: 0.7rem;
+      padding: 3px 9px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    .muted {
+      color: var(--text-muted);
+      font-size: 0.74rem;
+    }
+
+    .center {
+      text-align: center;
+      padding: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header-row">
+      <div class="brand-lockup">
+        <img src="riteway-logo.png" class="brand-logo" alt="Riteway Logo">
+        <div class="brand-text">
+          <div class="brand-title">Riteway Dispatch</div>
+          <div class="brand-subtitle">Driver Directory · Firebase Auth</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn" onclick="window.location.href='dispatch.html'">
+          ← Back to Dashboard
+        </button>
+        <button class="btn btn-primary" onclick="window.location.href='invite-driver.html'">
+          Invite New Driver
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title-row">
+        <div class="section-title">All Drivers</div>
+        <div class="pill" id="driversMeta">Loading…</div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>UID</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Last Sign-In</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="driversBody">
+            <!-- rows by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // IMPORTANT:
+    // 1) ADMIN_API_BASE must match your Render URL
+    // 2) ADMIN_API_KEY must match the ADMIN_API_KEY env var in Render
+    const ADMIN_API_BASE = 'https://riteway-admin-api.onrender.com';
+    const ADMIN_API_KEY  = 'riteway-super-secret-928374';
+
+    async function loadDrivers() {
+      const metaEl = document.getElementById('driversMeta');
+      const tbody = document.getElementById('driversBody');
+      tbody.innerHTML = '<tr><td colspan="8" class="center muted">Loading drivers…</td></tr>';
+
+      try {
+        const res = await fetch(ADMIN_API_BASE + '/drivers', {
+          headers: {
+            'x-admin-api-key': ADMIN_API_KEY
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error('API error ' + res.status);
+        }
+
+        const data = await res.json();
+        const users = data.users || [];
+        metaEl.textContent = `Total drivers: ${users.length}`;
+
+        if (users.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="8" class="center muted">No drivers found yet. Invite one from the dashboard.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = '';
+        users.forEach(user => {
+          const tr = document.createElement('tr');
+
+          const name = user.displayName || '—';
+          const email = user.email || '—';
+          const phone = user.phoneNumber || '—';
+          const created = user.creationTime || '—';
+          const lastSignIn = user.lastSignInTime || '—';
+
+          tr.innerHTML = `
+            <td>${escapeHtml(name)}</td>
+            <td>${escapeHtml(email)}</td>
+            <td>${escapeHtml(phone)}</td>
+            <td><span class="uid">${escapeHtml(user.uid)}</span></td>
+            <td>
+              <span class="status-pill ${user.disabled ? 'status-disabled' : 'status-active'}">
+                ${user.disabled ? 'Disabled' : 'Active'}
+              </span>
+            </td>
+            <td class="muted">${escapeHtml(created)}</td>
+            <td class="muted">${escapeHtml(lastSignIn)}</td>
+            <td>
+              <button class="action-btn-delete" onclick="confirmDeleteDriver('${user.uid}', '${email.replace(/'/g, "\\'")}')">
+                Delete
+              </button>
+            </td>
+          `;
+
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error(err);
+        metaEl.textContent = 'Error loading drivers';
+        tbody.innerHTML =
+          '<tr><td colspan="8" class="center muted">Failed to load drivers. Check console for details.</td></tr>';
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    async function confirmDeleteDriver(uid, email) {
+      const label = email && email !== '—' ? `${email} (${uid})` : uid;
+      const ok = confirm(`Delete driver ${label}? This permanently removes them from Firebase Auth.`);
+      if (!ok) return;
+
+      try {
+        const res = await fetch(ADMIN_API_BASE + '/drivers/' + encodeURIComponent(uid), {
+          method: 'DELETE',
+          headers: {
+            'x-admin-api-key': ADMIN_API_KEY
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error('API error ' + res.status);
+        }
+
+        // Reload list
+        await loadDrivers();
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete driver. Check console for details.');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadDrivers);
+  </script>
+</body>
+</html>
