@@ -412,7 +412,6 @@
       <div class="side-menu-header-title">Riteway</div>
       <div class="side-menu-header-sub">Navigation</div>
     </div>
-    <!-- 🔧 FIXED THIS LINE to point to dispatch.html -->
     <a href="dispatch.html">Dispatch Dashboard</a>
     <a href="invite-driver.html" class="active">Invite Driver</a>
   </nav>
@@ -442,7 +441,7 @@
     <div class="card">
       <div class="section-title">Invite Driver</div>
       <div class="section-sub">
-        Enter a driver name and generate a unique invite link you can email or text to them.
+        Enter a driver name and generate a unique invite message you can text or email to them.
       </div>
 
       <div>
@@ -459,13 +458,13 @@
       </div>
 
       <div id="inviteResult" class="invite-result" style="display:none;">
-        <div class="invite-link-label">Invite Link</div>
+        <div class="invite-link-label">Invite Message</div>
         <div class="invite-link-row">
           <input id="inviteLink" class="invite-link-input" readonly>
           <button class="btn-secondary" onclick="copyInviteLink()">Copy</button>
         </div>
         <div class="invite-hint">
-          Share this link via text or email. When the driver opens it, they’ll be able to set up and log into the Riteway Driver App.
+          Copy and paste this into a text or email. It includes their name and the driver app link.
         </div>
       </div>
     </div>
@@ -549,7 +548,12 @@
       db.ref('driverInvites/' + token).set(payload)
         .then(() => {
           const inviteUrl = DRIVER_APP_URL + '?invite=' + encodeURIComponent(token);
-          linkInput.value = inviteUrl;
+
+          // ✅ Build a full message including their name
+          const message = `${name}, Riteway is inviting you to join their team! ` +
+            `Use this link to set up your driver app: ${inviteUrl}`;
+
+          linkInput.value = message;
           resultEl.style.display = 'block';
 
           statusEl.innerHTML = '<strong>Status:</strong> Invite link generated.';
@@ -563,15 +567,15 @@
 
     function copyInviteLink() {
       const linkInput = document.getElementById('inviteLink');
-      const link = linkInput.value.trim();
-      if (!link) return;
+      const text = linkInput.value.trim();
+      if (!text) return;
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(link)
-          .then(() => showToast('Invite link copied'))
-          .catch(() => fallbackCopy(link));
+        navigator.clipboard.writeText(text)
+          .then(() => showToast('Invite message copied'))
+          .catch(() => fallbackCopy(text));
       } else {
-        fallbackCopy(link);
+        fallbackCopy(text);
       }
     }
 
@@ -582,9 +586,9 @@
       tmp.select();
       try {
         document.execCommand('copy');
-        showToast('Invite link copied');
+        showToast('Invite message copied');
       } catch (e) {
-        alert('Could not copy. Please copy the link manually.');
+        alert('Could not copy. Please copy the message manually.');
       }
       document.body.removeChild(tmp);
     }
