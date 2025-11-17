@@ -450,13 +450,20 @@
       border: 1px solid var(--border-subtle);
       max-width: 960px;
       width: 100%;
-      max-height: 90vh;
+      max-height: 88vh;
       box-shadow: 0 18px 50px rgba(0,0,0,0.75);
       display: grid;
       grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.1fr);
       overflow: hidden;
     }
+.modal-left,
+.modal-right {
+  max-height: 88vh;
+}
 
+.modal-right {
+  overflow-y: auto;
+}
     @media (max-width: 900px) {
       .modal-card {
         grid-template-columns: 1fr;
