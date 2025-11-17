@@ -9,6 +9,9 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
+  <!-- Tesseract for OCR-on-open -->
+  <script src="https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+
   <style>
     :root {
       --bg: #050608;
@@ -392,7 +395,7 @@
       border: 1px solid var(--border-subtle);
       max-width: 960px;
       width: 100%;
-      max-height: 90vh;
+      max-height: 92vh;
       box-shadow: 0 18px 50px rgba(0,0,0,0.75);
       display: grid;
       grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.1fr);
@@ -413,7 +416,7 @@
       justify-content: center;
       padding: 10px;
       border-right: 1px solid var(--border-subtle);
-      max-height: 90vh;
+      max-height: 92vh;
     }
 
     .modal-image {
@@ -428,8 +431,8 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      max-height: 90vh;
-      overflow-y: auto; /* so buttons don’t get cut off */
+      max-height: 92vh;
+      overflow-y: auto; /* scrolling area so buttons aren’t cut off */
     }
 
     .modal-header-row {
@@ -676,6 +679,14 @@
       border-color: rgba(18,195,160,0.7);
       background: rgba(18,195,160,0.16);
     }
+
+    /* Small OCR status badge in notes area (optional) */
+    .ocr-status {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+      opacity: 0.8;
+    }
   </style>
 </head>
 <body>
@@ -789,7 +800,8 @@
       </div>
 
       <div class="subtext">
-        Viewer shows tickets from Firebase. Click any row on the right to see a full-size ticket and basic details.
+        Viewer shows tickets from Firebase. Click any row on the right to see a full-size ticket,
+        auto-filled details, and OCR notes.
       </div>
     </div>
 
@@ -848,6 +860,7 @@
         <div class="modal-notes">
           <span class="detail-label" style="display:block;margin-bottom:2px;">Notes</span>
           <span id="modalNotes" class="detail-value">—</span>
+          <div id="ocrStatus" class="ocr-status"></div>
         </div>
 
         <div class="modal-actions-row">
@@ -860,6 +873,7 @@
 
   <script>
     // --- CONFIG ---
+    // This matches your Firebase path from the screenshot:
     const TICKETS_REF_PATH = 'scaleTicketsMetadata';
 
     const firebaseConfig = {
@@ -912,7 +926,7 @@
             ticketId: data.ticketId || id,
             deliveryId: data.deliveryId || data.delivery_id || '',
             customerName: data.customerName || data.customer || '',
-            driverName: data.driverName || '', // often the email based on your metadata
+            driverName: data.driverName || '', // usually email or name
             imageUrl: data.downloadUrl || data.imageUrl || data.url || '',
             uploadedAt: data.createdAtISO || data.createdAt || null,
             notes: data.notes || data.note || ''
@@ -1168,7 +1182,7 @@
 
         const driverEmailLine = document.createElement('div');
         driverEmailLine.className = 'ticket-date';
-        // If your driverName is actually email, we just echo it here:
+        // you can change this if driverName is already an email
         driverEmailLine.textContent = displayDriver;
 
         driverCol.appendChild(driverName);
@@ -1183,6 +1197,48 @@
 
         container.appendChild(row);
       });
+    }
+
+    /* ---------- OCR ON OPEN ---------- */
+
+    async function runOcrForTicket(ticketObj, notesEl, statusEl) {
+      if (!window.Tesseract || !ticketObj.imageUrl) {
+        statusEl.textContent = '';
+        return;
+      }
+
+      try {
+        statusEl.textContent = 'Scanning ticket for text...';
+        const result = await Tesseract.recognize(
+          ticketObj.imageUrl,
+          'eng',
+          {
+            logger: m => console.log('Tesseract:', m)
+          }
+        );
+
+        let text = (result.data && result.data.text) ? result.data.text : '';
+        text = text.replace(/\r/g, '');
+        text = text.replace(/[ \t]+\n/g, '\n');
+        text = text.trim();
+
+        if (!text) text = '(No text detected)';
+
+        // Save back to Firebase
+        await db.ref(TICKETS_REF_PATH + '/' + ticketObj.id + '/notes').set(text);
+
+        // Update in-memory and UI
+        ticketObj.notes = text;
+        notesEl.textContent = text;
+        statusEl.textContent = 'Notes auto-filled from ticket image (OCR).';
+      } catch (err) {
+        console.error('OCR failed for ticket', ticketObj.id, err);
+        const failMsg = '(OCR failed – check image quality)';
+        await db.ref(TICKETS_REF_PATH + '/' + ticketObj.id + '/notes').set(failMsg);
+        ticketObj.notes = failMsg;
+        notesEl.textContent = failMsg;
+        statusEl.textContent = 'OCR failed – you can type your own notes.';
+      }
     }
 
     /* ---------- MODAL ---------- */
@@ -1208,6 +1264,7 @@
       const uploadedEl = document.getElementById('modalUploadedAt');
       const notesEl = document.getElementById('modalNotes');
       const imgEl = document.getElementById('modalImage');
+      const ocrStatusEl = document.getElementById('ocrStatus');
 
       mainId.textContent = t.ticketId || t.id;
 
@@ -1219,7 +1276,20 @@
       customerEl.textContent = t.customerName || '—';
       driverEl.textContent = driverPart;
       uploadedEl.textContent = formatShortDate(t.uploadedAt);
-      notesEl.textContent = t.notes || '—';
+
+      // Base notes state
+      if (t.notes) {
+        notesEl.textContent = t.notes;
+        ocrStatusEl.textContent = 'Notes already saved.';
+      } else if (t.imageUrl) {
+        notesEl.textContent = '—';
+        ocrStatusEl.textContent = 'No notes yet. Auto-scanning this ticket now...';
+        // Kick off OCR in background for this ticket
+        runOcrForTicket(t, notesEl, ocrStatusEl);
+      } else {
+        notesEl.textContent = '—';
+        ocrStatusEl.textContent = '';
+      }
 
       if (t.imageUrl) {
         imgEl.src = t.imageUrl;
