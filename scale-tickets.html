@@ -1220,7 +1220,23 @@
     function closeModal() {
       document.getElementById('ticketModal').classList.remove('open');
     }
+// ----- DELETE TICKET -----
+function deleteTicketById(ticketId) {
+  if (!ticketId) return;
+  const ok = confirm('Delete this ticket permanently? This cannot be undone.');
+  if (!ok) return;
 
+  db.ref(TICKETS_REF_PATH + '/' + ticketId)
+    .remove()
+    .then(() => {
+      console.log('Deleted ticket', ticketId);
+      closeModal();
+    })
+    .catch(err => {
+      console.error('Error deleting ticket:', err);
+      alert('Error deleting ticket. Check console for details.');
+    });
+}
     function openModalWithTicket(t) {
       document.getElementById('ticketModal').classList.add('open');
 
@@ -1274,17 +1290,21 @@
       // Download Ticket (image)
       const downloadBtn = document.getElementById('modalDownloadBtn');
       downloadBtn.onclick = () => {
-        if (!t.imageUrl) return;
+  if (!t.imageUrl) return;
 
-        const a = document.createElement('a');
-        a.href = t.imageUrl;
-        // filename: use ticketId if available, else id
-        const baseName = (t.ticketId || t.id || 'ticket').toString();
-        a.download = baseName + '.jpg';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      };
+  // force download by appending &download=1
+  const downloadUrl =
+    t.imageUrl.includes('?')
+      ? t.imageUrl + '&download=1'
+      : t.imageUrl + '?download=1';
+
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  a.download = (t.ticketId || t.id || 'ticket') + '.jpg';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
 
       // Delete Ticket
       const deleteBtn = document.getElementById('modalDeleteBtn');
