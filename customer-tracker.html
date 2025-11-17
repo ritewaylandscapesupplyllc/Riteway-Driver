@@ -359,7 +359,7 @@
   <!-- Google Maps (with geometry for distance & heading) -->
   <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA955mtbdY2qg_kvyLxWOV1yWN5NYenHcI&libraries=places,geometry"></script>
 
-  <script>
+    <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
       authDomain: "ritewaytracking-3e9d0.firebaseapp.com",
@@ -381,15 +381,15 @@
     let lastTruckPos = null;
     let truckInfoWindow = null;
     let truckOverlay = null;
-    let TruckOverlay = null;   // overlay CLASS, created lazily
+    let TruckOverlay = null; // overlay CLASS, created lazily
 
     let introPlayed = false;
     let followTruck = true;
     let internalZoomChange = false;
 
     // status & latest location tracking
-    let currentStatus = null;   // 'loading', 'en_route', 'complete', etc.
-    let latestLoc = null;       // last location object from Firebase
+    let currentStatus = null; // 'pending', 'loading', 'en_route', 'complete'
+    let latestLoc = null;     // last location object from Firebase (customerLocation)
 
     const AVG_SPEED_MPH = 35;
     const AVG_SPEED_MPS = AVG_SPEED_MPH * 1609.34 / 3600;
@@ -424,7 +424,7 @@
       }
     }
 
-    // --- NEW: show/hide map vs loading art based on status ---
+    // Show/hide map vs loading illustration based on status + latestLoc
     function updateViewForStatus() {
       const mapWrapper = document.getElementById('mapWrapper');
       const loadingWrapper = document.getElementById('loadingWrapper');
@@ -432,16 +432,21 @@
 
       if (!mapWrapper || !loadingWrapper) return;
 
-      if (currentStatus === 'loading') {
-        // Customer sees art + text, NOT map
+      const isLoadingStatus = currentStatus === 'loading';
+      const isEnRouteButNotVisible = currentStatus === 'en_route' && !latestLoc;
+
+      const showLoading = isLoadingStatus || isEnRouteButNotVisible;
+
+      if (showLoading) {
+        // Show your loading art, hide map
         loadingWrapper.style.display = 'flex';
         mapWrapper.style.display = 'none';
         if (fullscreenBtn) fullscreenBtn.style.display = 'none';
       } else {
-        // For en_route / complete / pending, show map
+        // Show map, hide loading art
         loadingWrapper.style.display = 'none';
         mapWrapper.style.display = 'block';
-        // Only show fullscreen on mobile & when map is visible
+
         if (isMobile() && map) {
           fullscreenBtn.style.display = 'inline-block';
         } else if (fullscreenBtn) {
@@ -450,10 +455,19 @@
       }
     }
 
-    // --- Shared ETA helper (uses status + latestLoc) ---
+    // ETA helper based on status + latestLoc
     function computeEtaText() {
+      if (!currentStatus || currentStatus === 'pending') {
+        return 'Your delivery will start soon.';
+      }
+
       if (currentStatus === 'loading') {
-        return 'Driver is picking up your materials.';
+        return 'We are loading your delivery.';
+      }
+
+      if (currentStatus === 'en_route' && !latestLoc) {
+        // Ticket uploaded but still inside 1 mile gate
+        return 'We are loading your delivery.';
       }
 
       if (currentStatus === 'complete') {
@@ -464,6 +478,7 @@
         return 'Waiting for driver to start…';
       }
 
+      // We have a location and driver is en_route
       if (destLatLng && google.maps.geometry && google.maps.geometry.spherical) {
         const newPos = new google.maps.LatLng(latestLoc.lat, latestLoc.lng);
         const distanceMeters = google.maps.geometry.spherical.computeDistanceBetween(newPos, destLatLng);
@@ -625,19 +640,20 @@
       refreshEtaText();
       updateViewForStatus();
 
-     const deliveryRef = database.ref('deliveries/' + deliveryId);
-// IMPORTANT: use customerLocation (gated position) for customers
-deliveryRef.child('customerLocation').off();
-deliveryRef.child('status').off();
+      const deliveryRef = database.ref('deliveries/' + deliveryId);
 
-      // status listener
+      // Clear previous listeners
+      deliveryRef.child('customerLocation').off();
+      deliveryRef.child('status').off();
+
+      // STATUS LISTENER
       deliveryRef.child('status').on('value', snapshot => {
         currentStatus = snapshot.val();
         refreshEtaText();
         updateViewForStatus();
       });
 
-      // details + destination
+      // DETAILS + DESTINATION
       deliveryRef.child('details').once('value', snapshot => {
         const details = snapshot.val();
         if (details) {
@@ -679,77 +695,58 @@ deliveryRef.child('status').off();
         }
       });
 
-     // live *customer-visible* location (gated by driver app logic)
-deliveryRef.child('customerLocation').on('value', snapshot => {
-  const loc = snapshot.val();
-  latestLoc = loc || null;
+      // LIVE CUSTOMER-VISIBLE LOCATION
+      deliveryRef.child('customerLocation').on('value', snapshot => {
+        const loc = snapshot.val();
+        latestLoc = loc || null;
 
-  // If no customerLocation, hide the truck from the map
-  if (!loc) {
-    refreshEtaText();
+        if (!loc) {
+          // No customerLocation yet (or cleared) -> no truck visible
+          refreshEtaText();
+          updateViewForStatus();
 
-    if (truckMarker) {
-      truckMarker.setMap(null);
-      truckMarker = null;
-    }
-    if (truckGlow) {
-      truckGlow.setMap(null);
-      truckGlow = null;
-    }
-    if (truckOverlay) {
-      truckOverlay.setMap(null);
-      truckOverlay = null;
-    }
-    lastTruckPos = null;
-    return;
-  }
-
-  const newPos = new google.maps.LatLng(loc.lat, loc.lng);
-
-  if (!truckMarker) {
-    if (TruckOverlay) {
-      // invisible marker just for InfoWindow anchoring; visual truck is overlay
-      truckMarker = new google.maps.Marker({
-        map: map,
-        position: newPos,
-        title: 'Riteway Truck',
-        opacity: 0,
-        clickable: true
-      });
-
-      truckOverlay = new TruckOverlay(newPos, map);
-    } else {
-      // fallback: use normal marker icon
-      truckMarker = new google.maps.Marker({
-        map: map,
-        position: newPos,
-        title: 'Riteway Truck',
-        icon: {
-          url: TRUCK_ICON_URL,
-          scaledSize: new google.maps.Size(72, 72),
-          anchor: new google.maps.Point(36, 48)
+          if (truckMarker) {
+            truckMarker.setMap(null);
+            truckMarker = null;
+          }
+          if (truckGlow) {
+            truckGlow.setMap(null);
+            truckGlow = null;
+          }
+          if (truckOverlay) {
+            truckOverlay.setMap(null);
+            truckOverlay = null;
+          }
+          lastTruckPos = null;
+          return;
         }
-      });
-    }
 
-    truckGlow = new google.maps.Circle({
-      strokeOpacity: 0,
-      fillColor: '#12C3A0',
-      fillOpacity: 0.25,
-      map: map,
-      center: newPos,
-      radius: 90
-    });
+        const newPos = new google.maps.LatLng(loc.lat, loc.lng);
 
-    lastTruckPos = newPos;
-  } else {
-    animateMarkerMove(truckMarker, truckGlow, truckOverlay, lastTruckPos, newPos, 1000);
-    lastTruckPos = newPos;
-  }
+        if (!truckMarker) {
+          if (TruckOverlay) {
+            // invisible marker just for InfoWindow anchoring; visual truck is overlay
+            truckMarker = new google.maps.Marker({
+              map: map,
+              position: newPos,
+              title: 'Riteway Truck',
+              opacity: 0,
+              clickable: true
+            });
 
-  tryIntroZoom();
-  refreshEtaText(loc.ts);
-});
+            truckOverlay = new TruckOverlay(newPos, map);
+          } else {
+            // fallback: use normal marker icon
+            truckMarker = new google.maps.Marker({
+              map: map,
+              position: newPos,
+              title: 'Riteway Truck',
+              icon: {
+                url: TRUCK_ICON_URL,
+                scaledSize: new google.maps.Size(72, 72),
+                anchor: new google.maps.Point(36, 48)
+              }
+            });
           }
 
           truckGlow = new google.maps.Circle({
@@ -769,10 +766,11 @@ deliveryRef.child('customerLocation').on('value', snapshot => {
 
         tryIntroZoom();
         refreshEtaText(loc.ts);
+        updateViewForStatus();
       });
     }
 
-    // intro zoom
+    // Intro zoom to show both dest + truck
     function tryIntroZoom() {
       if (introPlayed) return;
       if (!map || !destLatLng || !lastTruckPos) return;
