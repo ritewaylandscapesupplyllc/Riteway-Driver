@@ -1288,22 +1288,32 @@ function deleteTicketById(ticketId) {
       };
 
       // Download Ticket (image)
-      const downloadBtn = document.getElementById('modalDownloadBtn');
-      downloadBtn.onclick = () => {
+     const downloadBtn = document.getElementById('modalDownloadBtn');
+downloadBtn.onclick = () => {
   if (!t.imageUrl) return;
 
-  // force download by appending &download=1
-  const downloadUrl =
-    t.imageUrl.includes('?')
-      ? t.imageUrl + '&download=1'
-      : t.imageUrl + '?download=1';
-
-  const a = document.createElement('a');
-  a.href = downloadUrl;
-  a.download = (t.ticketId || t.id || 'ticket') + '.jpg';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  // Fetch the image as a blob, then trigger a download from a local URL
+  fetch(t.imageUrl)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.blob();
+    })
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (t.ticketId || t.id || 'ticket') + '.jpg';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    })
+    .catch(err => {
+      console.error('Download failed:', err);
+      alert('Could not download this ticket. Check the console for details.');
+    });
 };
 
       // Delete Ticket
