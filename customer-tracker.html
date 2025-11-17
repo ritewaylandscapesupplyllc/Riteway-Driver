@@ -625,9 +625,10 @@
       refreshEtaText();
       updateViewForStatus();
 
-      const deliveryRef = database.ref('deliveries/' + deliveryId);
-      deliveryRef.child('location').off();
-      deliveryRef.child('status').off();
+     const deliveryRef = database.ref('deliveries/' + deliveryId);
+// IMPORTANT: use customerLocation (gated position) for customers
+deliveryRef.child('customerLocation').off();
+deliveryRef.child('status').off();
 
       // status listener
       deliveryRef.child('status').on('value', snapshot => {
