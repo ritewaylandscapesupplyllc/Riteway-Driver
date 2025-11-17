@@ -10,7 +10,9 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
   <!-- Google Maps -->
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA955mtbdY2qg_kvyLxWOV1yWN5NYenHcI&libraries=geometry"></script>
+  <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA955mtbdY2qg_kvyLxWOV1yWN5NYenHcI&libraries=geometry">
+  </script>
 
   <style>
     :root {
@@ -62,6 +64,8 @@
       z-index: 0;
     }
 
+    /* HEADER */
+
     .header-row {
       position: relative;
       z-index: 2;
@@ -70,6 +74,12 @@
       justify-content: space-between;
       gap: 12px;
       margin-bottom: 2px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
     .brand-lockup {
@@ -111,6 +121,8 @@
       color: var(--text-muted);
     }
 
+    /* LAYOUT */
+
     .app-shell {
       position: relative;
       z-index: 1;
@@ -132,6 +144,8 @@
       }
     }
 
+    /* CARDS */
+
     .card {
       background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.78));
       border-radius: var(--radius-lg);
@@ -139,6 +153,10 @@
       box-shadow: var(--shadow-soft);
       backdrop-filter: blur(16px);
       padding: 14px 14px 12px;
+    }
+
+    .map-card {
+      padding: 10px;
     }
 
     .section-title-row {
@@ -163,7 +181,10 @@
       font-size: 0.75rem;
       color: var(--text-muted);
       background: rgba(5, 8, 11, 0.9);
+      white-space: nowrap;
     }
+
+    /* FORM */
 
     .new-load-grid {
       display: grid;
@@ -249,6 +270,8 @@
       color: var(--text-muted);
     }
 
+    /* STATS */
+
     .stats-row {
       display: flex;
       flex-wrap: wrap;
@@ -284,6 +307,8 @@
       color: var(--text-muted);
       margin-top: 2px;
     }
+
+    /* TABLE */
 
     .deliveries-table-wrapper {
       margin-top: 6px;
@@ -391,9 +416,31 @@
       color: var(--accent);
     }
 
-    .map-card {
-      padding: 10px;
+    .action-btn {
+      border-radius: 999px;
+      border: 1px solid transparent;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      cursor: pointer;
+      background: rgba(5,8,11,0.9);
+      margin-right: 4px;
     }
+
+    .action-btn-edit {
+      border-color: rgba(18,195,160,0.5);
+      color: var(--accent);
+      background: rgba(18,195,160,0.12);
+    }
+
+    .action-btn-delete {
+      border-color: rgba(255,121,121,0.6);
+      color: var(--danger);
+      background: rgba(255,121,121,0.12);
+    }
+
+    /* MAP */
 
     #map {
       width: 100%;
@@ -434,6 +481,8 @@
       background: #333;
     }
 
+    /* FILTERS */
+
     .filter-row {
       display: flex;
       gap: 8px;
@@ -451,6 +500,8 @@
       font-size: 0.78rem;
       outline: none;
     }
+
+    /* HAMBURGER / SIDE MENU */
 
     .hamburger-btn {
       width: 38px;
@@ -477,12 +528,6 @@
       height: 2px;
       border-radius: 999px;
       background: var(--text);
-    }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
     }
 
     .side-menu-backdrop {
@@ -590,30 +635,6 @@
       color: var(--text-muted);
       opacity: 0.7;
     }
-
-    .action-btn {
-      border-radius: 999px;
-      border: 1px solid transparent;
-      font-size: 0.68rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      padding: 3px 8px;
-      cursor: pointer;
-      background: rgba(5,8,11,0.9);
-      margin-right: 4px;
-    }
-
-    .action-btn-edit {
-      border-color: rgba(18,195,160,0.5);
-      color: var(--accent);
-      background: rgba(18,195,160,0.12);
-    }
-
-    .action-btn-delete {
-      border-color: rgba(255,121,121,0.6);
-      color: var(--danger);
-      background: rgba(255,121,121,0.12);
-    }
   </style>
 </head>
 <body>
@@ -637,9 +658,14 @@
       <span class="chevron">›</span>
     </button>
 
-    <!-- View All Drivers -->
     <button class="side-menu-item" onclick="goToPage('drivers.html')">
       <span class="label">View All Drivers</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <!-- NEW: Scale Ticket Viewer -->
+    <button class="side-menu-item" onclick="goToPage('scale-tickets.html')">
+      <span class="label">Scale Ticket Viewer</span>
       <span class="chevron">›</span>
     </button>
 
@@ -648,6 +674,7 @@
     </div>
   </div>
 
+  <!-- Header -->
   <div class="header-row">
     <div class="header-left">
       <button class="hamburger-btn" onclick="toggleMenu()">
@@ -672,8 +699,9 @@
     </div>
   </div>
 
+  <!-- Main layout -->
   <div class="app-shell">
-    <!-- LEFT COLUMN: new load + deliveries -->
+    <!-- LEFT COLUMN -->
     <div class="left-column">
 
       <!-- New Load Card -->
@@ -721,12 +749,10 @@
             <input id="newCostPerYard" class="field-input" type="number" step="0.01" placeholder="Your material cost">
           </div>
 
-          <!-- NEW: assign driver at create time -->
           <div class="full-span">
             <div class="field-label">Assign Driver</div>
             <select id="newAssignedDriverEmail" class="field-input">
               <option value="">Unassigned</option>
-              <!-- filled by JS -->
             </select>
           </div>
         </div>
@@ -736,7 +762,7 @@
           <button class="btn-primary" id="newLoadButton" onclick="createNewLoad()">Create Load</button>
         </div>
         <div class="new-load-hint">
-          Revenue = yards × price/yard + trucking. Profit = revenue − (yards × cost/yard). You can always tweak later.
+          Revenue = yards × price/yard + trucking. Profit = revenue − (yards × cost/yard).
         </div>
       </div>
 
@@ -780,7 +806,6 @@
           </select>
           <select id="driverFilter" class="filter-select" onchange="applyFilter()">
             <option value="all">Driver: All</option>
-            <!-- filled by JS from drivers -->
           </select>
         </div>
 
@@ -797,16 +822,14 @@
                 <th>Actions</th>
               </tr>
             </thead>
-            <tbody id="deliveriesBody">
-              <!-- rows inserted by JS -->
-            </tbody>
+            <tbody id="deliveriesBody"></tbody>
           </table>
         </div>
       </div>
 
     </div>
 
-    <!-- RIGHT: map -->
+    <!-- RIGHT COLUMN: MAP -->
     <div class="card map-card">
       <div class="section-title-row">
         <div class="section-title">Map View</div>
@@ -825,11 +848,10 @@
   </div>
 
   <script>
-    // --- CONFIG: backend base URL (Render) ---
+    // --- CONFIG ---
     const ADMIN_API_BASE = 'https://riteway-admin-api.onrender.com';
     const ADMIN_API_KEY  = 'riteway-super-secret-928374';
 
-    // Firebase config (same project)
     const firebaseConfig = {
       apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
       authDomain: "ritewaytracking-3e9d0.firebaseapp.com",
@@ -847,17 +869,16 @@
     const AVG_SPEED_MPS = AVG_SPEED_MPH * 1609.34 / 3600;
 
     let map;
-    let markers = {};
     let deliveries = {};
+    let markers = {};
+    let destMarkers = {};
     let statusFilter = 'all';
     let driverFilter = 'all';
-    let autoFitDone = false;
     let currentEditId = null;
-
-    // List of drivers from admin API
     let driversList = [];
 
-    // --- Side menu helpers ---
+    /* ---------- SIDE MENU ---------- */
+
     function openMenu() {
       document.getElementById('sideMenu').classList.add('open');
       document.getElementById('sideMenuBackdrop').classList.add('open');
@@ -870,16 +891,14 @@
 
     function toggleMenu() {
       const menu = document.getElementById('sideMenu');
-      if (menu.classList.contains('open')) {
-        closeMenu();
-      } else {
-        openMenu();
-      }
+      if (menu.classList.contains('open')) closeMenu(); else openMenu();
     }
 
     function goToPage(path) {
       window.location.href = path;
     }
+
+    /* ---------- FORM HELPERS ---------- */
 
     function resetForm() {
       document.getElementById('newDeliveryId').value = '';
@@ -897,13 +916,9 @@
     function cancelEdit() {
       currentEditId = null;
       resetForm();
-      const btn = document.getElementById('newLoadButton');
-      const pill = document.getElementById('newLoadPill');
-      const cancelBtn = document.getElementById('cancelEditButton');
-
-      btn.textContent = 'Create Load';
-      pill.textContent = 'Create a delivery for drivers';
-      cancelBtn.style.display = 'none';
+      document.getElementById('newLoadButton').textContent = 'Create Load';
+      document.getElementById('newLoadPill').textContent = 'Create a delivery for drivers';
+      document.getElementById('cancelEditButton').style.display = 'none';
     }
 
     function startEditLoad(id) {
@@ -922,17 +937,12 @@
       document.getElementById('newTruckingCharge').value = details.truckingCharge || '';
       document.getElementById('newCostPerYard').value = details.costPerYard || '';
 
-      const assignedEmail = details.assignedDriverEmail || '';
       const sel = document.getElementById('newAssignedDriverEmail');
-      if (sel) sel.value = assignedEmail;
+      sel.value = details.assignedDriverEmail || '';
 
-      const btn = document.getElementById('newLoadButton');
-      const pill = document.getElementById('newLoadPill');
-      const cancelBtn = document.getElementById('cancelEditButton');
-
-      btn.textContent = 'Save Changes';
-      pill.textContent = 'Editing existing load: ' + id;
-      cancelBtn.style.display = 'inline-block';
+      document.getElementById('newLoadButton').textContent = 'Save Changes';
+      document.getElementById('newLoadPill').textContent = 'Editing existing load: ' + id;
+      document.getElementById('cancelEditButton').style.display = 'inline-block';
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -941,14 +951,13 @@
       const d = deliveries[id] || {};
       const details = d.details || {};
       const name = details.customerName || '';
-      const confirmText = `Delete load ${id}${name ? ' for ' + name : ''}? This cannot be undone.`;
-      if (!confirm(confirmText)) return;
+      const msg = `Delete load ${id}${name ? ' for ' + name : ''}? This cannot be undone.`;
+      if (!confirm(msg)) return;
 
-      db.ref('deliveries/' + id).remove()
-        .catch(err => {
-          console.error('Error deleting load:', err);
-          alert('Error deleting load. Check console for details.');
-        });
+      db.ref('deliveries/' + id).remove().catch(err => {
+        console.error('Error deleting load:', err);
+        alert('Error deleting load. Check console for details.');
+      });
     }
 
     function getDriverByEmail(email) {
@@ -992,7 +1001,7 @@
 
       const details = {
         customerName: customerName || '',
-        address: address,
+        address,
         items: items || '',
         yards: yards || 0,
         ratePerYard: ratePerYard || 0,
@@ -1006,9 +1015,7 @@
 
       if (currentEditId && deliveries[currentEditId]) {
         db.ref('deliveries/' + currentEditId + '/details').set(details)
-          .then(() => {
-            cancelEdit();
-          })
+          .then(cancelEdit)
           .catch(err => {
             console.error('Error updating load:', err);
             alert('Error updating load. Check console for details.');
@@ -1021,9 +1028,7 @@
         };
 
         db.ref('deliveries/' + id).set(payload)
-          .then(() => {
-            resetForm();
-          })
+          .then(resetForm)
           .catch(err => {
             console.error('Error creating load:', err);
             alert('Error creating load. Check console for details.');
@@ -1031,26 +1036,29 @@
       }
     }
 
-    // --- Driver list from admin API ---
+    /* ---------- DRIVERS LIST FROM ADMIN API ---------- */
+
     async function loadDriversForDispatch() {
       try {
         const res = await fetch(ADMIN_API_BASE + '/drivers', {
-          headers: {
-            'x-admin-api-key': ADMIN_API_KEY
-          }
+          headers: { 'x-admin-api-key': ADMIN_API_KEY }
         });
+
         if (!res.ok) {
           console.error('Error loading drivers for dispatch:', res.status, res.statusText);
           return;
         }
+
         const data = await res.json();
         const users = data.users || [];
 
-        driversList = users.map(u => ({
-          uid: u.uid,
-          email: u.email || '',
-          displayName: u.displayName || ''
-        })).filter(d => d.email); // only drivers with email
+        driversList = users
+          .map(u => ({
+            uid: u.uid,
+            email: u.email || '',
+            displayName: u.displayName || ''
+          }))
+          .filter(d => d.email);
 
         populateDriverSelectors();
       } catch (err) {
@@ -1066,38 +1074,32 @@
       const prevNew = newSel.value;
       const prevFilter = filterSel.value;
 
-      // New load dropdown
       newSel.innerHTML = '<option value="">Unassigned</option>';
-
-      // Driver filter dropdown
       filterSel.innerHTML = '<option value="all">Driver: All</option>';
 
       driversList
         .slice()
         .sort((a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email))
         .forEach(d => {
-          const labelBase = d.displayName ? d.displayName : d.email;
-          const label = d.displayName ? `${d.displayName} (${d.email})` : d.email;
+          const labelBase = d.displayName || d.email;
+          const fullLabel = d.displayName ? `${d.displayName} (${d.email})` : d.email;
 
-          const opt1 = document.createElement('option');
-          opt1.value = d.email;
-          opt1.textContent = label;
-          newSel.appendChild(opt1);
+          const optNew = document.createElement('option');
+          optNew.value = d.email;
+          optNew.textContent = fullLabel;
+          newSel.appendChild(optNew);
 
-          const opt2 = document.createElement('option');
-          opt2.value = d.email;
-          opt2.textContent = 'Driver: ' + labelBase;
-          filterSel.appendChild(opt2);
+          const optFilter = document.createElement('option');
+          optFilter.value = d.email;
+          optFilter.textContent = 'Driver: ' + labelBase;
+          filterSel.appendChild(optFilter);
         });
 
-      if ([...newSel.options].some(o => o.value === prevNew)) {
-        newSel.value = prevNew;
-      }
-
-      if ([...filterSel.options].some(o => o.value === prevFilter)) {
-        filterSel.value = prevFilter;
-      }
+      if ([...newSel.options].some(o => o.value === prevNew)) newSel.value = prevNew;
+      if ([...filterSel.options].some(o => o.value === prevFilter)) filterSel.value = prevFilter;
     }
+
+    /* ---------- MAP ---------- */
 
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
@@ -1112,11 +1114,6 @@
             featureType: 'administrative.locality',
             elementType: 'labels.text.fill',
             stylers: [{ color: '#cbd3ff' }]
-          },
-          {
-            featureType: 'poi',
-            elementType: 'labels.text.fill',
-            stylers: [{ color: '#9ca5b3' }]
           },
           {
             featureType: 'poi.park',
@@ -1165,23 +1162,18 @@
       const distanceMeters = google.maps.geometry.spherical.computeDistanceBetween(pos, destLatLng);
       const seconds = distanceMeters / AVG_SPEED_MPS;
 
-      if (seconds < 60) {
-        return '≈ 1 min';
-      } else {
-        const minutes = Math.round(seconds / 60);
-        if (minutes < 60) {
-          return `≈ ${minutes} min`;
-        } else {
-          const hours = Math.floor(minutes / 60);
-          const rem = minutes % 60;
-          if (rem < 5) {
-            return `≈ ${hours} hr`;
-          } else {
-            return `≈ ${hours} hr ${rem} min`;
-          }
-        }
-      }
+      if (seconds < 60) return '≈ 1 min';
+
+      const minutes = Math.round(seconds / 60);
+      if (minutes < 60) return `≈ ${minutes} min`;
+
+      const hours = Math.floor(minutes / 60);
+      const rem = minutes % 60;
+      if (rem < 5) return `≈ ${hours} hr`;
+      return `≈ ${hours} hr ${rem} min`;
     }
+
+    /* ---------- DELIVERIES LISTENERS & RENDERING ---------- */
 
     function formatStatus(status) {
       if (!status) return { label: 'Pending', cls: 'status-unknown' };
@@ -1220,9 +1212,7 @@
       Object.entries(deliveries).forEach(([id, d]) => {
         const status = (d.status || '').toLowerCase();
         if (status !== 'complete') activeCount++;
-        if (status === 'complete') {
-          completeCount++;
-        }
+        if (status === 'complete') completeCount++;
 
         const details = d.details || {};
         const yards = Number(details.yards || 0);
@@ -1242,7 +1232,7 @@
       tbody.innerHTML = '';
 
       const entries = Object.entries(deliveries);
-      if (entries.length === 0) {
+      if (!entries.length) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
         td.colSpan = 7;
@@ -1268,10 +1258,12 @@
 
         const tr = document.createElement('tr');
 
+        // ID
         const tdId = document.createElement('td');
         tdId.innerHTML = `<span class="delivery-id">${id}</span>`;
         tr.appendChild(tdId);
 
+        // Customer / Address
         const tdCust = document.createElement('td');
         const cust = details.customerName || 'N/A';
         const addr = details.address || 'N/A';
@@ -1281,17 +1273,20 @@
         `;
         tr.appendChild(tdCust);
 
+        // Items
         const tdItems = document.createElement('td');
         tdItems.textContent = details.items || '';
         tr.appendChild(tdItems);
 
+        // Status
         const tdStatus = document.createElement('td');
-        const span = document.createElement('span');
-        span.className = 'status-pill ' + statusCls;
-        span.textContent = statusLabel;
-        tdStatus.appendChild(span);
+        const statusSpan = document.createElement('span');
+        statusSpan.className = 'status-pill ' + statusCls;
+        statusSpan.textContent = statusLabel;
+        tdStatus.appendChild(statusSpan);
         tr.appendChild(tdStatus);
 
+        // Driver (inline select)
         const tdDriver = document.createElement('td');
         const sel = document.createElement('select');
         sel.className = 'driver-input';
@@ -1329,6 +1324,7 @@
         tdDriver.appendChild(sel);
         tr.appendChild(tdDriver);
 
+        // ETA
         const tdEta = document.createElement('td');
         tdEta.className = 'eta-cell';
         const dest = d._resolvedDestLatLng;
@@ -1344,6 +1340,7 @@
         tdEta.textContent = etaText;
         tr.appendChild(tdEta);
 
+        // Actions
         const tdActions = document.createElement('td');
         tdActions.style.whiteSpace = 'nowrap';
 
@@ -1366,13 +1363,95 @@
     }
 
     function renderMapMarkers() {
-      // This is your existing map marker logic – leaving as-is for now
-      // (Assumes you had it previously; if not, we can wire it up next.)
+      if (!map) return;
+
+      // Clear markers that no longer have deliveries
+      Object.keys(markers).forEach(id => {
+        if (!deliveries[id]) {
+          markers[id].setMap(null);
+          delete markers[id];
+        }
+      });
+      Object.keys(destMarkers).forEach(id => {
+        if (!deliveries[id]) {
+          destMarkers[id].setMap(null);
+          delete destMarkers[id];
+        }
+      });
+
+      const bounds = new google.maps.LatLngBounds();
+      let hasBounds = false;
+
+      Object.entries(deliveries).forEach(([id, d]) => {
+        const details = d.details || {};
+        const statusRaw = d.status || '';
+        const assignedEmail = (details.assignedDriverEmail || '').trim();
+
+        // Respect filters
+        if (statusFilter === 'active' && statusRaw.toLowerCase() === 'complete') return;
+        if (statusFilter !== 'all' && statusFilter !== 'active' &&
+            statusRaw.toLowerCase() !== statusFilter) return;
+        if (driverFilter !== 'all' && assignedEmail !== driverFilter) return;
+
+        const loc = d.location;
+        if (loc && typeof loc.lat === 'number' && typeof loc.lng === 'number') {
+          const pos = new google.maps.LatLng(loc.lat, loc.lng);
+          if (!markers[id]) {
+            markers[id] = new google.maps.Marker({
+              map,
+              position: pos,
+              title: id + ' – truck',
+              icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 5,
+                fillColor: '#12C3A0',
+                fillOpacity: 1,
+                strokeColor: '#12C3A0',
+                strokeWeight: 1
+              }
+            });
+          } else {
+            markers[id].setPosition(pos);
+          }
+          bounds.extend(pos);
+          hasBounds = true;
+        }
+
+        const dest = d._resolvedDestLatLng;
+        if (dest && typeof dest.lat === 'number' && typeof dest.lng === 'number') {
+          const destPos = new google.maps.LatLng(dest.lat, dest.lng);
+          if (!destMarkers[id]) {
+            destMarkers[id] = new google.maps.Marker({
+              map,
+              position: destPos,
+              title: id + ' – drop',
+              icon: {
+                path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+                scale: 4,
+                fillColor: '#12C3A0',
+                fillOpacity: 0.3,
+                strokeColor: '#12C3A0',
+                strokeWeight: 1
+              }
+            });
+          } else {
+            destMarkers[id].setPosition(destPos);
+          }
+          bounds.extend(destPos);
+          hasBounds = true;
+        }
+      });
+
+      if (hasBounds) {
+        map.fitBounds(bounds);
+      }
     }
 
+    /* ---------- BOOTSTRAP ---------- */
+
     window.addEventListener('load', () => {
-      loadDriversForDispatch();  // pull in all current drivers for dropdowns
-      waitForMapsThenInit();     // map + deliveries listener
+      loadDriversForDispatch();
+      waitForMapsThenInit();
     });
   </script>
 </body>
