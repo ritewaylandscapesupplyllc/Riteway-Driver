@@ -259,7 +259,6 @@
       text-align: center;
     }
 
-    /* Driver dashboard layout */
     .driver-top-row {
       display: flex;
       justify-content: space-between;
@@ -355,7 +354,6 @@
       margin-bottom: 6px;
     }
 
-    /* Splash overlay (logo + progress bar) */
     .splash-overlay {
       position: fixed;
       inset: 0;
@@ -415,7 +413,6 @@
       color: var(--text-muted);
     }
 
-    /* Add to Home Screen modal */
     .pwa-modal {
       position: fixed;
       inset: 0;
@@ -550,15 +547,11 @@
       </div>
 
       <div class="layout-two-col">
-        <!-- LEFT: list of loads -->
         <div>
           <div class="detail-label" style="margin-bottom:4px;">Your Loads</div>
-          <div class="loads-list" id="loadsList">
-            <!-- populated by JS -->
-          </div>
+          <div class="loads-list" id="loadsList"></div>
         </div>
 
-        <!-- RIGHT: details + action -->
         <div>
           <div class="detail-label">Selected Load</div>
           <div id="loadDetails" style="font-size:0.9rem; min-height:120px;">
@@ -568,13 +561,11 @@
           </div>
 
           <div class="actions" style="margin-top:10px;">
-            <!-- IMPORTANT: inline onclick calls handlePrimaryClick() -->
             <button class="btn-primary" id="primaryActionBtn" disabled onclick="handlePrimaryClick()">
               Select a load
             </button>
           </div>
 
-          <!-- Scale ticket upload section (shown when status = loading) -->
           <div id="ticketUploadSection" style="margin-top:12px; display:none;">
             <div class="detail-label">Scale Ticket</div>
             <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">
@@ -586,7 +577,7 @@
               type="file"
               accept="image/*"
               capture="environment"
-              style="margin-top:4px; margin-bottom:6px; color:var(--text-muted); font-size:0.78rem;"
+              style="margin-top:4px; margin-bottom:4px; color:var(--text-muted); font-size:0.78rem;"
             >
 
             <div id="ticketStatus" class="auth-hint" style="min-height:1.2em; text-align:left;"></div>
@@ -608,7 +599,6 @@
     </div>
   </div>
 
-  <!-- Splash overlay: logo + loading bar -->
   <div id="splashOverlay" class="splash-overlay">
     <div class="splash-card">
       <img src="riteway-logo.png" alt="Riteway Logo" class="splash-logo">
@@ -620,7 +610,6 @@
     </div>
   </div>
 
-  <!-- Add to Home Screen modal (only for newly signed-up drivers) -->
   <div id="pwaHintModal" class="pwa-modal">
     <div class="pwa-modal-backdrop" onclick="closePwaHint()"></div>
     <div class="pwa-modal-card">
@@ -654,7 +643,6 @@
   </div>
 
   <script>
-    // --- Firebase Init ---
     const firebaseConfig = {
       apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
       authDomain: "ritewaytracking-3e9d0.firebaseapp.com",
@@ -670,16 +658,16 @@
     const auth = firebase.auth();
     const storage = firebase.storage();
 
-    // --- Globals ---
-    let loadsById = {};         // { deliveryId: {details, location, status, ticketInfo?} }
+    let loadsById = {};
     let currentUser = null;
     let selectedLoadId = null;
     let gpsInterval = null;
     let loadsRef = null;
     let splashTimer = null;
-    let currentPrimaryHandler = null; // central handler
+    let currentPrimaryHandler = null;
+    let hasAutoSelectedLoad = false;
+    let inTicketCapture = false; // <-- freeze UI while true
 
-    // --- Small helpers ---
     function log(msg) {
       const debug = document.getElementById('debug');
       if (!debug) return;
@@ -689,9 +677,8 @@
       console.log(msg);
     }
 
-    // Log JS errors into debug panel
-    window.onerror = function(message, source, lineno, colno, error) {
-      log('JS ERROR: ' + message + ' @ ' + source + ':' + lineno);
+    window.onerror = function(message, source, lineno) {
+      log('JS ERROR: ' + message + ' @ ' + lineno);
     };
 
     function setStatusText(text) {
@@ -699,7 +686,6 @@
       if (el) el.innerText = text;
     }
 
-    // Called by the inline onclick on the main button
     function handlePrimaryClick() {
       const btn = document.getElementById('primaryActionBtn');
       if (!btn) return;
@@ -725,7 +711,7 @@
       btn.innerText = label;
       btn.disabled = disabled;
       currentPrimaryHandler = (!disabled && typeof handler === 'function') ? handler : null;
-      log('Primary button set to "' + label + '" (disabled=' + disabled + ')');
+      log('Primary button set to "' + label + `" (disabled=${disabled})`);
     }
 
     function statusLabel(status) {
@@ -751,7 +737,7 @@
     }
 
     function computeDistanceMeters(lat1, lon1, lat2, lon2) {
-      const R = 6371000; // meters
+      const R = 6371000;
       const toRad = deg => deg * Math.PI / 180;
       const dLat = toRad(lat2 - lat1);
       const dLon = toRad(lat2 - lon1);
@@ -763,7 +749,6 @@
       return R * c;
     }
 
-    // --- Splash handling ---
     function showSplash(onDone) {
       const overlay = document.getElementById('splashOverlay');
       const barFill = document.getElementById('splashBarFill');
@@ -797,7 +782,7 @@
           barFill.style.width = progress + '%';
           percentText.textContent = progress + '%';
         }
-      }, 60); // ~1.2 seconds total
+      }, 60);
     }
 
     function hideSplashImmediately() {
@@ -809,7 +794,6 @@
       }
     }
 
-    // --- Add to Home Screen modal ---
     function openPwaHint() {
       const modal = document.getElementById('pwaHintModal');
       if (modal) modal.style.display = 'flex';
@@ -820,7 +804,6 @@
       if (modal) modal.style.display = 'none';
     }
 
-    // --- Auth functions ---
     function showAuthError(text) {
       const el = document.getElementById('authError');
       if (el) el.innerText = text || '';
@@ -870,15 +853,18 @@
 
     function logout() {
       stopGps();
+      inTicketCapture = false;
+      if (loadsRef) loadsRef.off();
       auth.signOut();
     }
 
-    // Handle auth state changes
     auth.onAuthStateChanged(user => {
       currentUser = user;
       if (user) {
         document.getElementById('authCard').style.display = 'none';
         document.getElementById('driverCard').style.display = 'none';
+        hasAutoSelectedLoad = false;
+        inTicketCapture = false;
 
         showSplash(() => {
           document.getElementById('driverCard').style.display = 'block';
@@ -906,11 +892,11 @@
         loadsById = {};
         selectedLoadId = null;
         setLoadCountBadge(0);
+        hasAutoSelectedLoad = false;
         if (loadsRef) loadsRef.off();
       }
     });
 
-    // --- Loads subscription ---
     function subscribeToLoadsForUser(user) {
       if (!user) return;
       if (loadsRef) loadsRef.off();
@@ -920,6 +906,12 @@
         .equalTo(user.email);
 
       loadsRef.on('value', snapshot => {
+        if (inTicketCapture) {
+          // freeze UI while driver is capturing/uploading ticket
+          log('Loads update ignored (inTicketCapture=true)');
+          return;
+        }
+
         const val = snapshot.val() || {};
         loadsById = {};
 
@@ -929,16 +921,11 @@
 
         renderLoadsList();
 
-        // Refresh selected load's UI based on latest status
-        if (selectedLoadId && loadsById[selectedLoadId] && loadsById[selectedLoadId].status !== 'complete') {
-          selectLoad(selectedLoadId);
-        } else {
-          selectedLoadId = null;
-          const firstId = Object.keys(loadsById).find(id => loadsById[id].status !== 'complete');
+        if (!hasAutoSelectedLoad) {
+          const firstId = Object.keys(loadsById)[0];
           if (firstId) {
+            hasAutoSelectedLoad = true;
             selectLoad(firstId);
-          } else {
-            selectLoad(null);
           }
         }
       });
@@ -973,7 +960,14 @@
 
         const div = document.createElement('div');
         div.className = 'load-item' + (id === selectedLoadId ? ' active' : '');
-        div.onclick = () => selectLoad(id);
+        div.onclick = () => {
+          hasAutoSelectedLoad = true;
+          if (inTicketCapture) {
+            log('Tap on load ignored because ticket capture is active.');
+            return;
+          }
+          selectLoad(id);
+        };
 
         const topRow = document.createElement('div');
         topRow.className = 'load-header-row';
@@ -1002,7 +996,6 @@
       });
     }
 
-    // --- Selection & details ---
     function selectLoad(id) {
       selectedLoadId = id;
 
@@ -1073,14 +1066,13 @@
       const container = document.getElementById('loadsList');
       if (container) {
         Array.from(container.children).forEach(child => {
-          if (child.onclick && child.onclick.toString().includes(`"${id}"`)) {
+          if (child.textContent.includes(id)) {
             child.classList.add('active');
           }
         });
       }
     }
 
-    // --- GPS helpers ---
     function stopGps() {
       if (gpsInterval) {
         clearInterval(gpsInterval);
@@ -1110,12 +1102,10 @@
               .then(() => log(`GPS sent for ${deliveryId}: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`))
               .catch(err => log('ERROR sending GPS: ' + err.message));
 
-            // Customer-facing gating
             const obj = loadsById[deliveryId] || {};
             const ticketInfo = obj.ticketInfo;
 
             if (!ticketInfo || !ticketInfo.ticketUploadedAt) {
-              // No ticket yet -> customer sees full live location
               deliveryRef.child('customerLocation').set(loc)
                 .catch(err => log('ERROR setting customerLocation: ' + err.message));
             } else if (ticketInfo.pitLat != null && ticketInfo.pitLng != null) {
@@ -1131,12 +1121,10 @@
                 deliveryRef.child('customerLocation').set(loc)
                   .catch(err => log('ERROR setting customerLocation: ' + err.message));
               } else {
-                // Hide location from customer while within 1 mile of where ticket was taken
                 deliveryRef.child('customerLocation').set(null)
                   .catch(err => log('ERROR clearing customerLocation: ' + err.message));
               }
             } else {
-              // Ticket exists but no pit location -> fall back to full location
               deliveryRef.child('customerLocation').set(loc)
                 .catch(err => log('ERROR setting customerLocation: ' + err.message));
             }
@@ -1154,7 +1142,6 @@
       log('GPS interval started for ' + deliveryId);
     }
 
-    // --- Status transitions for selected load ---
     function startLoadingForSelected() {
       if (!selectedLoadId || !loadsById[selectedLoadId]) return;
       const id = selectedLoadId;
@@ -1165,15 +1152,16 @@
         db.ref('deliveries/' + id + '/details/assignedDriverEmail').set(currentUser.email);
       }
 
+      inTicketCapture = true;          // freeze UI updates
+      if (loadsRef) loadsRef.off();    // stop Firebase listener
+
       db.ref('deliveries/' + id + '/status').set('loading')
         .then(() => {
           log(`Status for ${id} set to loading`);
           setStatusText('Loading at pit / getting ticket…');
-
           if (!loadsById[id]) loadsById[id] = {};
           loadsById[id].status = 'loading';
           selectLoad(id);
-
           ensureGpsRunning(id);
         })
         .catch(err => log('ERROR setting status: ' + err.message));
@@ -1267,6 +1255,10 @@
         if (fileInput) fileInput.value = '';
 
         log(`Scale ticket uploaded for ${id}, ticketId=${ticketId}`);
+
+        // re-enable live updates
+        inTicketCapture = false;
+        if (currentUser) subscribeToLoadsForUser(currentUser);
       } catch (err) {
         console.error('Error uploading scale ticket:', err);
         log('Error uploading ticket: ' + err.message);
@@ -1308,7 +1300,25 @@
         .catch(err => log('ERROR clearing customerLocation: ' + err.message));
 
       stopGps();
+      inTicketCapture = false;
+      if (currentUser) subscribeToLoadsForUser(currentUser);
     }
+
+    // file input change logger (see if iOS actually returns the file)
+    document.addEventListener('DOMContentLoaded', () => {
+      const inp = document.getElementById('ticketFileInput');
+      if (!inp) return;
+      inp.addEventListener('change', () => {
+        if (!inp.files || inp.files.length === 0) {
+          log('File input change: no file selected.');
+        } else {
+          const f = inp.files[0];
+          log('File selected: ' + f.name + ' (' + f.size + ' bytes)');
+          const statusEl = document.getElementById('ticketStatus');
+          if (statusEl) statusEl.textContent = 'Selected: ' + f.name;
+        }
+      });
+    });
   </script>
 </body>
 </html>
