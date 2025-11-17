@@ -1080,59 +1080,47 @@
     }
   }
 
-  function ensureGpsRunning(deliveryId) {
-    if (!deliveryId) return;
-    if (gpsInterval && gpsInterval._forId === deliveryId) return;
-
-    stopGps();
-
-    const sendGpsOnce = () => {
-      getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 10000 })
-        .then(pos => {
-          const loc = {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            ts: new Date().toISOString()
-          };
-
-          const deliveryRef = db.ref('deliveries/' + deliveryId);
-
-          deliveryRef.child('location').set(loc)
-            .then(() => log(`GPS sent for ${deliveryId}: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`))
-            .catch(err => log('ERROR sending GPS: ' + err.message));
-
           const obj = loadsById[deliveryId] || {};
-          const ticketInfo = obj.ticketInfo;
+        const ticketInfo = obj.ticketInfo;
 
-          if (!ticketInfo || !ticketInfo.ticketUploadedAt) {
+        // NEW LOGIC:
+        // 1) Before ticket upload → NEVER send customerLocation (always null)
+        // 2) After ticket upload, inside 1 mile of pit → keep customerLocation null
+        // 3) After ticket upload, beyond 1 mile → send location to customer
+
+        if (!ticketInfo || !ticketInfo.ticketUploadedAt) {
+          // Ticket not uploaded yet → hide from customer
+          deliveryRef.child('customerLocation').set(null)
+            .then(() => log(`customerLocation cleared (no ticket yet) for ${deliveryId}`))
+            .catch(err => log('ERROR clearing customerLocation (no ticket): ' + err.message));
+        } else if (ticketInfo.pitLat != null && ticketInfo.pitLng != null) {
+          // We know where the pit is, so enforce 1-mile radius
+          const dist = computeDistanceMeters(
+            loc.lat,
+            loc.lng,
+            ticketInfo.pitLat,
+            ticketInfo.pitLng
+          );
+          const ONE_MILE_METERS = 1609.34;
+
+          if (dist >= ONE_MILE_METERS) {
+            // Beyond 1 mile → show driver to customer
             deliveryRef.child('customerLocation').set(loc)
+              .then(() => log(`customerLocation SET for ${deliveryId}, dist=${dist.toFixed(1)}m`))
               .catch(err => log('ERROR setting customerLocation: ' + err.message));
-          } else if (ticketInfo.pitLat != null && ticketInfo.pitLng != null) {
-            const dist = computeDistanceMeters(
-              loc.lat,
-              loc.lng,
-              ticketInfo.pitLat,
-              ticketInfo.pitLng
-            );
-            const ONE_MILE_METERS = 1609.34;
-
-            if (dist >= ONE_MILE_METERS) {
-              deliveryRef.child('customerLocation').set(loc)
-                .catch(err => log('ERROR setting customerLocation: ' + err.message));
-            } else {
-              deliveryRef.child('customerLocation').set(null)
-                .catch(err => log('ERROR clearing customerLocation: ' + err.message));
-            }
           } else {
-            deliveryRef.child('customerLocation').set(loc)
-              .catch(err => log('ERROR setting customerLocation: ' + err.message));
+            // Still within pit radius → hide
+            deliveryRef.child('customerLocation').set(null)
+              .then(() => log(`customerLocation cleared (inside 1 mile, dist=${dist.toFixed(1)}m) for ${deliveryId}`))
+              .catch(err => log('ERROR clearing customerLocation (inside radius): ' + err.message));
           }
-        })
-        .catch(err => {
-          log('GPS ERROR: ' + err.message);
-          setStatusText('GPS error: ' + err.message);
-        });
-    };
+        } else {
+          // Ticket uploaded but no pit coordinates (fallback)
+          // In this case we can't enforce the radius, so we just send the location.
+          deliveryRef.child('customerLocation').set(loc)
+            .then(() => log(`customerLocation SET (no pit coords) for ${deliveryId}`))
+            .catch(err => log('ERROR setting customerLocation (no pit coords): ' + err.message));
+        }
 
     sendGpsOnce();
     gpsInterval = setInterval(sendGpsOnce, 5000);
