@@ -679,40 +679,77 @@ deliveryRef.child('status').off();
         }
       });
 
-      // live location
-      deliveryRef.child('location').on('value', snapshot => {
-        const loc = snapshot.val();
-        latestLoc = loc || null;
+     // live *customer-visible* location (gated by driver app logic)
+deliveryRef.child('customerLocation').on('value', snapshot => {
+  const loc = snapshot.val();
+  latestLoc = loc || null;
 
-        if (!loc) {
-          refreshEtaText();
-          return;
+  // If no customerLocation, hide the truck from the map
+  if (!loc) {
+    refreshEtaText();
+
+    if (truckMarker) {
+      truckMarker.setMap(null);
+      truckMarker = null;
+    }
+    if (truckGlow) {
+      truckGlow.setMap(null);
+      truckGlow = null;
+    }
+    if (truckOverlay) {
+      truckOverlay.setMap(null);
+      truckOverlay = null;
+    }
+    lastTruckPos = null;
+    return;
+  }
+
+  const newPos = new google.maps.LatLng(loc.lat, loc.lng);
+
+  if (!truckMarker) {
+    if (TruckOverlay) {
+      // invisible marker just for InfoWindow anchoring; visual truck is overlay
+      truckMarker = new google.maps.Marker({
+        map: map,
+        position: newPos,
+        title: 'Riteway Truck',
+        opacity: 0,
+        clickable: true
+      });
+
+      truckOverlay = new TruckOverlay(newPos, map);
+    } else {
+      // fallback: use normal marker icon
+      truckMarker = new google.maps.Marker({
+        map: map,
+        position: newPos,
+        title: 'Riteway Truck',
+        icon: {
+          url: TRUCK_ICON_URL,
+          scaledSize: new google.maps.Size(72, 72),
+          anchor: new google.maps.Point(36, 48)
         }
+      });
+    }
 
-        const newPos = new google.maps.LatLng(loc.lat, loc.lng);
+    truckGlow = new google.maps.Circle({
+      strokeOpacity: 0,
+      fillColor: '#12C3A0',
+      fillOpacity: 0.25,
+      map: map,
+      center: newPos,
+      radius: 90
+    });
 
-        if (!truckMarker) {
-          if (TruckOverlay) {
-            truckMarker = new google.maps.Marker({
-              map: map,
-              position: newPos,
-              title: 'Riteway Truck',
-              opacity: 0,
-              clickable: true
-            });
+    lastTruckPos = newPos;
+  } else {
+    animateMarkerMove(truckMarker, truckGlow, truckOverlay, lastTruckPos, newPos, 1000);
+    lastTruckPos = newPos;
+  }
 
-            truckOverlay = new TruckOverlay(newPos, map);
-          } else {
-            truckMarker = new google.maps.Marker({
-              map: map,
-              position: newPos,
-              title: 'Riteway Truck',
-              icon: {
-                url: TRUCK_ICON_URL,
-                scaledSize: new google.maps.Size(72, 72),
-                anchor: new google.maps.Point(36, 48)
-              }
-            });
+  tryIntroZoom();
+  refreshEtaText(loc.ts);
+});
           }
 
           truckGlow = new google.maps.Circle({
