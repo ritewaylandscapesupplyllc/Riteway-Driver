@@ -850,10 +850,18 @@
           <span id="modalNotes" class="detail-value">—</span>
         </div>
 
-        <div class="modal-actions-row">
-          <button id="modalOpenImageBtn" class="btn-accent">Open Full Size</button>
-          <button id="modalOpenDeliveryBtn" class="btn-outline">View Load in Dispatch</button>
-        </div>
+       <div class="modal-actions-row">
+  <button id="modalDownloadBtn" class="btn-accent">Download Ticket</button>
+  <button id="modalOpenImageBtn" class="btn-outline">Open Full Size</button>
+  <button id="modalOpenDeliveryBtn" class="btn-outline">View Load in Dispatch</button>
+  <button
+    id="modalDeleteBtn"
+    class="btn-outline"
+    style="border-color: var(--danger); color: var(--danger);"
+  >
+    Delete Ticket
+  </button>
+</div>
       </div>
     </div>
   </div>
@@ -1191,6 +1199,22 @@
       if (event.target === document.getElementById('ticketModal')) {
         closeModal();
       }
+      function deleteTicketById(ticketId) {
+  if (!ticketId) return;
+  const ok = confirm('Delete this ticket permanently? This cannot be undone.');
+  if (!ok) return;
+
+  db.ref(TICKETS_REF_PATH + '/' + ticketId)
+    .remove()
+    .then(() => {
+      console.log('Deleted ticket', ticketId);
+      closeModal();
+    })
+    .catch(err => {
+      console.error('Error deleting ticket:', err);
+      alert('Error deleting ticket. Check console for details.');
+    });
+}
     }
 
     function closeModal() {
@@ -1221,7 +1245,7 @@
       uploadedEl.textContent = formatShortDate(t.uploadedAt);
       notesEl.textContent = t.notes || '—';
 
-      if (t.imageUrl) {
+            if (t.imageUrl) {
         imgEl.src = t.imageUrl;
         imgEl.alt = 'Scale ticket ' + t.id;
       } else {
@@ -1229,6 +1253,7 @@
         imgEl.alt = 'No image';
       }
 
+      // Open Full Size
       const openImageBtn = document.getElementById('modalOpenImageBtn');
       openImageBtn.onclick = () => {
         if (t.imageUrl) {
@@ -1236,6 +1261,7 @@
         }
       };
 
+      // View Load in Dispatch
       const openDeliveryBtn = document.getElementById('modalOpenDeliveryBtn');
       openDeliveryBtn.onclick = () => {
         if (t.deliveryId) {
@@ -1243,6 +1269,27 @@
         } else {
           window.location.href = 'dispatch.html';
         }
+      };
+
+      // Download Ticket (image)
+      const downloadBtn = document.getElementById('modalDownloadBtn');
+      downloadBtn.onclick = () => {
+        if (!t.imageUrl) return;
+
+        const a = document.createElement('a');
+        a.href = t.imageUrl;
+        // filename: use ticketId if available, else id
+        const baseName = (t.ticketId || t.id || 'ticket').toString();
+        a.download = baseName + '.jpg';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      };
+
+      // Delete Ticket
+      const deleteBtn = document.getElementById('modalDeleteBtn');
+      deleteBtn.onclick = () => {
+        deleteTicketById(t.id);
       };
     }
 
