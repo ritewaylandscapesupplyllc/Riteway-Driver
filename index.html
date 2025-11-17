@@ -642,683 +642,707 @@
     </div>
   </div>
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
-      authDomain: "ritewaytracking-3e9d0.firebaseapp.com",
-      databaseURL: "https://ritewaytracking-3e9d0-default-rtdb.firebaseio.com",
-      projectId: "ritewaytracking-3e9d0",
-      storageBucket: "ritewaytracking-3e9d0.firebasestorage.app",
-      messagingSenderId: "817275576166",
-      appId: "1:817275576166:web:56a92bcaf8f60d52a0b2a7"
-    };
+ <script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
+    authDomain: "ritewaytracking-3e9d0.firebaseapp.com",
+    databaseURL: "https://ritewaytracking-3e9d0-default-rtdb.firebaseio.com",
+    projectId: "ritewaytracking-3e9d0",
+    storageBucket: "ritewaytracking-3e9d0.firebasestorage.app",
+    messagingSenderId: "817275576166",
+    appId: "1:817275576166:web:56a92bcaf8f60d52a0b2a7"
+  };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const auth = firebase.auth();
-    const storage = firebase.storage();
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const auth = firebase.auth();
+  const storage = firebase.storage();
 
-    let loadsById = {};
-    let currentUser = null;
-    let selectedLoadId = null;
-    let gpsInterval = null;
-    let loadsRef = null;
-    let splashTimer = null;
-    let currentPrimaryHandler = null;
-    let hasAutoSelectedLoad = false;
-    let inTicketCapture = false; // <-- freeze UI while true
+  let loadsById = {};
+  let currentUser = null;
+  let selectedLoadId = null;
+  let gpsInterval = null;
+  let loadsRef = null;
+  let splashTimer = null;
+  let currentPrimaryHandler = null;
+  let hasAutoSelectedLoad = false;
+  let inTicketCapture = false; // freeze UI while taking/uploading ticket
 
-    function log(msg) {
-      const debug = document.getElementById('debug');
-      if (!debug) return;
-      const time = new Date().toLocaleTimeString();
-      debug.innerHTML += `<br>[${time}] ${msg}`;
-      debug.scrollTop = debug.scrollHeight;
-      console.log(msg);
+  function log(msg) {
+    const debug = document.getElementById('debug');
+    if (!debug) return;
+    const time = new Date().toLocaleTimeString();
+    debug.innerHTML += `<br>[${time}] ${msg}`;
+    debug.scrollTop = debug.scrollHeight;
+    console.log(msg);
+  }
+
+  window.onerror = function(message, source, lineno) {
+    log('JS ERROR: ' + message + ' @ ' + lineno);
+  };
+
+  function setStatusText(text) {
+    const el = document.getElementById('status-text');
+    if (el) el.innerText = text;
+  }
+
+  function handlePrimaryClick() {
+    const btn = document.getElementById('primaryActionBtn');
+    if (!btn) return;
+    log('Primary button CLICKED by user. Label: ' + btn.innerText);
+    if (btn.disabled) {
+      log('Primary button is disabled; ignoring click.');
+      return;
     }
-
-    window.onerror = function(message, source, lineno) {
-      log('JS ERROR: ' + message + ' @ ' + lineno);
-    };
-
-    function setStatusText(text) {
-      const el = document.getElementById('status-text');
-      if (el) el.innerText = text;
-    }
-
-    function handlePrimaryClick() {
-      const btn = document.getElementById('primaryActionBtn');
-      if (!btn) return;
-      log('Primary button CLICKED by user. Label: ' + btn.innerText);
-      if (btn.disabled) {
-        log('Primary button is disabled; ignoring click.');
-        return;
+    if (typeof currentPrimaryHandler === 'function') {
+      try {
+        currentPrimaryHandler();
+      } catch (err) {
+        log('Primary handler error: ' + err.message);
       }
-      if (typeof currentPrimaryHandler === 'function') {
-        try {
-          currentPrimaryHandler();
-        } catch (err) {
-          log('Primary handler error: ' + err.message);
-        }
-      } else {
-        log('No primary handler assigned.');
+    } else {
+      log('No primary handler assigned.');
+    }
+  }
+
+  function setPrimaryButton(label, handler, disabled = false) {
+    const btn = document.getElementById('primaryActionBtn');
+    if (!btn) return;
+    btn.innerText = label;
+    btn.disabled = disabled;
+    currentPrimaryHandler = (!disabled && typeof handler === 'function') ? handler : null;
+    log('Primary button set to "' + label + `" (disabled=${disabled})`);
+  }
+
+  function statusLabel(status) {
+    if (!status || status === 'pending') return 'Pending';
+    if (status === 'loading') return 'Loading';
+    if (status === 'en_route') return 'En Route';
+    if (status === 'complete') return 'Complete';
+    return status;
+  }
+
+  function getDriverDisplayName(user) {
+    if (!user) return '';
+    return user.displayName || user.email || user.phoneNumber || user.uid;
+  }
+
+  function getCurrentPositionPromise(options) {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        return reject(new Error('Geolocation not supported'));
       }
+      navigator.geolocation.getCurrentPosition(resolve, reject, options || {});
+    });
+  }
+
+  function computeDistanceMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = deg => deg * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lat2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function showSplash(onDone) {
+    const overlay = document.getElementById('splashOverlay');
+    const barFill = document.getElementById('splashBarFill');
+    const percentText = document.getElementById('splashPercent');
+
+    if (!overlay || !barFill || !percentText) {
+      if (onDone) onDone();
+      return;
     }
 
-    function setPrimaryButton(label, handler, disabled = false) {
-      const btn = document.getElementById('primaryActionBtn');
-      if (!btn) return;
-      btn.innerText = label;
-      btn.disabled = disabled;
-      currentPrimaryHandler = (!disabled && typeof handler === 'function') ? handler : null;
-      log('Primary button set to "' + label + `" (disabled=${disabled})`);
-    }
+    overlay.style.display = 'flex';
+    barFill.style.width = '0%';
+    percentText.textContent = '0%';
 
-    function statusLabel(status) {
-      if (!status || status === 'pending') return 'Pending';
-      if (status === 'loading') return 'Loading';
-      if (status === 'en_route') return 'En Route';
-      if (status === 'complete') return 'Complete';
-      return status;
-    }
+    let progress = 0;
+    if (splashTimer) clearInterval(splashTimer);
 
-    function getDriverDisplayName(user) {
-      if (!user) return '';
-      return user.displayName || user.email || user.phoneNumber || user.uid;
-    }
-
-    function getCurrentPositionPromise(options) {
-      return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-          return reject(new Error('Geolocation not supported'));
-        }
-        navigator.geolocation.getCurrentPosition(resolve, reject, options || {});
-      });
-    }
-
-    function computeDistanceMeters(lat1, lon1, lat2, lon2) {
-      const R = 6371000;
-      const toRad = deg => deg * Math.PI / 180;
-      const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lat2 - lon1);
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    }
-
-    function showSplash(onDone) {
-      const overlay = document.getElementById('splashOverlay');
-      const barFill = document.getElementById('splashBarFill');
-      const percentText = document.getElementById('splashPercent');
-
-      if (!overlay || !barFill || !percentText) {
-        if (onDone) onDone();
-        return;
-      }
-
-      overlay.style.display = 'flex';
-      barFill.style.width = '0%';
-      percentText.textContent = '0%';
-
-      let progress = 0;
-      if (splashTimer) clearInterval(splashTimer);
-
-      splashTimer = setInterval(() => {
-        progress += 5;
-        if (progress >= 100) {
-          progress = 100;
-          barFill.style.width = progress + '%';
-          percentText.textContent = progress + '%';
-          clearInterval(splashTimer);
-          splashTimer = null;
-          setTimeout(() => {
-            overlay.style.display = 'none';
-            if (onDone) onDone();
-          }, 200);
-        } else {
-          barFill.style.width = progress + '%';
-          percentText.textContent = progress + '%';
-        }
-      }, 60);
-    }
-
-    function hideSplashImmediately() {
-      const overlay = document.getElementById('splashOverlay');
-      if (overlay) overlay.style.display = 'none';
-      if (splashTimer) {
+    splashTimer = setInterval(() => {
+      progress += 5;
+      if (progress >= 100) {
+        progress = 100;
+        barFill.style.width = progress + '%';
+        percentText.textContent = progress + '%';
         clearInterval(splashTimer);
         splashTimer = null;
-      }
-    }
-
-    function openPwaHint() {
-      const modal = document.getElementById('pwaHintModal');
-      if (modal) modal.style.display = 'flex';
-    }
-
-    function closePwaHint() {
-      const modal = document.getElementById('pwaHintModal');
-      if (modal) modal.style.display = 'none';
-    }
-
-    function showAuthError(text) {
-      const el = document.getElementById('authError');
-      if (el) el.innerText = text || '';
-    }
-
-    function login() {
-      const email = document.getElementById('authEmail').value.trim();
-      const password = document.getElementById('authPassword').value;
-      showAuthError('');
-
-      if (!email || !password) {
-        showAuthError('Email and password are required.');
-        return;
-      }
-
-      auth.signInWithEmailAndPassword(email, password)
-        .then(() => {
-          showAuthError('');
-        })
-        .catch(err => {
-          console.error(err);
-          showAuthError(err.message);
-        });
-    }
-
-    function signup() {
-      const email = document.getElementById('authEmail').value.trim();
-      const password = document.getElementById('authPassword').value;
-      showAuthError('');
-
-      if (!email || !password) {
-        showAuthError('Email and password are required.');
-        return;
-      }
-
-      localStorage.setItem('ritewayShowPwaHint', '1');
-
-      auth.createUserWithEmailAndPassword(email, password)
-        .then(() => {
-          showAuthError('Account created. You are now signed in.');
-        })
-        .catch(err => {
-          console.error(err);
-          showAuthError(err.message);
-        });
-    }
-
-    function logout() {
-      stopGps();
-      inTicketCapture = false;
-      if (loadsRef) loadsRef.off();
-      auth.signOut();
-    }
-
-    auth.onAuthStateChanged(user => {
-      currentUser = user;
-      if (user) {
-        document.getElementById('authCard').style.display = 'none';
-        document.getElementById('driverCard').style.display = 'none';
-        hasAutoSelectedLoad = false;
-        inTicketCapture = false;
-
-        showSplash(() => {
-          document.getElementById('driverCard').style.display = 'block';
-          document.getElementById('driverIdentity').innerText =
-            `Logged in as ${user.email}`;
-          subscribeToLoadsForUser(user);
-
-          if (localStorage.getItem('ritewayShowPwaHint') === '1') {
-            localStorage.removeItem('ritewayShowPwaHint');
-            openPwaHint();
-          }
-        });
+        setTimeout(() => {
+          overlay.style.display = 'none';
+          if (onDone) onDone();
+        }, 200);
       } else {
-        hideSplashImmediately();
-        document.getElementById('driverCard').style.display = 'none';
-        document.getElementById('authCard').style.display = 'block';
-        const idEl = document.getElementById('driverIdentity');
-        if (idEl) idEl.innerText = '';
-        const loadsList = document.getElementById('loadsList');
-        if (loadsList) loadsList.innerHTML = '';
-        document.getElementById('loadDetails').innerHTML =
-          '<div style="color:var(--text-muted); font-size:0.8rem;">Tap a load on the left to see details and start loading.</div>';
-        setPrimaryButton('Select a load', null, true);
-        setStatusText('No load selected');
-        loadsById = {};
-        selectedLoadId = null;
-        setLoadCountBadge(0);
-        hasAutoSelectedLoad = false;
-        if (loadsRef) loadsRef.off();
+        barFill.style.width = progress + '%';
+        percentText.textContent = progress + '%';
+      }
+    }, 60);
+  }
+
+  function hideSplashImmediately() {
+    const overlay = document.getElementById('splashOverlay');
+    if (overlay) overlay.style.display = 'none';
+    if (splashTimer) {
+      clearInterval(splashTimer);
+      splashTimer = null;
+    }
+  }
+
+  function openPwaHint() {
+    const modal = document.getElementById('pwaHintModal');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function closePwaHint() {
+    const modal = document.getElementById('pwaHintModal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function showAuthError(text) {
+    const el = document.getElementById('authError');
+    if (el) el.innerText = text || '';
+  }
+
+  function login() {
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    showAuthError('');
+
+    if (!email || !password) {
+      showAuthError('Email and password are required.');
+      return;
+    }
+
+    auth.signInWithEmailAndPassword(email, password)
+      .then(() => {
+        showAuthError('');
+      })
+      .catch(err => {
+        console.error(err);
+        showAuthError(err.message);
+      });
+  }
+
+  function signup() {
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    showAuthError('');
+
+    if (!email || !password) {
+      showAuthError('Email and password are required.');
+      return;
+    }
+
+    localStorage.setItem('ritewayShowPwaHint', '1');
+
+    auth.createUserWithEmailAndPassword(email, password)
+      .then(() => {
+        showAuthError('Account created. You are now signed in.');
+      })
+      .catch(err => {
+        console.error(err);
+        showAuthError(err.message);
+      });
+  }
+
+  function logout() {
+    stopGps();
+    inTicketCapture = false;
+    if (loadsRef) loadsRef.off();
+    auth.signOut();
+  }
+
+  auth.onAuthStateChanged(user => {
+    currentUser = user;
+    if (user) {
+      document.getElementById('authCard').style.display = 'none';
+      document.getElementById('driverCard').style.display = 'none';
+      hasAutoSelectedLoad = false;
+      inTicketCapture = false;
+
+      showSplash(() => {
+        document.getElementById('driverCard').style.display = 'block';
+        document.getElementById('driverIdentity').innerText =
+          `Logged in as ${user.email}`;
+        subscribeToLoadsForUser(user);
+
+        if (localStorage.getItem('ritewayShowPwaHint') === '1') {
+          localStorage.removeItem('ritewayShowPwaHint');
+          openPwaHint();
+        }
+      });
+    } else {
+      hideSplashImmediately();
+      document.getElementById('driverCard').style.display = 'none';
+      document.getElementById('authCard').style.display = 'block';
+      const idEl = document.getElementById('driverIdentity');
+      if (idEl) idEl.innerText = '';
+      const loadsList = document.getElementById('loadsList');
+      if (loadsList) loadsList.innerHTML = '';
+      document.getElementById('loadDetails').innerHTML =
+        '<div style="color:var(--text-muted); font-size:0.8rem;">Tap a load on the left to see details and start loading.</div>';
+      setPrimaryButton('Select a load', null, true);
+      setStatusText('No load selected');
+      loadsById = {};
+      selectedLoadId = null;
+      setLoadCountBadge(0);
+      hasAutoSelectedLoad = false;
+      if (loadsRef) loadsRef.off();
+    }
+  });
+
+  function subscribeToLoadsForUser(user) {
+    if (!user) return;
+    if (loadsRef) loadsRef.off();
+
+    loadsRef = db.ref('deliveries')
+      .orderByChild('details/assignedDriverEmail')
+      .equalTo(user.email);
+
+    loadsRef.on('value', snapshot => {
+      if (inTicketCapture) {
+        log('Loads update ignored (inTicketCapture=true)');
+        return;
+      }
+
+      const val = snapshot.val() || {};
+      loadsById = {};
+
+      Object.entries(val).forEach(([id, obj]) => {
+        loadsById[id] = obj;
+      });
+
+      renderLoadsList();
+
+      if (!hasAutoSelectedLoad) {
+        const firstId = Object.keys(loadsById)[0];
+        if (firstId) {
+          hasAutoSelectedLoad = true;
+          selectLoad(firstId);
+        }
       }
     });
+  }
 
-    function subscribeToLoadsForUser(user) {
-      if (!user) return;
-      if (loadsRef) loadsRef.off();
+  function setLoadCountBadge(count) {
+    const badge = document.getElementById('loadCountBadge');
+    if (!badge) return;
+    badge.innerText = `${count} active load${count === 1 ? '' : 's'}`;
+  }
 
-      loadsRef = db.ref('deliveries')
-        .orderByChild('details/assignedDriverEmail')
-        .equalTo(user.email);
+  function renderLoadsList() {
+    const container = document.getElementById('loadsList');
+    if (!container) return;
 
-      loadsRef.on('value', snapshot => {
-        if (inTicketCapture) {
-          // freeze UI while driver is capturing/uploading ticket
-          log('Loads update ignored (inTicketCapture=true)');
-          return;
-        }
+    const entries = Object.entries(loadsById)
+      .filter(([id, obj]) => obj.status !== 'complete')
+      .sort((a,b) => (a[0] > b[0] ? -1 : 1));
 
-        const val = snapshot.val() || {};
-        loadsById = {};
+    container.innerHTML = '';
+    setLoadCountBadge(entries.length);
 
-        Object.entries(val).forEach(([id, obj]) => {
-          loadsById[id] = obj;
-        });
-
-        renderLoadsList();
-
-        if (!hasAutoSelectedLoad) {
-          const firstId = Object.keys(loadsById)[0];
-          if (firstId) {
-            hasAutoSelectedLoad = true;
-            selectLoad(firstId);
-          }
-        }
-      });
+    if (entries.length === 0) {
+      container.innerHTML =
+        '<div style="padding:10px 12px; font-size:0.8rem; color:var(--text-muted);">No active loads assigned yet.</div>';
+      return;
     }
 
-    function setLoadCountBadge(count) {
-      const badge = document.getElementById('loadCountBadge');
-      if (!badge) return;
-      badge.innerText = `${count} active load${count === 1 ? '' : 's'}`;
-    }
-
-    function renderLoadsList() {
-      const container = document.getElementById('loadsList');
-      if (!container) return;
-
-      const entries = Object.entries(loadsById)
-        .filter(([id, obj]) => obj.status !== 'complete')
-        .sort((a,b) => (a[0] > b[0] ? -1 : 1));
-
-      container.innerHTML = '';
-      setLoadCountBadge(entries.length);
-
-      if (entries.length === 0) {
-        container.innerHTML =
-          '<div style="padding:10px 12px; font-size:0.8rem; color:var(--text-muted);">No active loads assigned yet.</div>';
-        return;
-      }
-
-      entries.forEach(([id, obj]) => {
-        const details = obj.details || {};
-        const status = obj.status || 'pending';
-
-        const div = document.createElement('div');
-        div.className = 'load-item' + (id === selectedLoadId ? ' active' : '');
-        div.onclick = () => {
-          hasAutoSelectedLoad = true;
-          if (inTicketCapture) {
-            log('Tap on load ignored because ticket capture is active.');
-            return;
-          }
-          selectLoad(id);
-        };
-
-        const topRow = document.createElement('div');
-        topRow.className = 'load-header-row';
-
-        const idSpan = document.createElement('span');
-        idSpan.className = 'load-id';
-        idSpan.innerText = id;
-
-        const statusSpan = document.createElement('span');
-        statusSpan.className = 'load-status-pill';
-        statusSpan.innerText = statusLabel(status);
-
-        topRow.appendChild(idSpan);
-        topRow.appendChild(statusSpan);
-
-        const sub = document.createElement('div');
-        sub.className = 'load-sub';
-        const name = details.customerName || 'No customer set';
-        const addr = details.address || 'No address set';
-        sub.innerText = `${name} · ${addr}`;
-
-        div.appendChild(topRow);
-        div.appendChild(sub);
-
-        container.appendChild(div);
-      });
-    }
-
-    function selectLoad(id) {
-      selectedLoadId = id;
-
-      Array.from(document.querySelectorAll('.load-item')).forEach(el => {
-        el.classList.remove('active');
-      });
-
-      const ticketSection = document.getElementById('ticketUploadSection');
-      const ticketStatusEl = document.getElementById('ticketStatus');
-      if (ticketSection) ticketSection.style.display = 'none';
-      if (ticketStatusEl) ticketStatusEl.textContent = '';
-
-      if (!id || !loadsById[id]) {
-        document.getElementById('loadDetails').innerHTML =
-          '<div style="color:var(--text-muted); font-size:0.8rem;">Tap a load on the left to see details and start loading.</div>';
-        setPrimaryButton('Select a load', null, true);
-        setStatusText('No load selected');
-        stopGps();
-        return;
-      }
-
-      const obj = loadsById[id];
+    entries.forEach(([id, obj]) => {
       const details = obj.details || {};
       const status = obj.status || 'pending';
 
-      const html = `
-        <div>
-          <div class="detail-label">Delivery ID</div>
-          <div class="detail-value">${id}</div>
-
-          <div class="detail-label">Customer</div>
-          <div class="detail-value">${details.customerName || '—'}</div>
-
-          <div class="detail-label">Address</div>
-          <div class="detail-value">${details.address || '—'}</div>
-
-          <div class="detail-label">Items</div>
-          <div class="detail-value">${details.items || '—'}</div>
-
-          <div class="detail-label">Status</div>
-          <div class="detail-value">${statusLabel(status)}</div>
-        </div>
-      `;
-      document.getElementById('loadDetails').innerHTML = html;
-
-      if (status === 'loading') {
-        if (ticketSection) ticketSection.style.display = 'block';
-        setPrimaryButton('Upload Scale Ticket', uploadScaleTicketForSelected);
-        setStatusText('Loading at pit / getting ticket…');
-        ensureGpsRunning(id);
-      } else if (status === 'en_route') {
-        if (ticketSection) ticketSection.style.display = 'none';
-        setPrimaryButton('Complete Delivery', completeSelected);
-        setStatusText('En route to customer…');
-        ensureGpsRunning(id);
-      } else if (status === 'complete') {
-        if (ticketSection) ticketSection.style.display = 'none';
-        setPrimaryButton('Completed', null, true);
-        setStatusText('Delivery complete');
-        stopGps();
-      } else {
-        if (ticketSection) ticketSection.style.display = 'none';
-        setPrimaryButton('Start Loading', startLoadingForSelected);
-        setStatusText('Ready to start');
-        stopGps();
-      }
-
-      const container = document.getElementById('loadsList');
-      if (container) {
-        Array.from(container.children).forEach(child => {
-          if (child.textContent.includes(id)) {
-            child.classList.add('active');
-          }
-        });
-      }
-    }
-
-    function stopGps() {
-      if (gpsInterval) {
-        clearInterval(gpsInterval);
-        gpsInterval = null;
-        log('GPS interval stopped');
-      }
-    }
-
-    function ensureGpsRunning(deliveryId) {
-      if (!deliveryId) return;
-      if (gpsInterval && gpsInterval._forId === deliveryId) return;
-
-      stopGps();
-
-      const sendGpsOnce = () => {
-        getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 10000 })
-          .then(pos => {
-            const loc = {
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-              ts: new Date().toISOString()
-            };
-
-            const deliveryRef = db.ref('deliveries/' + deliveryId);
-
-            deliveryRef.child('location').set(loc)
-              .then(() => log(`GPS sent for ${deliveryId}: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`))
-              .catch(err => log('ERROR sending GPS: ' + err.message));
-
-            const obj = loadsById[deliveryId] || {};
-            const ticketInfo = obj.ticketInfo;
-
-            if (!ticketInfo || !ticketInfo.ticketUploadedAt) {
-              deliveryRef.child('customerLocation').set(loc)
-                .catch(err => log('ERROR setting customerLocation: ' + err.message));
-            } else if (ticketInfo.pitLat != null && ticketInfo.pitLng != null) {
-              const dist = computeDistanceMeters(
-                loc.lat,
-                loc.lng,
-                ticketInfo.pitLat,
-                ticketInfo.pitLng
-              );
-              const ONE_MILE_METERS = 1609.34;
-
-              if (dist >= ONE_MILE_METERS) {
-                deliveryRef.child('customerLocation').set(loc)
-                  .catch(err => log('ERROR setting customerLocation: ' + err.message));
-              } else {
-                deliveryRef.child('customerLocation').set(null)
-                  .catch(err => log('ERROR clearing customerLocation: ' + err.message));
-              }
-            } else {
-              deliveryRef.child('customerLocation').set(loc)
-                .catch(err => log('ERROR setting customerLocation: ' + err.message));
-            }
-          })
-          .catch(err => {
-            log('GPS ERROR: ' + err.message);
-            setStatusText('GPS error: ' + err.message);
-          });
+      const div = document.createElement('div');
+      div.className = 'load-item' + (id === selectedLoadId ? ' active' : '');
+      div.onclick = () => {
+        hasAutoSelectedLoad = true;
+        if (inTicketCapture) {
+          log('Tap on load ignored because ticket capture is active.');
+          return;
+        }
+        selectLoad(id);
       };
 
-      sendGpsOnce();
+      const topRow = document.createElement('div');
+      topRow.className = 'load-header-row';
 
-      gpsInterval = setInterval(sendGpsOnce, 5000);
-      gpsInterval._forId = deliveryId;
-      log('GPS interval started for ' + deliveryId);
+      const idSpan = document.createElement('span');
+      idSpan.className = 'load-id';
+      idSpan.innerText = id;
+
+      const statusSpan = document.createElement('span');
+      statusSpan.className = 'load-status-pill';
+      statusSpan.innerText = statusLabel(status);
+
+      topRow.appendChild(idSpan);
+      topRow.appendChild(statusSpan);
+
+      const sub = document.createElement('div');
+      sub.className = 'load-sub';
+      const name = details.customerName || 'No customer set';
+      const addr = details.address || 'No address set';
+      sub.innerText = `${name} · ${addr}`;
+
+      div.appendChild(topRow);
+      div.appendChild(sub);
+
+      container.appendChild(div);
+    });
+  }
+
+  function selectLoad(id) {
+    selectedLoadId = id;
+
+    Array.from(document.querySelectorAll('.load-item')).forEach(el => {
+      el.classList.remove('active');
+    });
+
+    const ticketSection = document.getElementById('ticketUploadSection');
+    const ticketStatusEl = document.getElementById('ticketStatus');
+    if (ticketSection) ticketSection.style.display = 'none';
+    if (ticketStatusEl) ticketStatusEl.textContent = '';
+
+    if (!id || !loadsById[id]) {
+      document.getElementById('loadDetails').innerHTML =
+        '<div style="color:var(--text-muted); font-size:0.8rem;">Tap a load on the left to see details and start loading.</div>';
+      setPrimaryButton('Select a load', null, true);
+      setStatusText('No load selected');
+      stopGps();
+      return;
     }
 
-    function startLoadingForSelected() {
-      if (!selectedLoadId || !loadsById[selectedLoadId]) return;
-      const id = selectedLoadId;
-      const obj = loadsById[id];
-      const details = obj.details || {};
+    const obj = loadsById[id];
+    const details = obj.details || {};
+    const status = obj.status || 'pending';
 
-      if (currentUser && (!details.assignedDriverEmail || details.assignedDriverEmail !== currentUser.email)) {
-        db.ref('deliveries/' + id + '/details/assignedDriverEmail').set(currentUser.email);
-      }
+    const html = `
+      <div>
+        <div class="detail-label">Delivery ID</div>
+        <div class="detail-value">${id}</div>
 
-      inTicketCapture = true;          // freeze UI updates
-      if (loadsRef) loadsRef.off();    // stop Firebase listener
+        <div class="detail-label">Customer</div>
+        <div class="detail-value">${details.customerName || '—'}</div>
 
-      db.ref('deliveries/' + id + '/status').set('loading')
-        .then(() => {
-          log(`Status for ${id} set to loading`);
-          setStatusText('Loading at pit / getting ticket…');
-          if (!loadsById[id]) loadsById[id] = {};
-          loadsById[id].status = 'loading';
-          selectLoad(id);
-          ensureGpsRunning(id);
-        })
-        .catch(err => log('ERROR setting status: ' + err.message));
+        <div class="detail-label">Address</div>
+        <div class="detail-value">${details.address || '—'}</div>
+
+        <div class="detail-label">Items</div>
+        <div class="detail-value">${details.items || '—'}</div>
+
+        <div class="detail-label">Status</div>
+        <div class="detail-value">${statusLabel(status)}</div>
+      </div>
+    `;
+    document.getElementById('loadDetails').innerHTML = html;
+
+    if (status === 'loading') {
+      if (ticketSection) ticketSection.style.display = 'block';
+      setPrimaryButton('Upload Scale Ticket', uploadScaleTicketForSelected);
+      setStatusText('Loading at pit / getting ticket…');
+      ensureGpsRunning(id);
+    } else if (status === 'en_route') {
+      if (ticketSection) ticketSection.style.display = 'none';
+      setPrimaryButton('Complete Delivery', completeSelected);
+      setStatusText('En route to customer…');
+      ensureGpsRunning(id);
+    } else if (status === 'complete') {
+      if (ticketSection) ticketSection.style.display = 'none';
+      setPrimaryButton('Completed', null, true);
+      setStatusText('Delivery complete');
+      stopGps();
+    } else {
+      if (ticketSection) ticketSection.style.display = 'none';
+      setPrimaryButton('Start Loading', startLoadingForSelected);
+      setStatusText('Ready to start');
+      stopGps();
     }
 
-    async function uploadScaleTicketForSelected() {
-      if (!selectedLoadId || !loadsById[selectedLoadId]) return;
-      const id = selectedLoadId;
-      const user = currentUser;
-      const statusEl = document.getElementById('ticketStatus');
-      const fileInput = document.getElementById('ticketFileInput');
-
-      if (statusEl) statusEl.textContent = '';
-
-      if (!user) {
-        alert('Please sign in before uploading a ticket.');
-        return;
-      }
-
-      if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-        alert('Please choose or take a photo of the scale ticket.');
-        return;
-      }
-
-      const file = fileInput.files[0];
-
-      try {
-        if (statusEl) statusEl.textContent = 'Getting location & uploading ticket…';
-
-        let pitLocation = null;
-        try {
-          const pos = await getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 15000 });
-          pitLocation = {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude
-          };
-        } catch (geoErr) {
-          log('Could not get pit location for ticket: ' + geoErr.message);
+    const container = document.getElementById('loadsList');
+    if (container) {
+      Array.from(container.children).forEach(child => {
+        if (child.textContent.includes(id)) {
+          child.classList.add('active');
         }
+      });
+    }
+  }
 
-        const now = new Date();
-        const year = now.getFullYear();
-        const ticketId = Date.now().toString();
+  function stopGps() {
+    if (gpsInterval) {
+      clearInterval(gpsInterval);
+      gpsInterval = null;
+      log('GPS interval stopped');
+    }
+  }
 
-        const storagePath = `scaleTickets/${year}/${user.uid}/${ticketId}.jpg`;
-        const storageRef = storage.ref(storagePath);
+  function ensureGpsRunning(deliveryId) {
+    if (!deliveryId) return;
+    if (gpsInterval && gpsInterval._forId === deliveryId) return;
 
-        const metadata = {
-          customMetadata: {
-            driverUid: user.uid,
-            driverName: getDriverDisplayName(user),
-            deliveryId: id,
-            createdAt: now.toISOString()
+    stopGps();
+
+    const sendGpsOnce = () => {
+      getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 10000 })
+        .then(pos => {
+          const loc = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            ts: new Date().toISOString()
+          };
+
+          const deliveryRef = db.ref('deliveries/' + deliveryId);
+
+          deliveryRef.child('location').set(loc)
+            .then(() => log(`GPS sent for ${deliveryId}: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`))
+            .catch(err => log('ERROR sending GPS: ' + err.message));
+
+          const obj = loadsById[deliveryId] || {};
+          const ticketInfo = obj.ticketInfo;
+
+          if (!ticketInfo || !ticketInfo.ticketUploadedAt) {
+            deliveryRef.child('customerLocation').set(loc)
+              .catch(err => log('ERROR setting customerLocation: ' + err.message));
+          } else if (ticketInfo.pitLat != null && ticketInfo.pitLng != null) {
+            const dist = computeDistanceMeters(
+              loc.lat,
+              loc.lng,
+              ticketInfo.pitLat,
+              ticketInfo.pitLng
+            );
+            const ONE_MILE_METERS = 1609.34;
+
+            if (dist >= ONE_MILE_METERS) {
+              deliveryRef.child('customerLocation').set(loc)
+                .catch(err => log('ERROR setting customerLocation: ' + err.message));
+            } else {
+              deliveryRef.child('customerLocation').set(null)
+                .catch(err => log('ERROR clearing customerLocation: ' + err.message));
+            }
+          } else {
+            deliveryRef.child('customerLocation').set(loc)
+              .catch(err => log('ERROR setting customerLocation: ' + err.message));
           }
+        })
+        .catch(err => {
+          log('GPS ERROR: ' + err.message);
+          setStatusText('GPS error: ' + err.message);
+        });
+    };
+
+    sendGpsOnce();
+    gpsInterval = setInterval(sendGpsOnce, 5000);
+    gpsInterval._forId = deliveryId;
+    log('GPS interval started for ' + deliveryId);
+  }
+
+  function startLoadingForSelected() {
+    if (!selectedLoadId || !loadsById[selectedLoadId]) return;
+    const id = selectedLoadId;
+    const obj = loadsById[id];
+    const details = obj.details || {};
+
+    if (currentUser && (!details.assignedDriverEmail || details.assignedDriverEmail !== currentUser.email)) {
+      db.ref('deliveries/' + id + '/details/assignedDriverEmail').set(currentUser.email);
+    }
+
+    inTicketCapture = true;      // freeze UI updates while in loading / ticket flow
+    if (loadsRef) loadsRef.off();
+
+    db.ref('deliveries/' + id + '/status').set('loading')
+      .then(() => {
+        log(`Status for ${id} set to loading`);
+        setStatusText('Loading at pit / getting ticket…');
+        if (!loadsById[id]) loadsById[id] = {};
+        loadsById[id].status = 'loading';
+        selectLoad(id);
+        ensureGpsRunning(id);
+      })
+      .catch(err => {
+        log('ERROR setting status: ' + err.message);
+        inTicketCapture = false;
+        if (currentUser) subscribeToLoadsForUser(currentUser);
+      });
+  }
+
+  async function uploadScaleTicketForSelected() {
+    if (!selectedLoadId || !loadsById[selectedLoadId]) return;
+    const id = selectedLoadId;
+    const user = currentUser;
+    const statusEl = document.getElementById('ticketStatus');
+    const fileInput = document.getElementById('ticketFileInput');
+
+    log('Upload: starting for delivery ' + id);
+
+    if (statusEl) statusEl.textContent = '';
+
+    if (!user) {
+      alert('Please sign in before uploading a ticket.');
+      return;
+    }
+
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+      alert('Please choose or take a photo of the scale ticket.');
+      return;
+    }
+
+    const file = fileInput.files[0];
+    log('Upload: file ready -> ' + file.name + ' (' + file.size + ' bytes)');
+
+    try {
+      inTicketCapture = true;
+      if (loadsRef) loadsRef.off();
+
+      if (statusEl) statusEl.textContent = 'Getting location…';
+
+      let pitLocation = null;
+      try {
+        const pos = await getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 15000 });
+        pitLocation = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
         };
+        log('Upload: got pit location ' + pitLocation.lat + ', ' + pitLocation.lng);
+      } catch (geoErr) {
+        log('Upload: could not get pit location: ' + geoErr.message);
+      }
 
-        const snapshot = await storageRef.put(file, metadata);
-        const downloadUrl = await snapshot.ref.getDownloadURL();
+      if (statusEl) statusEl.textContent = 'Uploading ticket image…';
 
-        const ticketRecord = {
-          ticketId: ticketId,
+      const now = new Date();
+      const year = now.getFullYear();
+      const ticketId = Date.now().toString();
+
+      const storagePath = `scaleTickets/${year}/${user.uid}/${ticketId}.jpg`;
+      const storageRef = storage.ref(storagePath);
+
+      const metadata = {
+        customMetadata: {
           driverUid: user.uid,
           driverName: getDriverDisplayName(user),
           deliveryId: id,
-          createdAt: now.getTime(),
-          createdAtISO: now.toISOString(),
-          storagePath: storagePath,
-          downloadUrl: downloadUrl
-        };
+          createdAt: now.toISOString()
+        }
+      };
 
-        await db.ref('scaleTicketsMetadata/' + ticketId).set(ticketRecord);
+      log('Upload: sending to Firebase Storage at ' + storagePath);
+      const snapshot = await storageRef.put(file, metadata);
+      log('Upload: storage.put completed');
 
-        const ticketInfo = {
-          pitLat: pitLocation ? pitLocation.lat : null,
-          pitLng: pitLocation ? pitLocation.lng : null,
-          ticketUploadedAt: now.toISOString()
-        };
+      const downloadUrl = await snapshot.ref.getDownloadURL();
+      log('Upload: got download URL');
 
-        await db.ref('deliveries/' + id + '/ticketInfo').set(ticketInfo);
+      if (statusEl) statusEl.textContent = 'Saving ticket record…';
 
-        if (!loadsById[id]) loadsById[id] = {};
-        loadsById[id].ticketInfo = ticketInfo;
+      const ticketRecord = {
+        ticketId: ticketId,
+        driverUid: user.uid,
+        driverName: getDriverDisplayName(user),
+        deliveryId: id,
+        createdAt: now.getTime(),
+        createdAtISO: now.toISOString(),
+        storagePath: storagePath,
+        downloadUrl: downloadUrl
+      };
 
-        await db.ref('deliveries/' + id + '/status').set('en_route');
-        loadsById[id].status = 'en_route';
+      await db.ref('scaleTicketsMetadata/' + ticketId).set(ticketRecord);
+      log('Upload: ticket metadata saved');
 
-        if (statusEl) statusEl.textContent = 'Ticket uploaded. You are now en route to customer.';
-        setStatusText('En route to customer…');
-        setPrimaryButton('Complete Delivery', completeSelected);
+      const ticketInfo = {
+        pitLat: pitLocation ? pitLocation.lat : null,
+        pitLng: pitLocation ? pitLocation.lng : null,
+        ticketUploadedAt: now.toISOString()
+      };
 
-        if (fileInput) fileInput.value = '';
+      await db.ref('deliveries/' + id + '/ticketInfo').set(ticketInfo);
+      log('Upload: ticketInfo saved on delivery');
 
-        log(`Scale ticket uploaded for ${id}, ticketId=${ticketId}`);
+      if (!loadsById[id]) loadsById[id] = {};
+      loadsById[id].ticketInfo = ticketInfo;
 
-        // re-enable live updates
-        inTicketCapture = false;
-        if (currentUser) subscribeToLoadsForUser(currentUser);
-      } catch (err) {
-        console.error('Error uploading scale ticket:', err);
-        log('Error uploading ticket: ' + err.message);
-        if (statusEl) statusEl.textContent = 'Upload failed. Please try again.';
-        alert('Error uploading ticket. Check connection and try again.');
-      }
-    }
+      await db.ref('deliveries/' + id + '/status').set('en_route');
+      loadsById[id].status = 'en_route';
+      log('Upload: status updated to en_route');
 
-    function startTrackingForSelected() {
-      if (!selectedLoadId || !loadsById[selectedLoadId]) return;
-      const id = selectedLoadId;
+      if (statusEl) statusEl.textContent = 'Ticket uploaded. You are now en route to customer.';
+      setStatusText('En route to customer…');
+      setPrimaryButton('Complete Delivery', completeSelected);
 
-      db.ref('deliveries/' + id + '/status').set('en_route')
-        .then(() => {
-          log(`Status for ${id} set to en_route`);
-          setStatusText('En route to customer…');
-          ensureGpsRunning(id);
-        })
-        .catch(err => log('ERROR setting status: ' + err.message));
-    }
+      if (fileInput) fileInput.value = '';
 
-    function completeSelected() {
-      if (!selectedLoadId || !loadsById[selectedLoadId]) return;
-      const id = selectedLoadId;
+      log(`Upload: finished OK for ${id}, ticketId=${ticketId}`);
 
-      db.ref('deliveries/' + id + '/status').set('complete')
-        .then(() => {
-          log(`Status for ${id} set to complete`);
-          setStatusText('Delivery complete');
-        })
-        .catch(err => log('ERROR setting status: ' + err.message));
-
-      db.ref('deliveries/' + id + '/location').remove()
-        .then(() => log('Location cleared for ' + id))
-        .catch(err => log('ERROR clearing location: ' + err.message));
-
-      db.ref('deliveries/' + id + '/customerLocation').remove()
-        .then(() => log('customerLocation cleared for ' + id))
-        .catch(err => log('ERROR clearing customerLocation: ' + err.message));
-
-      stopGps();
       inTicketCapture = false;
       if (currentUser) subscribeToLoadsForUser(currentUser);
-    }
+    } catch (err) {
+      console.error('Error uploading scale ticket:', err);
+      log('Upload ERROR: ' + (err.message || err.code || err.toString()));
+      if (statusEl) statusEl.textContent = 'Upload failed. Please try again.';
+      alert('Error uploading ticket: ' + (err.message || err.code || 'Unknown error.'));
 
-    // file input change logger (see if iOS actually returns the file)
-    document.addEventListener('DOMContentLoaded', () => {
-      const inp = document.getElementById('ticketFileInput');
-      if (!inp) return;
-      inp.addEventListener('change', () => {
-        if (!inp.files || inp.files.length === 0) {
-          log('File input change: no file selected.');
-        } else {
-          const f = inp.files[0];
-          log('File selected: ' + f.name + ' (' + f.size + ' bytes)');
-          const statusEl = document.getElementById('ticketStatus');
-          if (statusEl) statusEl.textContent = 'Selected: ' + f.name;
-        }
-      });
+      // IMPORTANT: un-freeze UI after failure
+      inTicketCapture = false;
+      if (currentUser) subscribeToLoadsForUser(currentUser);
+      setStatusText('Upload failed – tap button to retry.');
+    }
+  }
+
+  function startTrackingForSelected() {
+    if (!selectedLoadId || !loadsById[selectedLoadId]) return;
+    const id = selectedLoadId;
+
+    db.ref('deliveries/' + id + '/status').set('en_route')
+      .then(() => {
+        log(`Status for ${id} set to en_route`);
+        setStatusText('En route to customer…');
+        ensureGpsRunning(id);
+      })
+      .catch(err => log('ERROR setting status: ' + err.message));
+  }
+
+  function completeSelected() {
+    if (!selectedLoadId || !loadsById[selectedLoadId]) return;
+    const id = selectedLoadId;
+
+    db.ref('deliveries/' + id + '/status').set('complete')
+      .then(() => {
+        log(`Status for ${id} set to complete`);
+        setStatusText('Delivery complete');
+      })
+      .catch(err => log('ERROR setting status: ' + err.message));
+
+    db.ref('deliveries/' + id + '/location').remove()
+      .then(() => log('Location cleared for ' + id))
+      .catch(err => log('ERROR clearing location: ' + err.message));
+
+    db.ref('deliveries/' + id + '/customerLocation').remove()
+      .then(() => log('customerLocation cleared for ' + id))
+      .catch(err => log('ERROR clearing customerLocation: ' + err.message));
+
+    stopGps();
+    inTicketCapture = false;
+    if (currentUser) subscribeToLoadsForUser(currentUser);
+  }
+
+  // file input change logger – confirms iOS gives us a file
+  document.addEventListener('DOMContentLoaded', () => {
+    const inp = document.getElementById('ticketFileInput');
+    if (!inp) return;
+    inp.addEventListener('change', () => {
+      if (!inp.files || inp.files.length === 0) {
+        log('File input change: no file selected.');
+      } else {
+        const f = inp.files[0];
+        log('File selected: ' + f.name + ' (' + f.size + ' bytes)');
+        const statusEl = document.getElementById('ticketStatus');
+        if (statusEl) statusEl.textContent = 'Selected: ' + f.name;
+      }
     });
-  </script>
+  });
+</script>
 </body>
 </html>
