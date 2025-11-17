@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Riteway Scale Ticket Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <style>
+    :root {
+      --bg: #050608;
+      --bg-elevated: #15191f;
+      --bg-elevated-soft: #1b2129;
+      --accent: #12C3A0;
+      --accent-soft: rgba(18,195,160,0.18);
+      --text: #f5f7fb;
+      --text-muted: #a6afb8;
+      --border-subtle: #252c35;
+      --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.55);
+      --radius-lg: 18px;
+      --radius-pill: 999px;
+      --danger: #ff7979;
+      --success: #2ecc71;
+      --warning: #f1c40f;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #151a20 0, #050608 55%, #020203 100%);
+      color: var(--text);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: url("riteway-logo-watermark.png");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: min(55vw, 520px);
+      opacity: 0.04;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* HEADER */
+
+    .header-row {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 2px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 140px;
+      height: auto;
+      filter: drop-shadow(0 0 12px rgba(0,0,0,0.7));
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-title {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.86rem;
+      color: var(--accent);
+    }
+
+    .brand-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .header-badge {
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--accent-soft);
+      background: rgba(5, 8, 11, 0.86);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* LAYOUT */
+
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr);
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    @media (max-width: 960px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* CARDS & COMMON UI */
+
+    .card {
+      background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.78));
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(16px);
+      padding: 14px 14px 12px;
+    }
+
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .section-title {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+    }
+
+    .pill {
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: rgba(5, 8, 11, 0.9);
+      white-space: nowrap;
+    }
+
+    .subtext {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* FILTERS */
+
+    .filters-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+
+    .field-input,
+    .filter-select {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(5, 8, 11, 0.95);
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      color: var(--text);
+      outline: none;
+    }
+
+    .field-input:focus,
+    .filter-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+
+    .filters-row-inline {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* TICKET LIST */
+
+    .tickets-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .tickets-meta {
+      display: flex;
+      gap: 10px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+    }
+
+    .tickets-meta span {
+      white-space: nowrap;
+    }
+
+    .tickets-list {
+      margin-top: 4px;
+      max-height: 520px;
+      overflow-y: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(6, 9, 13, 0.95);
+      padding: 6px;
+    }
+
+    .ticket-row {
+      display: grid;
+      grid-template-columns: 90px minmax(0, 1.5fr) minmax(0, 1.1fr);
+      gap: 10px;
+      padding: 7px 8px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      align-items: center;
+    }
+
+    .ticket-row:hover {
+      background: rgba(18,195,160,0.09);
+      border-color: rgba(18,195,160,0.4);
+    }
+
+    .ticket-thumb-wrapper {
+      width: 90px;
+      height: 72px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ticket-thumb {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .ticket-thumb-placeholder {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 4px;
+    }
+
+    .ticket-main {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .ticket-main-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .ticket-id {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    .ticket-delivery-id {
+      font-size: 0.78rem;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .ticket-customer {
+      font-size: 0.78rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ticket-line-two {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .ticket-line-two span {
+      white-space: nowrap;
+    }
+
+    .ticket-driver-col {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      align-items: flex-end;
+    }
+
+    .ticket-driver-name {
+      color: var(--text);
+      font-size: 0.78rem;
+    }
+
+    .ticket-date {
+      font-size: 0.72rem;
+      opacity: 0.85;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+
+    .chip-green {
+      border-color: rgba(18,195,160,0.6);
+      color: var(--accent);
+      background: rgba(18,195,160,0.12);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 24px 10px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* MODAL */
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 20;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(0,0,0,0.9));
+      border-radius: 18px;
+      border: 1px solid var(--border-subtle);
+      max-width: 960px;
+      width: 100%;
+      max-height: 90vh;
+      box-shadow: 0 18px 50px rgba(0,0,0,0.75);
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.1fr);
+      overflow: hidden;
+    }
+
+    @media (max-width: 900px) {
+      .modal-card {
+        grid-template-columns: 1fr;
+        max-height: 92vh;
+      }
+    }
+
+    .modal-left {
+      background: #050608;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      border-right: 1px solid var(--border-subtle);
+    }
+
+    .modal-image {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .modal-right {
+      padding: 12px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .modal-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .modal-title {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+    }
+
+    .modal-close-btn {
+      background: transparent;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .modal-main-id {
+      font-size: 0.9rem;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .modal-sub-id {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .modal-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 10px;
+      margin-top: 4px;
+      font-size: 0.76rem;
+    }
+
+    .detail-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 1px;
+    }
+
+    .detail-value {
+      font-size: 0.78rem;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .modal-notes {
+      margin-top: 6px;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+    }
+
+    .modal-actions-row {
+      margin-top: auto;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-outline {
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-subtle);
+      background: rgba(5,8,11,0.9);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      padding: 7px 12px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .btn-accent {
+      border-radius: var(--radius-pill);
+      border: none;
+      background: linear-gradient(135deg, var(--accent), #12e1b5);
+      color: #031210;
+      font-size: 0.78rem;
+      padding: 7px 14px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      box-shadow: 0 10px 24px rgba(18, 195, 160, 0.45);
+    }
+
+    .btn-accent:active {
+      transform: translateY(1px);
+      box-shadow: none;
+    }
+
+    /* HAMBURGER / SIDE MENU */
+
+    .hamburger-btn {
+      width: 38px;
+      height: 34px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(5,8,11,0.92);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+
+    .hamburger-inner {
+      width: 18px;
+      height: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .hamburger-line {
+      height: 2px;
+      border-radius: 999px;
+      background: var(--text);
+    }
+
+    .side-menu-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 9;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+
+    .side-menu-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .side-menu {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 260px;
+      max-width: 80vw;
+      height: 100%;
+      background: rgba(5,8,11,0.98);
+      border-right: 1px solid var(--border-subtle);
+      box-shadow: 12px 0 30px rgba(0,0,0,0.7);
+      z-index: 10;
+      transform: translateX(-100%);
+      transition: transform 0.24s ease;
+      display: flex;
+      flex-direction: column;
+      padding: 14px 14px 16px;
+    }
+
+    .side-menu.open {
+      transform: translateX(0);
+    }
+
+    .side-menu-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .side-menu-logo {
+      width: 130px;
+      height: auto;
+      filter: drop-shadow(0 0 10px rgba(0,0,0,0.8));
+    }
+
+    .side-menu-close {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      color: var(--text-muted);
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .side-menu-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .side-menu-item {
+      width: 100%;
+      text-align: left;
+      border-radius: 999px;
+      padding: 9px 12px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(10,14,18,0.96);
+      color: var(--text);
+      font-size: 0.84rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .side-menu-item span.label {
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      font-size: 0.75rem;
+    }
+
+    .side-menu-item span.chevron {
+      font-size: 0.9rem;
+      color: var(--accent);
+    }
+
+    .side-menu-footer {
+      margin-top: auto;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      opacity: 0.7;
+    }
+
+    .side-menu-item.active {
+      border-color: rgba(18,195,160,0.7);
+      background: rgba(18,195,160,0.16);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Side Menu + Backdrop -->
+  <div id="sideMenuBackdrop" class="side-menu-backdrop" onclick="closeMenu()"></div>
+  <div id="sideMenu" class="side-menu">
+    <div class="side-menu-header">
+      <img src="riteway-logo.png" alt="Riteway Logo" class="side-menu-logo">
+      <button class="side-menu-close" onclick="closeMenu()">✕</button>
+    </div>
+    <div class="side-menu-title">Dispatch Menu</div>
+
+    <button class="side-menu-item" onclick="goToPage('dispatch.html')">
+      <span class="label">Dashboard Home</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <button class="side-menu-item" onclick="goToPage('invite-driver.html')">
+      <span class="label">Invite New Driver</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <button class="side-menu-item" onclick="goToPage('drivers.html')">
+      <span class="label">View All Drivers</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <button class="side-menu-item active" onclick="goToPage('scale-tickets.html')">
+      <span class="label">Scale Ticket Viewer</span>
+      <span class="chevron">›</span>
+    </button>
+
+    <div class="side-menu-footer">
+      Riteway Dispatch · Ops Console
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header-row">
+    <div class="header-left">
+      <button class="hamburger-btn" onclick="toggleMenu()">
+        <div class="hamburger-inner">
+          <div class="hamburger-line"></div>
+          <div class="hamburger-line"></div>
+          <div class="hamburger-line"></div>
+        </div>
+      </button>
+
+      <div class="brand-lockup">
+        <img src="riteway-logo.png" alt="Riteway Logo" class="brand-logo">
+        <div class="brand-text">
+          <div class="brand-title">Riteway Dispatch</div>
+          <div class="brand-subtitle">Scale Ticket Viewer</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-badge">
+      Tickets · Images + Metadata
+    </div>
+  </div>
+
+  <!-- Main Layout -->
+  <div class="app-shell">
+    <!-- LEFT: Filters / Overview -->
+    <div class="card">
+      <div class="section-title-row">
+        <div class="section-title">Filters</div>
+        <div class="pill" id="filterSummary">All tickets</div>
+      </div>
+
+      <div class="filters-grid">
+        <div class="filter-group">
+          <div class="field-label">Search</div>
+          <input
+            id="searchInput"
+            class="field-input"
+            placeholder="Delivery ID, customer, pit, notes..."
+          />
+        </div>
+
+        <div class="filters-row-inline">
+          <div class="filter-group" style="flex:1;">
+            <div class="field-label">Date range</div>
+            <select id="dateFilter" class="filter-select">
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="today">Today</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+
+          <div class="filter-group" style="flex:1;">
+            <div class="field-label">Driver</div>
+            <select id="driverFilter" class="filter-select">
+              <option value="all">All drivers</option>
+              <!-- filled by JS -->
+            </select>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <div class="field-label">Sort by</div>
+          <select id="sortSelect" class="filter-select">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="deliveryId">Delivery ID A→Z</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="subtext">
+        Viewer shows tickets from Firebase. Click any row on the right to see a full-size ticket and details.
+      </div>
+    </div>
+
+    <!-- RIGHT: Ticket list -->
+    <div class="card">
+      <div class="tickets-card-header">
+        <div class="section-title">Tickets</div>
+        <div class="tickets-meta">
+          <span id="ticketCountLabel">0 tickets</span>
+          <span id="lastUpdatedLabel">Updated: --</span>
+        </div>
+      </div>
+
+      <div class="tickets-list" id="ticketsList">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for ticket details -->
+  <div id="ticketModal" class="modal-backdrop" onclick="backdropClick(event)">
+    <div class="modal-card">
+      <div class="modal-left">
+        <img id="modalImage" class="modal-image" alt="Scale ticket image">
+      </div>
+      <div class="modal-right">
+        <div class="modal-header-row">
+          <div class="modal-title">Ticket Details</div>
+          <button class="modal-close-btn" onclick="closeModal()">✕</button>
+        </div>
+
+        <div>
+          <div id="modalMainId" class="modal-main-id">Ticket ID</div>
+          <div id="modalSubId" class="modal-sub-id">Delivery / Driver</div>
+        </div>
+
+        <div class="modal-detail-grid">
+          <div>
+            <div class="detail-label">Delivery ID</div>
+            <div id="modalDeliveryId" class="detail-value">—</div>
+          </div>
+          <div>
+            <div class="detail-label">Customer</div>
+            <div id="modalCustomer" class="detail-value">—</div>
+          </div>
+          <div>
+            <div class="detail-label">Driver</div>
+            <div id="modalDriver" class="detail-value">—</div>
+          </div>
+          <div>
+            <div class="detail-label">Uploaded</div>
+            <div id="modalUploadedAt" class="detail-value">—</div>
+          </div>
+          <div>
+            <div class="detail-label">Pit / Source</div>
+            <div id="modalPit" class="detail-value">—</div>
+          </div>
+          <div>
+            <div class="detail-label">Material</div>
+            <div id="modalMaterial" class="detail-value">—</div>
+          </div>
+          <div>
+            <div class="detail-label">Truck #</div>
+            <div id="modalTruck" class="detail-value">—</div>
+          </div>
+          <div>
+            <div class="detail-label">Net weight</div>
+            <div id="modalNet" class="detail-value">—</div>
+          </div>
+        </div>
+
+        <div class="modal-notes">
+          <span class="detail-label" style="display:block;margin-bottom:2px;">Notes / Extra</span>
+          <span id="modalNotes" class="detail-value">—</span>
+        </div>
+
+        <div class="modal-actions-row">
+          <button id="modalOpenImageBtn" class="btn-accent">Open Full Size</button>
+          <button id="modalOpenDeliveryBtn" class="btn-outline">View Load in Dispatch</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- CONFIG ---
+    const ADMIN_API_BASE = 'https://riteway-admin-api.onrender.com';
+    const ADMIN_API_KEY  = 'riteway-super-secret-928374';
+
+    // CHANGE THIS IF YOUR PATH IS DIFFERENT
+    const TICKETS_REF_PATH = 'scaleTickets';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
+      authDomain: "ritewaytracking-3e9d0.firebaseapp.com",
+      databaseURL: "https://ritewaytracking-3e9d0-default-rtdb.firebaseio.com",
+      projectId: "ritewaytracking-3e9d0",
+      storageBucket: "ritewaytracking-3e9d0.firebasestorage.app",
+      messagingSenderId: "817275576166",
+      appId: "1:817275576166:web:56a92bcaf8f60d52a0b2a7"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let allTickets = [];     // raw from RTDB
+    let filteredTickets = []; // after filters
+    let driversList = [];
+
+    /* ---------- SIDE MENU ---------- */
+
+    function openMenu() {
+      document.getElementById('sideMenu').classList.add('open');
+      document.getElementById('sideMenuBackdrop').classList.add('open');
+    }
+
+    function closeMenu() {
+      document.getElementById('sideMenu').classList.remove('open');
+      document.getElementById('sideMenuBackdrop').classList.remove('open');
+    }
+
+    function toggleMenu() {
+      const menu = document.getElementById('sideMenu');
+      if (menu.classList.contains('open')) closeMenu(); else openMenu();
+    }
+
+    function goToPage(path) {
+      window.location.href = path;
+    }
+
+    /* ---------- DRIVERS FROM ADMIN API (for filter labels) ---------- */
+
+    async function loadDriversForFilter() {
+      try {
+        const res = await fetch(ADMIN_API_BASE + '/drivers', {
+          headers: { 'x-admin-api-key': ADMIN_API_KEY }
+        });
+        if (!res.ok) {
+          console.error('Error loading drivers for tickets filter:', res.status, res.statusText);
+          return;
+        }
+        const data = await res.json();
+        const users = data.users || [];
+        driversList = users
+          .map(u => ({
+            uid: u.uid,
+            email: u.email || '',
+            displayName: u.displayName || ''
+          }))
+          .filter(d => d.email);
+
+        populateDriverFilter();
+      } catch (err) {
+        console.error('Failed to load drivers for tickets filter:', err);
+      }
+    }
+
+    function populateDriverFilter() {
+      const filterSel = document.getElementById('driverFilter');
+      if (!filterSel) return;
+      const prev = filterSel.value || 'all';
+
+      filterSel.innerHTML = '<option value="all">All drivers</option>';
+
+      driversList
+        .slice()
+        .sort((a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email))
+        .forEach(d => {
+          const labelBase = d.displayName || d.email;
+          const opt = document.createElement('option');
+          opt.value = d.email;
+          opt.textContent = labelBase;
+          filterSel.appendChild(opt);
+        });
+
+      if ([...filterSel.options].some(o => o.value === prev)) filterSel.value = prev;
+    }
+
+    function getDriverLabel(email) {
+      if (!email) return '';
+      const d = driversList.find(x => x.email === email);
+      return d ? (d.displayName || d.email) : email;
+    }
+
+    /* ---------- FIREBASE TICKETS LISTENER ---------- */
+
+    function listenForTickets() {
+      db.ref(TICKETS_REF_PATH).on('value', snapshot => {
+        const val = snapshot.val() || {};
+        const arr = [];
+
+        Object.entries(val).forEach(([id, data]) => {
+          // Normalized schema: adjust as needed to match your upload structure
+          const t = {
+            id,
+            deliveryId: data.deliveryId || data.delivery_id || '',
+            customerName: data.customerName || data.customer || '',
+            driverEmail: data.driverEmail || data.driver_email || '',
+            driverName: data.driverName || data.driver_name || '',
+            imageUrl: data.imageUrl || data.url || data.ticketUrl || '',
+            uploadedAt: data.uploadedAt || data.createdAt || null,
+            pitName: data.pitName || data.pit || '',
+            material: data.material || data.items || '',
+            truckNumber: data.truckNumber || data.truck || '',
+            grossWeight: data.grossWeight || data.gross || '',
+            tareWeight: data.tareWeight || data.tare || '',
+            netWeight: data.netWeight || data.net || '',
+            notes: data.notes || data.note || '',
+          };
+          arr.push(t);
+        });
+
+        allTickets = arr;
+        document.getElementById('lastUpdatedLabel').textContent =
+          'Updated: ' + new Date().toLocaleTimeString();
+        applyFilters();
+      });
+    }
+
+    /* ---------- FILTERING + SORTING ---------- */
+
+    function parseUploadedTime(uploadedAt) {
+      if (!uploadedAt) return null;
+      if (typeof uploadedAt === 'number') {
+        // assume ms or seconds – if < 10^12, treat as seconds
+        return uploadedAt < 1e12 ? uploadedAt * 1000 : uploadedAt;
+      }
+      // string
+      const t = Date.parse(uploadedAt);
+      return isNaN(t) ? null : t;
+    }
+
+    function applyFilters() {
+      const search = document.getElementById('searchInput').value.trim().toLowerCase();
+      const dateValue = document.getElementById('dateFilter').value;
+      const driverValue = document.getElementById('driverFilter').value;
+      const sortValue = document.getElementById('sortSelect').value;
+
+      const now = Date.now();
+      let minTime = null;
+
+      if (dateValue === 'today') {
+        const d = new Date();
+        d.setHours(0,0,0,0);
+        minTime = d.getTime();
+      } else if (dateValue === '7') {
+        minTime = now - 7 * 24 * 60 * 60 * 1000;
+      } else if (dateValue === '30') {
+        minTime = now - 30 * 24 * 60 * 60 * 1000;
+      } else {
+        // all
+        minTime = null;
+      }
+
+      filteredTickets = allTickets.filter(t => {
+        // date filter
+        if (minTime !== null) {
+          const ts = parseUploadedTime(t.uploadedAt);
+          if (!ts || ts < minTime) return false;
+        }
+
+        // driver filter
+        if (driverValue !== 'all') {
+          const email = (t.driverEmail || '').trim().toLowerCase();
+          if (email !== driverValue.toLowerCase()) return false;
+        }
+
+        // search
+        if (search) {
+          const haystack = [
+            t.id,
+            t.deliveryId,
+            t.customerName,
+            t.driverEmail,
+            t.driverName,
+            t.material,
+            t.pitName,
+            t.truckNumber,
+            t.notes
+          ]
+            .join(' ')
+            .toLowerCase();
+
+          if (!haystack.includes(search)) return false;
+        }
+
+        return true;
+      });
+
+      // sort
+      filteredTickets.sort((a, b) => {
+        if (sortValue === 'deliveryId') {
+          return (a.deliveryId || '').localeCompare(b.deliveryId || '');
+        }
+
+        const ta = parseUploadedTime(a.uploadedAt) || 0;
+        const tb = parseUploadedTime(b.uploadedAt) || 0;
+
+        if (sortValue === 'oldest') {
+          return ta - tb;
+        }
+
+        // default newest
+        return tb - ta;
+      });
+
+      updateFilterSummary();
+      renderTicketsList();
+    }
+
+    function updateFilterSummary() {
+      const dateValue = document.getElementById('dateFilter').value;
+      const driverValue = document.getElementById('driverFilter').value;
+      const search = document.getElementById('searchInput').value.trim();
+
+      let parts = [];
+
+      if (dateValue === 'today') parts.push('Today');
+      else if (dateValue === '7') parts.push('Last 7 days');
+      else if (dateValue === '30') parts.push('Last 30 days');
+      else parts.push('All time');
+
+      if (driverValue !== 'all') {
+        parts.push('Driver: ' + getDriverLabel(driverValue));
+      }
+
+      if (search) {
+        parts.push('Search: "' + search + '"');
+      }
+
+      document.getElementById('filterSummary').textContent =
+        parts.length ? parts.join(' · ') : 'All tickets';
+    }
+
+    /* ---------- RENDER LIST ---------- */
+
+    function formatShortDate(uploadedAt) {
+      const ts = parseUploadedTime(uploadedAt);
+      if (!ts) return 'Unknown';
+      const d = new Date(ts);
+      const datePart = d.toLocaleDateString();
+      const timePart = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return datePart + ' · ' + timePart;
+    }
+
+    function renderTicketsList() {
+      const container = document.getElementById('ticketsList');
+      container.innerHTML = '';
+
+      document.getElementById('ticketCountLabel').textContent =
+        filteredTickets.length + (filteredTickets.length === 1 ? ' ticket' : ' tickets');
+
+      if (!filteredTickets.length) {
+        const div = document.createElement('div');
+        div.className = 'empty-state';
+        div.textContent = 'No tickets match your filters yet.';
+        container.appendChild(div);
+        return;
+      }
+
+      filteredTickets.forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'ticket-row';
+
+        // Thumbnail
+        const thumbWrapper = document.createElement('div');
+        thumbWrapper.className = 'ticket-thumb-wrapper';
+
+        if (t.imageUrl) {
+          const img = document.createElement('img');
+          img.className = 'ticket-thumb';
+          img.src = t.imageUrl;
+          img.alt = 'Ticket ' + t.id;
+          thumbWrapper.appendChild(img);
+        } else {
+          const ph = document.createElement('div');
+          ph.className = 'ticket-thumb-placeholder';
+          ph.textContent = 'No image';
+          thumbWrapper.appendChild(ph);
+        }
+
+        // Main info
+        const main = document.createElement('div');
+        main.className = 'ticket-main';
+
+        const topRow = document.createElement('div');
+        topRow.className = 'ticket-main-top';
+
+        const leftTop = document.createElement('div');
+        leftTop.style.display = 'flex';
+        leftTop.style.flexDirection = 'column';
+        leftTop.style.gap = '2px';
+        leftTop.style.minWidth = 0;
+
+        const idLine = document.createElement('div');
+        idLine.style.display = 'flex';
+        idLine.style.alignItems = 'center';
+        idLine.style.gap = '6px';
+
+        const idSpan = document.createElement('span');
+        idSpan.className = 'ticket-id';
+        idSpan.textContent = t.id;
+
+        const chip = document.createElement('span');
+        chip.className = 'chip chip-green';
+        chip.textContent = t.deliveryId ? 'DELIVERY ' + t.deliveryId : 'UNLINKED';
+
+        idLine.appendChild(idSpan);
+        idLine.appendChild(chip);
+
+        const cust = document.createElement('div');
+        cust.className = 'ticket-customer';
+        const custName = t.customerName || '(No customer set)';
+        cust.textContent = custName;
+
+        leftTop.appendChild(idLine);
+        leftTop.appendChild(cust);
+
+        const rightTop = document.createElement('div');
+        rightTop.style.fontSize = '0.72rem';
+        rightTop.style.color = 'var(--text-muted)';
+        rightTop.textContent = formatShortDate(t.uploadedAt);
+
+        topRow.appendChild(leftTop);
+        topRow.appendChild(rightTop);
+
+        const lineTwo = document.createElement('div');
+        lineTwo.className = 'ticket-line-two';
+
+        if (t.pitName) {
+          const spanPit = document.createElement('span');
+          spanPit.textContent = 'Pit: ' + t.pitName;
+          lineTwo.appendChild(spanPit);
+        }
+
+        if (t.material) {
+          const spanMat = document.createElement('span');
+          spanMat.textContent = 'Material: ' + t.material;
+          lineTwo.appendChild(spanMat);
+        }
+
+        if (t.netWeight) {
+          const spanNet = document.createElement('span');
+          spanNet.textContent = 'Net: ' + t.netWeight;
+          lineTwo.appendChild(spanNet);
+        }
+
+        if (t.truckNumber) {
+          const spanTruck = document.createElement('span');
+          spanTruck.textContent = 'Truck: ' + t.truckNumber;
+          lineTwo.appendChild(spanTruck);
+        }
+
+        main.appendChild(topRow);
+        if (lineTwo.childNodes.length) {
+          main.appendChild(lineTwo);
+        }
+
+        // Driver column
+        const driverCol = document.createElement('div');
+        driverCol.className = 'ticket-driver-col';
+
+        const driverName = document.createElement('div');
+        driverName.className = 'ticket-driver-name';
+        const displayDriver = t.driverName || getDriverLabel(t.driverEmail);
+        driverName.textContent = displayDriver || 'Unknown driver';
+
+        const driverEmailLine = document.createElement('div');
+        driverEmailLine.className = 'ticket-date';
+        driverEmailLine.textContent = (t.driverEmail || '').toLowerCase();
+
+        driverCol.appendChild(driverName);
+        if (t.driverEmail) driverCol.appendChild(driverEmailLine);
+
+        // Put together
+        row.appendChild(thumbWrapper);
+        row.appendChild(main);
+        row.appendChild(driverCol);
+
+        row.addEventListener('click', () => openModalWithTicket(t));
+
+        container.appendChild(row);
+      });
+    }
+
+    /* ---------- MODAL ---------- */
+
+    function backdropClick(event) {
+      if (event.target === document.getElementById('ticketModal')) {
+        closeModal();
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('ticketModal').classList.remove('open');
+    }
+
+    function openModalWithTicket(t) {
+      document.getElementById('ticketModal').classList.add('open');
+
+      const mainId = document.getElementById('modalMainId');
+      const subId = document.getElementById('modalSubId');
+      const deliveryIdEl = document.getElementById('modalDeliveryId');
+      const customerEl = document.getElementById('modalCustomer');
+      const driverEl = document.getElementById('modalDriver');
+      const uploadedEl = document.getElementById('modalUploadedAt');
+      const pitEl = document.getElementById('modalPit');
+      const materialEl = document.getElementById('modalMaterial');
+      const truckEl = document.getElementById('modalTruck');
+      const netEl = document.getElementById('modalNet');
+      const notesEl = document.getElementById('modalNotes');
+      const imgEl = document.getElementById('modalImage');
+
+      mainId.textContent = t.id;
+      const deliveryPart = t.deliveryId ? 'Delivery ' + t.deliveryId : 'Unlinked ticket';
+      const driverPart = t.driverName || getDriverLabel(t.driverEmail) || 'Unknown driver';
+      subId.textContent = deliveryPart + ' · ' + driverPart;
+
+      deliveryIdEl.textContent = t.deliveryId || '—';
+      customerEl.textContent = t.customerName || '—';
+      driverEl.textContent = driverPart + (t.driverEmail ? ' (' + t.driverEmail + ')' : '');
+      uploadedEl.textContent = formatShortDate(t.uploadedAt);
+      pitEl.textContent = t.pitName || '—';
+      materialEl.textContent = t.material || '—';
+      truckEl.textContent = t.truckNumber || '—';
+
+      if (t.netWeight || t.grossWeight || t.tareWeight) {
+        const parts = [];
+        if (t.grossWeight) parts.push('Gross: ' + t.grossWeight);
+        if (t.tareWeight) parts.push('Tare: ' + t.tareWeight);
+        if (t.netWeight) parts.push('Net: ' + t.netWeight);
+        netEl.textContent = parts.join(' · ');
+      } else {
+        netEl.textContent = '—';
+      }
+
+      notesEl.textContent = t.notes || '—';
+
+      if (t.imageUrl) {
+        imgEl.src = t.imageUrl;
+        imgEl.alt = 'Scale ticket ' + t.id;
+      } else {
+        imgEl.src = '';
+        imgEl.alt = 'No image';
+      }
+
+      const openImageBtn = document.getElementById('modalOpenImageBtn');
+      openImageBtn.onclick = () => {
+        if (t.imageUrl) {
+          window.open(t.imageUrl, '_blank');
+        }
+      };
+
+      const openDeliveryBtn = document.getElementById('modalOpenDeliveryBtn');
+      openDeliveryBtn.onclick = () => {
+        if (t.deliveryId) {
+          // Simple approach: pass deliveryId as query param so dispatch.html can highlight it later if desired
+          window.location.href = 'dispatch.html?delivery=' + encodeURIComponent(t.deliveryId);
+        } else {
+          window.location.href = 'dispatch.html';
+        }
+      };
+    }
+
+    /* ---------- EVENT WIRING ---------- */
+
+    window.addEventListener('load', () => {
+      loadDriversForFilter();
+      listenForTickets();
+
+      document.getElementById('searchInput').addEventListener('input', () => {
+        applyFilters();
+      });
+
+      document.getElementById('dateFilter').addEventListener('change', () => {
+        applyFilters();
+      });
+
+      document.getElementById('driverFilter').addEventListener('change', () => {
+        applyFilters();
+      });
+
+      document.getElementById('sortSelect').addEventListener('change', () => {
+        applyFilters();
+      });
+    });
+  </script>
+</body>
+</html>
