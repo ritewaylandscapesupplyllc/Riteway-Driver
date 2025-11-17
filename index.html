@@ -740,7 +740,7 @@
     const R = 6371000;
     const toRad = deg => deg * Math.PI / 180;
     const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lat2 - lon1);
+    const dLon = toRad(lon2 - lon1);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
@@ -1080,48 +1080,84 @@
     }
   }
 
+  // IMPORTANT: GPS + customerLocation radius logic
+  function ensureGpsRunning(deliveryId) {
+    if (!deliveryId) return;
+
+    // If GPS is already running for this delivery, do nothing
+    if (gpsInterval && gpsInterval._forId === deliveryId) return;
+
+    // Clear any old interval
+    stopGps();
+
+    const sendGpsOnce = () => {
+      getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 10000 })
+        .then(pos => {
+          const loc = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            ts: new Date().toISOString()
+          };
+
+          const deliveryRef = db.ref('deliveries/' + deliveryId);
+
+          // ALWAYS send internal location for dispatch
+          deliveryRef.child('location').set(loc)
+            .then(() => log(`GPS sent for ${deliveryId}: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`))
+            .catch(err => log('ERROR sending GPS: ' + err.message));
+
           const obj = loadsById[deliveryId] || {};
-        const ticketInfo = obj.ticketInfo;
+          const ticketInfo = obj.ticketInfo;
 
-        // NEW LOGIC:
-        // 1) Before ticket upload → NEVER send customerLocation (always null)
-        // 2) After ticket upload, inside 1 mile of pit → keep customerLocation null
-        // 3) After ticket upload, beyond 1 mile → send location to customer
+          // CUSTOMER VISIBILITY LOGIC:
+          // 1) Before ticket upload → NEVER send customerLocation (always null)
+          // 2) After ticket upload, inside 1 mile of pit → keep customerLocation null
+          // 3) After ticket upload, beyond 1 mile → send location to customer
 
-        if (!ticketInfo || !ticketInfo.ticketUploadedAt) {
-          // Ticket not uploaded yet → hide from customer
-          deliveryRef.child('customerLocation').set(null)
-            .then(() => log(`customerLocation cleared (no ticket yet) for ${deliveryId}`))
-            .catch(err => log('ERROR clearing customerLocation (no ticket): ' + err.message));
-        } else if (ticketInfo.pitLat != null && ticketInfo.pitLng != null) {
-          // We know where the pit is, so enforce 1-mile radius
-          const dist = computeDistanceMeters(
-            loc.lat,
-            loc.lng,
-            ticketInfo.pitLat,
-            ticketInfo.pitLng
-          );
-          const ONE_MILE_METERS = 1609.34;
-
-          if (dist >= ONE_MILE_METERS) {
-            // Beyond 1 mile → show driver to customer
-            deliveryRef.child('customerLocation').set(loc)
-              .then(() => log(`customerLocation SET for ${deliveryId}, dist=${dist.toFixed(1)}m`))
-              .catch(err => log('ERROR setting customerLocation: ' + err.message));
-          } else {
-            // Still within pit radius → hide
+          if (!ticketInfo || !ticketInfo.ticketUploadedAt) {
+            // Ticket not uploaded yet → hide from customer
+            log(`customerLocation: CLEAR (no ticket yet) for ${deliveryId}`);
             deliveryRef.child('customerLocation').set(null)
-              .then(() => log(`customerLocation cleared (inside 1 mile, dist=${dist.toFixed(1)}m) for ${deliveryId}`))
-              .catch(err => log('ERROR clearing customerLocation (inside radius): ' + err.message));
-          }
-        } else {
-          // Ticket uploaded but no pit coordinates (fallback)
-          // In this case we can't enforce the radius, so we just send the location.
-          deliveryRef.child('customerLocation').set(loc)
-            .then(() => log(`customerLocation SET (no pit coords) for ${deliveryId}`))
-            .catch(err => log('ERROR setting customerLocation (no pit coords): ' + err.message));
-        }
+              .catch(err => log('ERROR clearing customerLocation (no ticket): ' + err.message));
 
+          } else if (ticketInfo.pitLat != null && ticketInfo.pitLng != null) {
+            // We know where the pit is, so enforce 1-mile radius
+            const dist = computeDistanceMeters(
+              loc.lat,
+              loc.lng,
+              ticketInfo.pitLat,
+              ticketInfo.pitLng
+            );
+            const ONE_MILE_METERS = 1609.34;
+
+            log(`customerLocation: distance from pit = ${dist.toFixed(1)}m for ${deliveryId}`);
+
+            if (dist >= ONE_MILE_METERS) {
+              // Beyond 1 mile → show driver to customer
+              log(`customerLocation: SET (beyond 1 mile) for ${deliveryId}`);
+              deliveryRef.child('customerLocation').set(loc)
+                .catch(err => log('ERROR setting customerLocation: ' + err.message));
+            } else {
+              // Still within pit radius → hide
+              log(`customerLocation: CLEAR (inside 1 mile) for ${deliveryId}`);
+              deliveryRef.child('customerLocation').set(null)
+                .catch(err => log('ERROR clearing customerLocation (inside radius): ' + err.message));
+            }
+
+          } else {
+            // Ticket uploaded but no pit coords (fallback)
+            log(`customerLocation: SET (ticket uploaded but no pit coords) for ${deliveryId}`);
+            deliveryRef.child('customerLocation').set(loc)
+              .catch(err => log('ERROR setting customerLocation (no pit coords): ' + err.message));
+          }
+        })
+        .catch(err => {
+          log('GPS ERROR: ' + err.message);
+          setStatusText('GPS error: ' + err.message);
+        });
+    };
+
+    // Send one immediately, then every 5s
     sendGpsOnce();
     gpsInterval = setInterval(sendGpsOnce, 5000);
     gpsInterval._forId = deliveryId;
