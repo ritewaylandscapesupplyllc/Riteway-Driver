@@ -254,6 +254,46 @@
       padding: 6px;
     }
 
+    /* Year / Month / Day grouping */
+
+    .year-group {
+      margin-bottom: 12px;
+    }
+
+    .year-header {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      padding: 4px 2px 2px;
+    }
+
+    .month-group {
+      margin-left: 4px;
+      margin-bottom: 6px;
+    }
+
+    .month-header {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      opacity: 0.9;
+      padding: 2px 2px;
+    }
+
+    .day-header {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      opacity: 0.85;
+      padding: 2px 2px;
+      margin-top: 4px;
+    }
+
+    .day-ticket-list {
+      margin-left: 4px;
+      border-left: 1px dashed rgba(255,255,255,0.06);
+      padding-left: 6px;
+    }
+
     .ticket-row {
       display: grid;
       grid-template-columns: 90px minmax(0, 1.5fr) minmax(0, 1.1fr);
@@ -894,8 +934,8 @@
     const ADMIN_API_BASE = 'https://riteway-admin-api.onrender.com';
     const ADMIN_API_KEY  = 'riteway-super-secret-928374';
 
-    // CHANGE THIS IF YOUR PATH IS DIFFERENT
-    const TICKETS_REF_PATH = 'scaleTickets';
+    // Firebase path for scale ticket metadata
+    const TICKETS_REF_PATH = 'scaleTicketsMetadata';
 
     const firebaseConfig = {
       apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
@@ -910,9 +950,10 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    let allTickets = [];     // raw from RTDB
-    let filteredTickets = []; // after filters
+    let allTickets = [];
+    let filteredTickets = [];
     let driversList = [];
+    let deliveriesById = {};
 
     /* ---------- SIDE MENU ---------- */
 
@@ -935,7 +976,7 @@
       window.location.href = path;
     }
 
-    /* ---------- DRIVERS FROM ADMIN API (for filter labels) ---------- */
+    /* ---------- DRIVERS FROM ADMIN API ---------- */
 
     async function loadDriversForFilter() {
       try {
@@ -989,6 +1030,31 @@
       return d ? (d.displayName || d.email) : email;
     }
 
+    /* ---------- DELIVERIES (for customer lookup) ---------- */
+
+    function listenForDeliveries() {
+      db.ref('deliveries').on('value', snap => {
+        const val = snap.val() || {};
+        deliveriesById = {};
+        Object.entries(val).forEach(([id, d]) => {
+          deliveriesById[id] = d;
+        });
+        enrichTicketsWithCustomers();
+      });
+    }
+
+    function enrichTicketsWithCustomers() {
+      allTickets.forEach(t => {
+        if (!t.deliveryId) return;
+        if (t.customerName) return;
+        const d = deliveriesById[t.deliveryId];
+        if (d && d.details && d.details.customerName) {
+          t.customerName = d.details.customerName;
+        }
+      });
+      applyFilters();
+    }
+
     /* ---------- FIREBASE TICKETS LISTENER ---------- */
 
     function listenForTickets() {
@@ -997,27 +1063,41 @@
         const arr = [];
 
         Object.entries(val).forEach(([id, data]) => {
-          // Normalized schema: adjust as needed to match your upload structure
+          const rawCreated = data.createdAtISO || data.createdAt || null;
+
           const t = {
             id,
             deliveryId: data.deliveryId || data.delivery_id || '',
             customerName: data.customerName || data.customer || '',
-            driverEmail: data.driverEmail || data.driver_email || '',
-            driverName: data.driverName || data.driver_name || '',
-            imageUrl: data.imageUrl || data.url || data.ticketUrl || '',
-            uploadedAt: data.uploadedAt || data.createdAt || null,
+            driverName: data.driverName || '',
+            driverEmail:
+              data.driverEmail ||
+              (data.driverName && String(data.driverName).includes('@')
+                ? data.driverName
+                : ''),
+            imageUrl:
+              data.imageUrl ||
+              data.url ||
+              data.ticketUrl ||
+              data.downloadUrl ||
+              '',
+            uploadedAt: rawCreated,
             pitName: data.pitName || data.pit || '',
             material: data.material || data.items || '',
             truckNumber: data.truckNumber || data.truck || '',
             grossWeight: data.grossWeight || data.gross || '',
             tareWeight: data.tareWeight || data.tare || '',
             netWeight: data.netWeight || data.net || '',
-            notes: data.notes || data.note || '',
+            notes: data.notes || data.note || ''
           };
+
+          t.timestamp = parseUploadedTime(t.uploadedAt);
           arr.push(t);
         });
 
         allTickets = arr;
+        enrichTicketsWithCustomers();
+
         document.getElementById('lastUpdatedLabel').textContent =
           'Updated: ' + new Date().toLocaleTimeString();
         applyFilters();
@@ -1029,10 +1109,8 @@
     function parseUploadedTime(uploadedAt) {
       if (!uploadedAt) return null;
       if (typeof uploadedAt === 'number') {
-        // assume ms or seconds – if < 10^12, treat as seconds
         return uploadedAt < 1e12 ? uploadedAt * 1000 : uploadedAt;
       }
-      // string
       const t = Date.parse(uploadedAt);
       return isNaN(t) ? null : t;
     }
@@ -1055,24 +1133,20 @@
       } else if (dateValue === '30') {
         minTime = now - 30 * 24 * 60 * 60 * 1000;
       } else {
-        // all
         minTime = null;
       }
 
       filteredTickets = allTickets.filter(t => {
-        // date filter
         if (minTime !== null) {
-          const ts = parseUploadedTime(t.uploadedAt);
+          const ts = t.timestamp || parseUploadedTime(t.uploadedAt);
           if (!ts || ts < minTime) return false;
         }
 
-        // driver filter
         if (driverValue !== 'all') {
           const email = (t.driverEmail || '').trim().toLowerCase();
           if (email !== driverValue.toLowerCase()) return false;
         }
 
-        // search
         if (search) {
           const haystack = [
             t.id,
@@ -1094,22 +1168,19 @@
         return true;
       });
 
-      // sort
-      filteredTickets.sort((a, b) => {
-        if (sortValue === 'deliveryId') {
-          return (a.deliveryId || '').localeCompare(b.deliveryId || '');
-        }
-
-        const ta = parseUploadedTime(a.uploadedAt) || 0;
-        const tb = parseUploadedTime(b.uploadedAt) || 0;
-
-        if (sortValue === 'oldest') {
-          return ta - tb;
-        }
-
-        // default newest
-        return tb - ta;
+      filteredTickets.forEach(t => {
+        if (!t.timestamp) t.timestamp = parseUploadedTime(t.uploadedAt);
       });
+
+      if (sortValue === 'deliveryId') {
+        filteredTickets.sort((a, b) =>
+          (a.deliveryId || '').localeCompare(b.deliveryId || '')
+        );
+      } else if (sortValue === 'oldest') {
+        filteredTickets.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      } else {
+        filteredTickets.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      }
 
       updateFilterSummary();
       renderTicketsList();
@@ -1139,7 +1210,7 @@
         parts.length ? parts.join(' · ') : 'All tickets';
     }
 
-    /* ---------- RENDER LIST ---------- */
+    /* ---------- RENDER LIST (YEAR → MONTH → DAY) ---------- */
 
     function formatShortDate(uploadedAt) {
       const ts = parseUploadedTime(uploadedAt);
@@ -1165,129 +1236,247 @@
         return;
       }
 
+      const sortValue = document.getElementById('sortSelect').value;
+
+      // Flat list when sorting by Delivery ID
+      if (sortValue === 'deliveryId') {
+        filteredTickets.forEach(t => {
+          const row = buildTicketRow(t);
+          container.appendChild(row);
+        });
+        return;
+      }
+
+      // Year → Month → Day grouping
+      const groups = {};
+
       filteredTickets.forEach(t => {
-        const row = document.createElement('div');
-        row.className = 'ticket-row';
+        const ts = t.timestamp || parseUploadedTime(t.uploadedAt);
+        const d = ts ? new Date(ts) : null;
 
-        // Thumbnail
-        const thumbWrapper = document.createElement('div');
-        thumbWrapper.className = 'ticket-thumb-wrapper';
+        const year = d ? d.getFullYear() : 'Unknown';
+        const monthIdx = d ? d.getMonth() : 0;
+        const monthName = d
+          ? d.toLocaleString('default', { month: 'long' })
+          : 'Unknown';
+        const dayKey = d ? String(d.getDate()).padStart(2, '0') : '--';
 
-        if (t.imageUrl) {
-          const img = document.createElement('img');
-          img.className = 'ticket-thumb';
-          img.src = t.imageUrl;
-          img.alt = 'Ticket ' + t.id;
-          thumbWrapper.appendChild(img);
-        } else {
-          const ph = document.createElement('div');
-          ph.className = 'ticket-thumb-placeholder';
-          ph.textContent = 'No image';
-          thumbWrapper.appendChild(ph);
+        if (!groups[year]) {
+          groups[year] = { months: {}, latestTs: ts || 0 };
+        }
+        if (ts && ts > groups[year].latestTs) groups[year].latestTs = ts;
+
+        if (!groups[year].months[monthIdx]) {
+          groups[year].months[monthIdx] = {
+            name: monthName,
+            days: {},
+            latestTs: ts || 0
+          };
+        }
+        if (ts && ts > groups[year].months[monthIdx].latestTs) {
+          groups[year].months[monthIdx].latestTs = ts;
         }
 
-        // Main info
-        const main = document.createElement('div');
-        main.className = 'ticket-main';
-
-        const topRow = document.createElement('div');
-        topRow.className = 'ticket-main-top';
-
-        const leftTop = document.createElement('div');
-        leftTop.style.display = 'flex';
-        leftTop.style.flexDirection = 'column';
-        leftTop.style.gap = '2px';
-        leftTop.style.minWidth = 0;
-
-        const idLine = document.createElement('div');
-        idLine.style.display = 'flex';
-        idLine.style.alignItems = 'center';
-        idLine.style.gap = '6px';
-
-        const idSpan = document.createElement('span');
-        idSpan.className = 'ticket-id';
-        idSpan.textContent = t.id;
-
-        const chip = document.createElement('span');
-        chip.className = 'chip chip-green';
-        chip.textContent = t.deliveryId ? 'DELIVERY ' + t.deliveryId : 'UNLINKED';
-
-        idLine.appendChild(idSpan);
-        idLine.appendChild(chip);
-
-        const cust = document.createElement('div');
-        cust.className = 'ticket-customer';
-        const custName = t.customerName || '(No customer set)';
-        cust.textContent = custName;
-
-        leftTop.appendChild(idLine);
-        leftTop.appendChild(cust);
-
-        const rightTop = document.createElement('div');
-        rightTop.style.fontSize = '0.72rem';
-        rightTop.style.color = 'var(--text-muted)';
-        rightTop.textContent = formatShortDate(t.uploadedAt);
-
-        topRow.appendChild(leftTop);
-        topRow.appendChild(rightTop);
-
-        const lineTwo = document.createElement('div');
-        lineTwo.className = 'ticket-line-two';
-
-        if (t.pitName) {
-          const spanPit = document.createElement('span');
-          spanPit.textContent = 'Pit: ' + t.pitName;
-          lineTwo.appendChild(spanPit);
+        if (!groups[year].months[monthIdx].days[dayKey]) {
+          groups[year].months[monthIdx].days[dayKey] = {
+            tickets: [],
+            latestTs: ts || 0
+          };
+        }
+        if (ts && ts > groups[year].months[monthIdx].days[dayKey].latestTs) {
+          groups[year].months[monthIdx].days[dayKey].latestTs = ts;
         }
 
-        if (t.material) {
-          const spanMat = document.createElement('span');
-          spanMat.textContent = 'Material: ' + t.material;
-          lineTwo.appendChild(spanMat);
-        }
-
-        if (t.netWeight) {
-          const spanNet = document.createElement('span');
-          spanNet.textContent = 'Net: ' + t.netWeight;
-          lineTwo.appendChild(spanNet);
-        }
-
-        if (t.truckNumber) {
-          const spanTruck = document.createElement('span');
-          spanTruck.textContent = 'Truck: ' + t.truckNumber;
-          lineTwo.appendChild(spanTruck);
-        }
-
-        main.appendChild(topRow);
-        if (lineTwo.childNodes.length) {
-          main.appendChild(lineTwo);
-        }
-
-        // Driver column
-        const driverCol = document.createElement('div');
-        driverCol.className = 'ticket-driver-col';
-
-        const driverName = document.createElement('div');
-        driverName.className = 'ticket-driver-name';
-        const displayDriver = t.driverName || getDriverLabel(t.driverEmail);
-        driverName.textContent = displayDriver || 'Unknown driver';
-
-        const driverEmailLine = document.createElement('div');
-        driverEmailLine.className = 'ticket-date';
-        driverEmailLine.textContent = (t.driverEmail || '').toLowerCase();
-
-        driverCol.appendChild(driverName);
-        if (t.driverEmail) driverCol.appendChild(driverEmailLine);
-
-        // Put together
-        row.appendChild(thumbWrapper);
-        row.appendChild(main);
-        row.appendChild(driverCol);
-
-        row.addEventListener('click', () => openModalWithTicket(t));
-
-        container.appendChild(row);
+        groups[year].months[monthIdx].days[dayKey].tickets.push(t);
       });
+
+      const years = Object.keys(groups).sort((a, b) => {
+        const ya = groups[a].latestTs;
+        const yb = groups[b].latestTs;
+        return sortValue === 'oldest' ? ya - yb : yb - ya;
+      });
+
+      years.forEach(yearKey => {
+        const yearBlock = document.createElement('div');
+        yearBlock.className = 'year-group';
+
+        const yearHeader = document.createElement('div');
+        yearHeader.className = 'year-header';
+        yearHeader.textContent = yearKey;
+        yearBlock.appendChild(yearHeader);
+
+        const monthsObj = groups[yearKey].months;
+        const monthIdxs = Object.keys(monthsObj).map(n => parseInt(n, 10));
+
+        monthIdxs.sort((a, b) => {
+          const ma = monthsObj[a].latestTs;
+          const mb = monthsObj[b].latestTs;
+          return sortValue === 'oldest' ? ma - mb : mb - ma;
+        });
+
+        monthIdxs.forEach(mIdx => {
+          const month = monthsObj[mIdx];
+          const monthBlock = document.createElement('div');
+          monthBlock.className = 'month-group';
+
+          const monthHeader = document.createElement('div');
+          monthHeader.className = 'month-header';
+          monthHeader.textContent = month.name;
+          monthBlock.appendChild(monthHeader);
+
+          const daysObj = month.days;
+          const dayKeys = Object.keys(daysObj).sort((a, b) => {
+            const da = daysObj[a].latestTs;
+            const db = daysObj[b].latestTs;
+            return sortValue === 'oldest' ? da - db : db - da;
+          });
+
+          dayKeys.forEach(dayKey => {
+            const day = daysObj[dayKey];
+            const dayContainer = document.createElement('div');
+
+            const dayHeader = document.createElement('div');
+            dayHeader.className = 'day-header';
+            dayHeader.textContent = `${month.name} ${dayKey}`;
+            dayContainer.appendChild(dayHeader);
+
+            const dayList = document.createElement('div');
+            dayList.className = 'day-ticket-list';
+
+            day.tickets.forEach(t => {
+              const row = buildTicketRow(t);
+              dayList.appendChild(row);
+            });
+
+            dayContainer.appendChild(dayList);
+            monthBlock.appendChild(dayContainer);
+          });
+
+          yearBlock.appendChild(monthBlock);
+        });
+
+        container.appendChild(yearBlock);
+      });
+    }
+
+    function buildTicketRow(t) {
+      const row = document.createElement('div');
+      row.className = 'ticket-row';
+
+      const thumbWrapper = document.createElement('div');
+      thumbWrapper.className = 'ticket-thumb-wrapper';
+
+      if (t.imageUrl) {
+        const img = document.createElement('img');
+        img.className = 'ticket-thumb';
+        img.src = t.imageUrl;
+        img.alt = 'Ticket ' + t.id;
+        thumbWrapper.appendChild(img);
+      } else {
+        const ph = document.createElement('div');
+        ph.className = 'ticket-thumb-placeholder';
+        ph.textContent = 'No image';
+        thumbWrapper.appendChild(ph);
+      }
+
+      const main = document.createElement('div');
+      main.className = 'ticket-main';
+
+      const topRow = document.createElement('div');
+      topRow.className = 'ticket-main-top';
+
+      const leftTop = document.createElement('div');
+      leftTop.style.display = 'flex';
+      leftTop.style.flexDirection = 'column';
+      leftTop.style.gap = '2px';
+      leftTop.style.minWidth = 0;
+
+      const idLine = document.createElement('div');
+      idLine.style.display = 'flex';
+      idLine.style.alignItems = 'center';
+      idLine.style.gap = '6px';
+
+      const idSpan = document.createElement('span');
+      idSpan.className = 'ticket-id';
+      idSpan.textContent = t.id;
+
+      const chip = document.createElement('span');
+      chip.className = 'chip chip-green';
+      chip.textContent = t.deliveryId ? 'DELIVERY ' + t.deliveryId : 'UNLINKED';
+
+      idLine.appendChild(idSpan);
+      idLine.appendChild(chip);
+
+      const cust = document.createElement('div');
+      cust.className = 'ticket-customer';
+      const custName = t.customerName || '(No customer set)';
+      cust.textContent = custName;
+
+      leftTop.appendChild(idLine);
+      leftTop.appendChild(cust);
+
+      const rightTop = document.createElement('div');
+      rightTop.style.fontSize = '0.72rem';
+      rightTop.style.color = 'var(--text-muted)';
+      rightTop.textContent = formatShortDate(t.uploadedAt);
+
+      topRow.appendChild(leftTop);
+      topRow.appendChild(rightTop);
+
+      const lineTwo = document.createElement('div');
+      lineTwo.className = 'ticket-line-two';
+
+      if (t.pitName) {
+        const spanPit = document.createElement('span');
+        spanPit.textContent = 'Pit: ' + t.pitName;
+        lineTwo.appendChild(spanPit);
+      }
+
+      if (t.material) {
+        const spanMat = document.createElement('span');
+        spanMat.textContent = 'Material: ' + t.material;
+        lineTwo.appendChild(spanMat);
+      }
+
+      if (t.netWeight) {
+        const spanNet = document.createElement('span');
+        spanNet.textContent = 'Net: ' + t.netWeight;
+        lineTwo.appendChild(spanNet);
+      }
+
+      if (t.truckNumber) {
+        const spanTruck = document.createElement('span');
+        spanTruck.textContent = 'Truck: ' + t.truckNumber;
+        lineTwo.appendChild(spanTruck);
+      }
+
+      main.appendChild(topRow);
+      if (lineTwo.childNodes.length) {
+        main.appendChild(lineTwo);
+      }
+
+      const driverCol = document.createElement('div');
+      driverCol.className = 'ticket-driver-col';
+
+      const driverName = document.createElement('div');
+      driverName.className = 'ticket-driver-name';
+      const displayDriver = t.driverName || getDriverLabel(t.driverEmail);
+      driverName.textContent = displayDriver || 'Unknown driver';
+
+      const driverEmailLine = document.createElement('div');
+      driverEmailLine.className = 'ticket-date';
+      driverEmailLine.textContent = (t.driverEmail || '').toLowerCase();
+
+      driverCol.appendChild(driverName);
+      if (t.driverEmail) driverCol.appendChild(driverEmailLine);
+
+      row.appendChild(thumbWrapper);
+      row.appendChild(main);
+      row.appendChild(driverCol);
+
+      row.addEventListener('click', () => openModalWithTicket(t));
+
+      return row;
     }
 
     /* ---------- MODAL ---------- */
@@ -1353,16 +1542,14 @@
 
       const openImageBtn = document.getElementById('modalOpenImageBtn');
       openImageBtn.onclick = () => {
-        if (t.imageUrl) {
-          window.open(t.imageUrl, '_blank');
-        }
+        if (t.imageUrl) window.open(t.imageUrl, '_blank');
       };
 
       const openDeliveryBtn = document.getElementById('modalOpenDeliveryBtn');
       openDeliveryBtn.onclick = () => {
         if (t.deliveryId) {
-          // Simple approach: pass deliveryId as query param so dispatch.html can highlight it later if desired
-          window.location.href = 'dispatch.html?delivery=' + encodeURIComponent(t.deliveryId);
+          window.location.href =
+            'dispatch.html?delivery=' + encodeURIComponent(t.deliveryId);
         } else {
           window.location.href = 'dispatch.html';
         }
@@ -1373,23 +1560,13 @@
 
     window.addEventListener('load', () => {
       loadDriversForFilter();
+      listenForDeliveries();
       listenForTickets();
 
-      document.getElementById('searchInput').addEventListener('input', () => {
-        applyFilters();
-      });
-
-      document.getElementById('dateFilter').addEventListener('change', () => {
-        applyFilters();
-      });
-
-      document.getElementById('driverFilter').addEventListener('change', () => {
-        applyFilters();
-      });
-
-      document.getElementById('sortSelect').addEventListener('change', () => {
-        applyFilters();
-      });
+      document.getElementById('searchInput').addEventListener('input', applyFilters);
+      document.getElementById('dateFilter').addEventListener('change', applyFilters);
+      document.getElementById('driverFilter').addEventListener('change', applyFilters);
+      document.getElementById('sortSelect').addEventListener('change', applyFilters);
     });
   </script>
 </body>
