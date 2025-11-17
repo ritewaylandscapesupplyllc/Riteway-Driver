@@ -9,8 +9,8 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-  <!-- Tesseract for OCR-on-open -->
-  <script src="https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+  <!-- Tesseract.js for OCR (runs in browser, free) -->
+  <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
 
   <style>
     :root {
@@ -395,7 +395,7 @@
       border: 1px solid var(--border-subtle);
       max-width: 960px;
       width: 100%;
-      max-height: 92vh;
+      max-height: 90vh;
       box-shadow: 0 18px 50px rgba(0,0,0,0.75);
       display: grid;
       grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.1fr);
@@ -416,7 +416,7 @@
       justify-content: center;
       padding: 10px;
       border-right: 1px solid var(--border-subtle);
-      max-height: 92vh;
+      max-height: 90vh;
     }
 
     .modal-image {
@@ -431,8 +431,8 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      max-height: 92vh;
-      overflow-y: auto; /* scrolling area so buttons aren’t cut off */
+      max-height: 90vh;
+      overflow-y: auto;
     }
 
     .modal-header-row {
@@ -679,14 +679,6 @@
       border-color: rgba(18,195,160,0.7);
       background: rgba(18,195,160,0.16);
     }
-
-    /* Small OCR status badge in notes area (optional) */
-    .ocr-status {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      margin-top: 2px;
-      opacity: 0.8;
-    }
   </style>
 </head>
 <body>
@@ -746,7 +738,7 @@
     </div>
 
     <div class="header-badge">
-      Tickets · Images + Notes
+      Tickets · Images + Notes (with OCR)
     </div>
   </div>
 
@@ -801,7 +793,7 @@
 
       <div class="subtext">
         Viewer shows tickets from Firebase. Click any row on the right to see a full-size ticket,
-        auto-filled details, and OCR notes.
+        auto-filled customer info, and OCR text.
       </div>
     </div>
 
@@ -858,9 +850,8 @@
         </div>
 
         <div class="modal-notes">
-          <span class="detail-label" style="display:block;margin-bottom:2px;">Notes</span>
+          <span class="detail-label" style="display:block;margin-bottom:2px;">Notes / OCR Text</span>
           <span id="modalNotes" class="detail-value">—</span>
-          <div id="ocrStatus" class="ocr-status"></div>
         </div>
 
         <div class="modal-actions-row">
@@ -873,7 +864,6 @@
 
   <script>
     // --- CONFIG ---
-    // This matches your Firebase path from the screenshot:
     const TICKETS_REF_PATH = 'scaleTicketsMetadata';
 
     const firebaseConfig = {
@@ -886,11 +876,14 @@
       appId: "1:817275576166:web:56a92bcaf8f60d52a0b2a7"
     };
 
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
     const db = firebase.database();
 
     let allTickets = [];
     let filteredTickets = [];
+    let deliveriesMap = {}; // deliveryId -> delivery object
 
     /* ---------- SIDE MENU ---------- */
 
@@ -913,6 +906,27 @@
       window.location.href = path;
     }
 
+    /* ---------- DELIVERIES LISTENER (for customer names) ---------- */
+
+    function listenForDeliveries() {
+      db.ref('deliveries').on('value', snapshot => {
+        deliveriesMap = snapshot.val() || {};
+        // Re-render tickets so customer names update when deliveries are loaded
+        applyFilters();
+      });
+    }
+
+    function getCustomerForTicket(ticket) {
+      if (!ticket) return ticket.customerName || '';
+      const deliveryId = ticket.deliveryId;
+      if (!deliveryId) return ticket.customerName || '';
+      const d = deliveriesMap[deliveryId];
+      if (d && d.details && d.details.customerName) {
+        return d.details.customerName;
+      }
+      return ticket.customerName || '';
+    }
+
     /* ---------- FIREBASE TICKETS LISTENER ---------- */
 
     function listenForTickets() {
@@ -926,10 +940,11 @@
             ticketId: data.ticketId || id,
             deliveryId: data.deliveryId || data.delivery_id || '',
             customerName: data.customerName || data.customer || '',
-            driverName: data.driverName || '', // usually email or name
+            driverName: data.driverName || data.driverEmail || '',
             imageUrl: data.downloadUrl || data.imageUrl || data.url || '',
             uploadedAt: data.createdAtISO || data.createdAt || null,
-            notes: data.notes || data.note || ''
+            notes: data.notes || '',
+            ocrText: data.ocrText || ''
           };
           arr.push(t);
         });
@@ -1021,9 +1036,10 @@
             t.id,
             t.ticketId,
             t.deliveryId,
-            t.customerName,
+            getCustomerForTicket(t),
             t.driverName,
-            t.notes
+            t.notes,
+            t.ocrText
           ].join(' ').toLowerCase();
 
           if (!haystack.includes(search)) return false;
@@ -1155,7 +1171,7 @@
 
         const cust = document.createElement('div');
         cust.className = 'ticket-customer';
-        const custName = t.customerName || '(No customer set)';
+        const custName = getCustomerForTicket(t) || '(No customer set)';
         cust.textContent = custName;
 
         leftTop.appendChild(idLine);
@@ -1180,13 +1196,12 @@
         const displayDriver = t.driverName || 'Unknown driver';
         driverName.textContent = displayDriver;
 
-        const driverEmailLine = document.createElement('div');
-        driverEmailLine.className = 'ticket-date';
-        // you can change this if driverName is already an email
-        driverEmailLine.textContent = displayDriver;
+        const driverLine = document.createElement('div');
+        driverLine.className = 'ticket-date';
+        driverLine.textContent = displayDriver;
 
         driverCol.appendChild(driverName);
-        driverCol.appendChild(driverEmailLine);
+        driverCol.appendChild(driverLine);
 
         // Put together
         row.appendChild(thumbWrapper);
@@ -1199,49 +1214,7 @@
       });
     }
 
-    /* ---------- OCR ON OPEN ---------- */
-
-    async function runOcrForTicket(ticketObj, notesEl, statusEl) {
-      if (!window.Tesseract || !ticketObj.imageUrl) {
-        statusEl.textContent = '';
-        return;
-      }
-
-      try {
-        statusEl.textContent = 'Scanning ticket for text...';
-        const result = await Tesseract.recognize(
-          ticketObj.imageUrl,
-          'eng',
-          {
-            logger: m => console.log('Tesseract:', m)
-          }
-        );
-
-        let text = (result.data && result.data.text) ? result.data.text : '';
-        text = text.replace(/\r/g, '');
-        text = text.replace(/[ \t]+\n/g, '\n');
-        text = text.trim();
-
-        if (!text) text = '(No text detected)';
-
-        // Save back to Firebase
-        await db.ref(TICKETS_REF_PATH + '/' + ticketObj.id + '/notes').set(text);
-
-        // Update in-memory and UI
-        ticketObj.notes = text;
-        notesEl.textContent = text;
-        statusEl.textContent = 'Notes auto-filled from ticket image (OCR).';
-      } catch (err) {
-        console.error('OCR failed for ticket', ticketObj.id, err);
-        const failMsg = '(OCR failed – check image quality)';
-        await db.ref(TICKETS_REF_PATH + '/' + ticketObj.id + '/notes').set(failMsg);
-        ticketObj.notes = failMsg;
-        notesEl.textContent = failMsg;
-        statusEl.textContent = 'OCR failed – you can type your own notes.';
-      }
-    }
-
-    /* ---------- MODAL ---------- */
+    /* ---------- MODAL & OCR ---------- */
 
     function backdropClick(event) {
       if (event.target === document.getElementById('ticketModal')) {
@@ -1251,6 +1224,50 @@
 
     function closeModal() {
       document.getElementById('ticketModal').classList.remove('open');
+    }
+
+    function setNotesTextFromTicket(t) {
+      const notesEl = document.getElementById('modalNotes');
+      const combined = (t.ocrText && t.ocrText.trim())
+        || (t.notes && t.notes.trim())
+        || '';
+      notesEl.textContent = combined || '—';
+    }
+
+    function runOcrIfNeeded(t) {
+      if (!t || !t.imageUrl) return;
+      if (typeof Tesseract === 'undefined') return;
+
+      // If we already have decent OCR text, skip.
+      if (t.ocrText && t.ocrText.trim().length > 10) return;
+
+      if (t._ocrRunning) return;
+      t._ocrRunning = true;
+
+      const notesEl = document.getElementById('modalNotes');
+      notesEl.textContent = 'Scanning ticket for text… (this may take a moment)';
+
+      Tesseract.recognize(t.imageUrl, 'eng')
+        .then(result => {
+          let text = result && result.data && result.data.text ? result.data.text.trim() : '';
+          if (!text) {
+            text = 'OCR failed – you can type your own notes in the system.';
+          }
+          t.ocrText = text;
+          notesEl.textContent = text;
+
+          // Persist back to Firebase so next time it's instant
+          db.ref(TICKETS_REF_PATH + '/' + t.id + '/ocrText').set(text).catch(err => {
+            console.error('Error saving OCR text:', err);
+          });
+        })
+        .catch(err => {
+          console.error('OCR error:', err);
+          notesEl.textContent = 'OCR failed – you can type your own notes in the system.';
+        })
+        .finally(() => {
+          t._ocrRunning = false;
+        });
     }
 
     function openModalWithTicket(t) {
@@ -1264,7 +1281,6 @@
       const uploadedEl = document.getElementById('modalUploadedAt');
       const notesEl = document.getElementById('modalNotes');
       const imgEl = document.getElementById('modalImage');
-      const ocrStatusEl = document.getElementById('ocrStatus');
 
       mainId.textContent = t.ticketId || t.id;
 
@@ -1273,23 +1289,10 @@
       subId.textContent = deliveryPart + ' · ' + driverPart;
 
       deliveryIdEl.textContent = t.deliveryId || '—';
-      customerEl.textContent = t.customerName || '—';
+      customerEl.textContent = getCustomerForTicket(t) || '—';
       driverEl.textContent = driverPart;
       uploadedEl.textContent = formatShortDate(t.uploadedAt);
-
-      // Base notes state
-      if (t.notes) {
-        notesEl.textContent = t.notes;
-        ocrStatusEl.textContent = 'Notes already saved.';
-      } else if (t.imageUrl) {
-        notesEl.textContent = '—';
-        ocrStatusEl.textContent = 'No notes yet. Auto-scanning this ticket now...';
-        // Kick off OCR in background for this ticket
-        runOcrForTicket(t, notesEl, ocrStatusEl);
-      } else {
-        notesEl.textContent = '—';
-        ocrStatusEl.textContent = '';
-      }
+      setNotesTextFromTicket(t);
 
       if (t.imageUrl) {
         imgEl.src = t.imageUrl;
@@ -1314,11 +1317,15 @@
           window.location.href = 'dispatch.html';
         }
       };
+
+      // Kick off OCR automatically if needed
+      runOcrIfNeeded(t);
     }
 
     /* ---------- EVENT WIRING ---------- */
 
     window.addEventListener('load', () => {
+      listenForDeliveries();
       listenForTickets();
 
       document.getElementById('searchInput').addEventListener('input', applyFilters);
