@@ -9,9 +9,6 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-  <!-- Tesseract.js for OCR (runs in browser, free) -->
-  <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
-
   <style>
     :root {
       --bg: #050608;
@@ -243,6 +240,10 @@
       flex-wrap: wrap;
     }
 
+    .tickets-meta span {
+      white-space: nowrap;
+    }
+
     .tickets-list {
       margin-top: 4px;
       max-height: 520px;
@@ -428,7 +429,7 @@
       flex-direction: column;
       gap: 8px;
       max-height: 90vh;
-      overflow-y: auto;
+      overflow-y: auto; /* so buttons don’t get cut off */
     }
 
     .modal-header-row {
@@ -734,7 +735,7 @@
     </div>
 
     <div class="header-badge">
-      Tickets · Images + Auto-parsed Details
+      Tickets · Images + Notes
     </div>
   </div>
 
@@ -753,7 +754,7 @@
           <input
             id="searchInput"
             class="field-input"
-            placeholder="Delivery ID, customer, driver, pit, notes..."
+            placeholder="Delivery ID, customer, driver, notes..."
           />
         </div>
 
@@ -788,8 +789,7 @@
       </div>
 
       <div class="subtext">
-        Viewer shows tickets from Firebase. Click any row on the right to see a full-size ticket,
-        customer info, and auto-parsed details (company, pit, net tons, total).
+        Viewer shows tickets from Firebase. Click any row on the right to see a full-size ticket and basic details.
       </div>
     </div>
 
@@ -836,22 +836,6 @@
             <div id="modalCustomer" class="detail-value">—</div>
           </div>
           <div>
-            <div class="detail-label">Company on Ticket</div>
-            <div id="modalCompany" class="detail-value">—</div>
-          </div>
-          <div>
-            <div class="detail-label">Pit / Location</div>
-            <div id="modalPit" class="detail-value">—</div>
-          </div>
-          <div>
-            <div class="detail-label">Net Tons</div>
-            <div id="modalNetTons" class="detail-value">—</div>
-          </div>
-          <div>
-            <div class="detail-label">Ticket Total</div>
-            <div id="modalPricing" class="detail-value">—</div>
-          </div>
-          <div>
             <div class="detail-label">Driver</div>
             <div id="modalDriver" class="detail-value">—</div>
           </div>
@@ -862,7 +846,7 @@
         </div>
 
         <div class="modal-notes">
-          <span class="detail-label" style="display:block;margin-bottom:2px;">Notes / OCR Text</span>
+          <span class="detail-label" style="display:block;margin-bottom:2px;">Notes</span>
           <span id="modalNotes" class="detail-value">—</span>
         </div>
 
@@ -888,14 +872,11 @@
       appId: "1:817275576166:web:56a92bcaf8f60d52a0b2a7"
     };
 
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
+    firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
     let allTickets = [];
     let filteredTickets = [];
-    let deliveriesMap = {}; // deliveryId -> delivery object
 
     /* ---------- SIDE MENU ---------- */
 
@@ -918,108 +899,6 @@
       window.location.href = path;
     }
 
-    /* ---------- SIMPLE CLEANUP & PARSING HELPERS ---------- */
-
-    function cleanOcrText(raw) {
-      if (!raw) return '';
-      return raw
-        .replace(/[^\n\r 0-9A-Za-z.,:;\/\-#()+$%&]/g, '') // strip weird symbols
-        .replace(/[ \t]+/g, ' ')                         // collapse spaces
-        .replace(/\n{3,}/g, '\n\n')                      // collapse blank lines
-        .trim();
-    }
-
-    // Pull out company name, pit/location, net tons, and ticket total from OCR text.
-    function parseOcrAndFields(raw) {
-      const cleanedText = cleanOcrText(raw);
-      if (!cleanedText) {
-        return { cleanedText: '', company: '', pit: '', netTons: '', pricing: '' };
-      }
-
-      const lines = cleanedText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-
-      // Company: first non-junk line near the top
-      let company = '';
-      for (let i = 0; i < Math.min(lines.length, 5); i++) {
-        const line = lines[i];
-        if (!line) continue;
-        if (/^thank you/i.test(line)) continue;
-        if (/^(date|time|ticket|vehicle|gross|tare|net|customer)/i.test(line)) continue;
-        company = line;
-        break;
-      }
-
-      // Pit / Location: first line mentioning "Pit"
-      let pit = '';
-      for (const line of lines) {
-        if (/\bPIT\b/i.test(line) || /\bPit\b/.test(line)) {
-          pit = line;
-          break;
-        }
-      }
-
-      // Net tons: "Net ... 16.82 Ton"
-      let netTons = '';
-      const netMatch = cleanedText.match(/Net[^0-9]*([0-9]+(?:\.[0-9]+)?)\s*(?:Ton|Tons)?/i);
-      if (netMatch) {
-        netTons = netMatch[1];
-      }
-
-      // Ticket total: try "Total Amount" first, then "Total", then first $amount
-      let pricing = '';
-      let m =
-        cleanedText.match(/Total\s+Amount[^0-9$]*([$]?[0-9][0-9,]*(?:\.[0-9]{2})?)/i) ||
-        cleanedText.match(/Total[^0-9$]*([$]?[0-9][0-9,]*(?:\.[0-9]{2})?)/i) ||
-        cleanedText.match(/([$][0-9][0-9,]*(?:\.[0-9]{2})?)/);
-
-      if (m) pricing = m[1];
-
-      return { cleanedText, company, pit, netTons, pricing };
-    }
-
-    function applyParsedToModal(parsed) {
-      const companyEl = document.getElementById('modalCompany');
-      const pitEl = document.getElementById('modalPit');
-      const netEl = document.getElementById('modalNetTons');
-      const priceEl = document.getElementById('modalPricing');
-      const notesEl = document.getElementById('modalNotes');
-
-      if (!parsed) {
-        companyEl.textContent = '—';
-        pitEl.textContent = '—';
-        netEl.textContent = '—';
-        priceEl.textContent = '—';
-        notesEl.textContent = '—';
-        return;
-      }
-
-      notesEl.textContent = parsed.cleanedText || '—';
-      companyEl.textContent = parsed.company || '—';
-      pitEl.textContent = parsed.pit || '—';
-      netEl.textContent = parsed.netTons ? parsed.netTons + ' tons' : '—';
-      priceEl.textContent = parsed.pricing || '—';
-    }
-
-    /* ---------- DELIVERIES LISTENER (for customer names) ---------- */
-
-    function listenForDeliveries() {
-      db.ref('deliveries').on('value', snapshot => {
-        deliveriesMap = snapshot.val() || {};
-        applyFilters(); // so customer names show once deliveries load
-      });
-    }
-
-    function getCustomerForTicket(ticket) {
-      if (!ticket) return ticket.customerName || '';
-      const deliveryId = ticket.deliveryId;
-      if (!deliveryId) return ticket.customerName || '';
-      const d = deliveriesMap[deliveryId];
-      if (d && d.details && d.details.customerName) {
-        return d.details.customerName;
-      }
-      return ticket.customerName || '';
-    }
-
     /* ---------- FIREBASE TICKETS LISTENER ---------- */
 
     function listenForTickets() {
@@ -1033,11 +912,10 @@
             ticketId: data.ticketId || id,
             deliveryId: data.deliveryId || data.delivery_id || '',
             customerName: data.customerName || data.customer || '',
-            driverName: data.driverName || data.driverEmail || '',
+            driverName: data.driverName || '', // often the email based on your metadata
             imageUrl: data.downloadUrl || data.imageUrl || data.url || '',
             uploadedAt: data.createdAtISO || data.createdAt || null,
-            notes: data.notes || '',
-            ocrText: data.ocrText || ''
+            notes: data.notes || data.note || ''
           };
           arr.push(t);
         });
@@ -1123,17 +1001,15 @@
           if ((t.driverName || '').trim() !== driverValue) return false;
         }
 
-        // search (also search parsed OCR text)
+        // search
         if (search) {
-          const ocrBase = cleanOcrText(t.ocrText || '');
           const haystack = [
             t.id,
             t.ticketId,
             t.deliveryId,
-            getCustomerForTicket(t),
+            t.customerName,
             t.driverName,
-            t.notes,
-            ocrBase
+            t.notes
           ].join(' ').toLowerCase();
 
           if (!haystack.includes(search)) return false;
@@ -1265,7 +1141,7 @@
 
         const cust = document.createElement('div');
         cust.className = 'ticket-customer';
-        const custName = getCustomerForTicket(t) || '(No customer set)';
+        const custName = t.customerName || '(No customer set)';
         cust.textContent = custName;
 
         leftTop.appendChild(idLine);
@@ -1290,12 +1166,13 @@
         const displayDriver = t.driverName || 'Unknown driver';
         driverName.textContent = displayDriver;
 
-        const driverLine = document.createElement('div');
-        driverLine.className = 'ticket-date';
-        driverLine.textContent = displayDriver;
+        const driverEmailLine = document.createElement('div');
+        driverEmailLine.className = 'ticket-date';
+        // If your driverName is actually email, we just echo it here:
+        driverEmailLine.textContent = displayDriver;
 
         driverCol.appendChild(driverName);
-        driverCol.appendChild(driverLine);
+        driverCol.appendChild(driverEmailLine);
 
         // Put together
         row.appendChild(thumbWrapper);
@@ -1308,7 +1185,7 @@
       });
     }
 
-    /* ---------- MODAL & OCR ---------- */
+    /* ---------- MODAL ---------- */
 
     function backdropClick(event) {
       if (event.target === document.getElementById('ticketModal')) {
@@ -1329,6 +1206,7 @@
       const customerEl = document.getElementById('modalCustomer');
       const driverEl = document.getElementById('modalDriver');
       const uploadedEl = document.getElementById('modalUploadedAt');
+      const notesEl = document.getElementById('modalNotes');
       const imgEl = document.getElementById('modalImage');
 
       mainId.textContent = t.ticketId || t.id;
@@ -1338,9 +1216,10 @@
       subId.textContent = deliveryPart + ' · ' + driverPart;
 
       deliveryIdEl.textContent = t.deliveryId || '—';
-      customerEl.textContent = getCustomerForTicket(t) || '—';
+      customerEl.textContent = t.customerName || '—';
       driverEl.textContent = driverPart;
       uploadedEl.textContent = formatShortDate(t.uploadedAt);
+      notesEl.textContent = t.notes || '—';
 
       if (t.imageUrl) {
         imgEl.src = t.imageUrl;
@@ -1365,66 +1244,11 @@
           window.location.href = 'dispatch.html';
         }
       };
-
-      // Fill from existing OCR (if we already have it)
-      const existingRaw = (t.ocrText && t.ocrText.trim()) || (t.notes && t.notes.trim()) || '';
-      const parsedExisting = parseOcrAndFields(existingRaw);
-      applyParsedToModal(parsedExisting);
-
-      // Kick off OCR automatically if needed
-      runOcrIfNeeded(t);
-    }
-
-    function runOcrIfNeeded(t) {
-      if (!t || !t.imageUrl) return;
-      if (typeof Tesseract === 'undefined') return;
-
-      // If we already have decent OCR text, skip doing it again
-      if (t.ocrText && t.ocrText.trim().length > 10) return;
-      if (t._ocrRunning) return;
-      t._ocrRunning = true;
-
-      const notesEl = document.getElementById('modalNotes');
-      notesEl.textContent = 'Scanning ticket for text…';
-
-      Tesseract.recognize(
-        t.imageUrl,
-        'eng',
-        {
-          logger: m => console.log(m),
-          tessedit_char_whitelist:
-            '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,:/-# $'
-        }
-      )
-        .then(result => {
-          let text = result && result.data && result.data.text ? result.data.text.trim() : '';
-          if (!text) {
-            text = 'OCR failed – you can type your own notes in the system.';
-          }
-          t.ocrText = text;
-
-          // Parse and apply to modal
-          const parsed = parseOcrAndFields(text);
-          applyParsedToModal(parsed);
-
-          // Persist back to Firebase so next time it's instant
-          db.ref(TICKETS_REF_PATH + '/' + t.id + '/ocrText').set(text).catch(err => {
-            console.error('Error saving OCR text:', err);
-          });
-        })
-        .catch(err => {
-          console.error('OCR error:', err);
-          notesEl.textContent = 'OCR failed – you can type your own notes in the system.';
-        })
-        .finally(() => {
-          t._ocrRunning = false;
-        });
     }
 
     /* ---------- EVENT WIRING ---------- */
 
     window.addEventListener('load', () => {
-      listenForDeliveries();
       listenForTickets();
 
       document.getElementById('searchInput').addEventListener('input', applyFilters);
