@@ -11,8 +11,8 @@
 
   <!-- Google Maps -->
   <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA955mtbdY2qg_kvyLxWOV1yWN5NYenHcI&libraries=geometry">
-  </script>
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA955mtbdY2qg_kvyLxWOV1yWN5NYenHcI&libraries=geometry&loading=async">
+</script>
 
   <style>
     :root {
@@ -1395,27 +1395,24 @@
 
         const loc = d.location;
         if (loc && typeof loc.lat === 'number' && typeof loc.lng === 'number') {
-          const pos = new google.maps.LatLng(loc.lat, loc.lng);
-          if (!markers[id]) {
-            markers[id] = new google.maps.Marker({
-              map,
-              position: pos,
-              title: id + ' – truck',
-              icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 5,
-                fillColor: '#12C3A0',
-                fillOpacity: 1,
-                strokeColor: '#12C3A0',
-                strokeWeight: 1
-              }
-            });
-          } else {
-            markers[id].setPosition(pos);
-          }
-          bounds.extend(pos);
-          hasBounds = true;
-        }
+  const pos = new google.maps.LatLng(loc.lat, loc.lng);
+  if (!markers[id]) {
+    markers[id] = new google.maps.Marker({
+      map,
+      position: pos,
+      title: id + ' – truck',
+      icon: {
+        url: 'riteway-truck-marker.png',          // your custom truck icon
+        scaledSize: new google.maps.Size(40, 40), // adjust size if needed
+        anchor: new google.maps.Point(20, 20)     // centers the icon on the point
+      }
+    });
+  } else {
+    markers[id].setPosition(pos);
+  }
+  bounds.extend(pos);
+  hasBounds = true;
+}
 
         const dest = d._resolvedDestLatLng;
         if (dest && typeof dest.lat === 'number' && typeof dest.lng === 'number') {
