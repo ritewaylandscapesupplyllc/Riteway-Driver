@@ -779,7 +779,7 @@
     </div>
   </div>
 
- <script>
+<script>
   const firebaseConfig = {
     apiKey: "AIzaSyDmyq_bxVHipY5UxZY-28sXUu0-fJvL69I",
     authDomain: "ritewaytracking-3e9d0.firebaseapp.com",
@@ -795,7 +795,7 @@
   const auth = firebase.auth();
   const storage = firebase.storage();
 
-   let loadsById = {};
+  let loadsById = {};
   let currentUser = null;
   let selectedLoadId = null;
   let gpsInterval = null;
@@ -804,194 +804,6 @@
   let currentPrimaryHandler = null;
   let hasAutoSelectedLoad = false;
   let inTicketCapture = false; // freeze UI while taking/uploading ticket
-     // --- In-app directions map state ---
-  let driverMap = null;
-  let driverDirectionsService = null;
-  let driverDirectionsRenderer = null;
-  let driverGeocoder = null;
-  let driverDestLatLng = null;
-  let driverMarker = null;
-  let destMarker = null;
-  let lastDriverLoc = null;
-
-  function isMobile() {
-    return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
-  }
-
-  function toggleFullscreen() {
-    if (!isMobile()) return; // keep fullscreen for phones only
-
-    const body = document.body;
-    const btn = document.getElementById('fullscreenToggle');
-    const active = body.classList.contains('fullscreen-active');
-
-    if (active) {
-      body.classList.remove('fullscreen-active');
-      if (btn) btn.textContent = 'Full Screen Map';
-    } else {
-      body.classList.add('fullscreen-active');
-      if (btn) btn.textContent = 'Exit Full Screen';
-    }
-
-    // Make sure map redraws correctly
-    if (driverMap && typeof google !== 'undefined' && google.maps) {
-      google.maps.event.trigger(driverMap, 'resize');
-    }
-  }
-
-  function initDriverMap() {
-    if (driverMap) return;
-    const mapEl = document.getElementById('driverMap');
-    if (!mapEl) return;
-    if (typeof google === 'undefined' || !google.maps) {
-      console.error('Google Maps not loaded yet');
-      return;
-    }
-
-    driverMap = new google.maps.Map(mapEl, {
-      center: { lat: 40.612, lng: -112.464 },
-      zoom: 11,
-      gestureHandling: 'greedy'
-    });
-
-    driverDirectionsService = new google.maps.DirectionsService();
-    driverDirectionsRenderer = new google.maps.DirectionsRenderer({
-      map: driverMap,
-      suppressMarkers: true,
-      polylineOptions: {
-        strokeWeight: 5
-      }
-    });
-
-    driverGeocoder = new google.maps.Geocoder();
-
-    const fsBtn = document.getElementById('fullscreenToggle');
-    if (fsBtn && isMobile()) {
-      fsBtn.style.display = 'inline-block';
-    }
-  }
-
-  function calculateAndShowRoute(originLoc, destLatLng) {
-    if (!driverDirectionsService || !driverDirectionsRenderer) return;
-    if (!originLoc || !destLatLng) return;
-
-    driverDirectionsService.route(
-      {
-        origin: new google.maps.LatLng(originLoc.lat, originLoc.lng),
-        destination: destLatLng,
-        travelMode: google.maps.TravelMode.DRIVING
-      },
-      (result, status) => {
-        const directionsPanel = document.getElementById('mapDirectionsText');
-        if (status === 'OK' && result.routes && result.routes[0] && result.routes[0].legs[0]) {
-          driverDirectionsRenderer.setDirections(result);
-          const leg = result.routes[0].legs[0];
-          if (directionsPanel) {
-            directionsPanel.textContent = `${leg.distance.text} • approx ${leg.duration.text}`;
-          }
-        } else {
-          if (directionsPanel) {
-            directionsPanel.textContent = 'Could not load route. You can still use the map to navigate.';
-          }
-        }
-      }
-    );
-  }
-
-  function handleDriverMapUpdate(deliveryId, loc) {
-    // Only show map for the currently selected load
-    if (deliveryId !== selectedLoadId) return;
-    if (!loc) return;
-    if (typeof google === 'undefined' || !google.maps) return;
-
-    initDriverMap();
-    if (!driverMap) return;
-
-    lastDriverLoc = loc;
-    const pos = new google.maps.LatLng(loc.lat, loc.lng);
-
-    if (!driverMarker) {
-      driverMarker = new google.maps.Marker({
-        map: driverMap,
-        position: pos,
-        title: 'Your truck',
-        icon: {
-          path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-          scale: 5,
-          strokeColor: '#12c3a0'
-        }
-      });
-    } else {
-      driverMarker.setPosition(pos);
-    }
-
-    // If no customer destination yet, keep map centered on driver
-    if (!driverDestLatLng) {
-      driverMap.setCenter(pos);
-    } else {
-      // Keep driver roughly centered while moving
-      driverMap.panTo(pos);
-    }
-  }
-
-  function updateDestinationForSelectedLoad() {
-    if (!selectedLoadId || !loadsById[selectedLoadId]) return;
-    const obj = loadsById[selectedLoadId];
-    const details = obj.details || {};
-    const addr = details.address;
-    const directionsPanel = document.getElementById('mapDirectionsText');
-
-    if (!addr) {
-      if (directionsPanel) {
-        directionsPanel.textContent = 'No address on file for this load.';
-      }
-      return;
-    }
-
-    if (typeof google === 'undefined' || !google.maps) return;
-    initDriverMap();
-    if (!driverGeocoder) return;
-
-    if (directionsPanel) {
-      directionsPanel.textContent = 'Loading route…';
-    }
-
-    driverGeocoder.geocode({ address: addr }, (results, status) => {
-      if (status !== 'OK' || !results[0]) {
-        if (directionsPanel) {
-          directionsPanel.textContent = 'Could not locate this address.';
-        }
-        return;
-      }
-
-      driverDestLatLng = results[0].geometry.location;
-
-      if (!destMarker) {
-        destMarker = new google.maps.Marker({
-          map: driverMap,
-          position: driverDestLatLng,
-          title: 'Customer',
-          icon: {
-            path: 'M0,-10 L4,-2 L4,6 L-4,6 L-4,-2 Z',
-            fillColor: '#ffffff',
-            fillOpacity: 1,
-            strokeColor: '#12c3a0',
-            strokeWeight: 2
-          }
-        });
-      } else {
-        destMarker.setPosition(driverDestLatLng);
-      }
-
-      // If we already know driver position, draw route once
-      if (lastDriverLoc) {
-        calculateAndShowRoute(lastDriverLoc, driverDestLatLng);
-      } else {
-        driverMap.setCenter(driverDestLatLng);
-        driverMap.setZoom(14);
-      }
-    });
-  }
 
   // --- Toast helper ---
   function showToast(message, type = "success") {
@@ -1000,20 +812,23 @@
     toast.innerText = message;
     toast.classList.remove("error", "show");
 
-    if (type === "error") toast.classList.add("error");
+    if (type === "error") {
+      toast.classList.add("error");
+    }
 
     // force reflow so animation can restart
     void toast.offsetWidth;
 
     toast.classList.add("show");
 
-    setTimeout(() => {
+    setTimeout(function () {
       toast.classList.remove("show");
     }, 2500);
   }
 
   // --- SCREEN WAKE LOCK (keep screen on while on a load) ---
   let wakeLock = null;
+
   async function enableWakeLock() {
     try {
       if ("wakeLock" in navigator) {
@@ -1024,6 +839,7 @@
       log("WakeLock error: " + err.message);
     }
   }
+
   async function releaseWakeLock() {
     try {
       if (wakeLock) {
@@ -1037,125 +853,139 @@
   }
 
   function log(msg) {
-    const debug = document.getElementById('debug');
+    const debug = document.getElementById("debug");
     if (!debug) return;
     const time = new Date().toLocaleTimeString();
-    debug.innerHTML += `<br>[${time}] ${msg}`;
+    debug.innerHTML += "<br>[" + time + "] " + msg;
     debug.scrollTop = debug.scrollHeight;
     console.log(msg);
   }
 
-  window.onerror = function(message, source, lineno) {
-    log('JS ERROR: ' + message + ' @ ' + lineno);
+  window.onerror = function (message, source, lineno) {
+    log("JS ERROR: " + message + " @ " + lineno);
   };
 
   function setStatusText(text) {
-    const el = document.getElementById('status-text');
+    const el = document.getElementById("status-text");
     if (el) el.innerText = text;
   }
 
   function handlePrimaryClick() {
-    const btn = document.getElementById('primaryActionBtn');
+    const btn = document.getElementById("primaryActionBtn");
     if (!btn) return;
-    log('Primary button CLICKED by user. Label: ' + btn.innerText);
+    log("Primary button CLICKED by user. Label: " + btn.innerText);
     if (btn.disabled) {
-      log('Primary button is disabled; ignoring click.');
+      log("Primary button is disabled; ignoring click.");
       return;
     }
-    if (typeof currentPrimaryHandler === 'function') {
+    if (typeof currentPrimaryHandler === "function") {
       try {
         currentPrimaryHandler();
       } catch (err) {
-        log('Primary handler error: ' + err.message);
+        log("Primary handler error: " + err.message);
       }
     } else {
-      log('No primary handler assigned.');
+      log("No primary handler assigned.");
     }
   }
 
-  function setPrimaryButton(label, handler, disabled = false) {
-    const btn = document.getElementById('primaryActionBtn');
+  function setPrimaryButton(label, handler, disabled) {
+    if (disabled === undefined) disabled = false;
+    const btn = document.getElementById("primaryActionBtn");
     if (!btn) return;
     btn.innerText = label;
     btn.disabled = disabled;
-    currentPrimaryHandler = (!disabled && typeof handler === 'function') ? handler : null;
-    log('Primary button set to "' + label + `" (disabled=${disabled})`);
+    if (!disabled && typeof handler === "function") {
+      currentPrimaryHandler = handler;
+    } else {
+      currentPrimaryHandler = null;
+    }
+    // plain string concat to avoid template issues
+    log('Primary button set to "' + label + '" (disabled=' + disabled + ")");
   }
 
   function statusLabel(status) {
-    if (!status || status === 'pending') return 'Pending';
-    if (status === 'loading') return 'Loading';
-    if (status === 'en_route') return 'En Route';
-    if (status === 'complete') return 'Complete';
+    if (!status || status === "pending") return "Pending";
+    if (status === "loading") return "Loading";
+    if (status === "en_route") return "En Route";
+    if (status === "complete") return "Complete";
     return status;
   }
 
   function getDriverDisplayName(user) {
-    if (!user) return '';
+    if (!user) return "";
     return user.displayName || user.email || user.phoneNumber || user.uid;
   }
 
   function getCurrentPositionPromise(options) {
-    return new Promise((resolve, reject) => {
+    return new Promise(function (resolve, reject) {
       if (!navigator.geolocation) {
-        return reject(new Error('Geolocation not supported'));
+        return reject(new Error("Geolocation not supported"));
       }
-      navigator.geolocation.getCurrentPosition(resolve, reject, options || {});
+      navigator.geolocation.getCurrentPosition(
+        resolve,
+        reject,
+        options || {}
+      );
     });
   }
 
   function computeDistanceMeters(lat1, lon1, lat2, lon2) {
     const R = 6371000;
-    const toRad = deg => deg * Math.PI / 180;
+    function toRad(deg) {
+      return (deg * Math.PI) / 180;
+    }
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
 
   function showSplash(onDone) {
-    const overlay = document.getElementById('splashOverlay');
-    const barFill = document.getElementById('splashBarFill');
-    const percentText = document.getElementById('splashPercent');
+    const overlay = document.getElementById("splashOverlay");
+    const barFill = document.getElementById("splashBarFill");
+    const percentText = document.getElementById("splashPercent");
 
     if (!overlay || !barFill || !percentText) {
       if (onDone) onDone();
       return;
     }
 
-    overlay.style.display = 'flex';
-    barFill.style.width = '0%';
-    percentText.textContent = '0%';
+    overlay.style.display = "flex";
+    barFill.style.width = "0%";
+    percentText.textContent = "0%";
 
     let progress = 0;
     if (splashTimer) clearInterval(splashTimer);
 
-    splashTimer = setInterval(() => {
+    splashTimer = setInterval(function () {
       progress += 5;
       if (progress >= 100) {
         progress = 100;
-        barFill.style.width = progress + '%';
-        percentText.textContent = progress + '%';
+        barFill.style.width = progress + "%";
+        percentText.textContent = progress + "%";
         clearInterval(splashTimer);
         splashTimer = null;
-        setTimeout(() => {
-          overlay.style.display = 'none';
+        setTimeout(function () {
+          overlay.style.display = "none";
           if (onDone) onDone();
         }, 200);
       } else {
-        barFill.style.width = progress + '%';
-        percentText.textContent = progress + '%';
+        barFill.style.width = progress + "%";
+        percentText.textContent = progress + "%";
       }
     }, 60);
   }
 
   function hideSplashImmediately() {
-    const overlay = document.getElementById('splashOverlay');
-    if (overlay) overlay.style.display = 'none';
+    const overlay = document.getElementById("splashOverlay");
+    if (overlay) overlay.style.display = "none";
     if (splashTimer) {
       clearInterval(splashTimer);
       splashTimer = null;
@@ -1163,63 +993,65 @@
   }
 
   function openPwaHint() {
-    const modal = document.getElementById('pwaHintModal');
-    if (modal) modal.style.display = 'flex';
+    const modal = document.getElementById("pwaHintModal");
+    if (modal) modal.style.display = "flex";
   }
 
   function closePwaHint() {
-    const modal = document.getElementById('pwaHintModal');
-    if (modal) modal.style.display = 'none';
+    const modal = document.getElementById("pwaHintModal");
+    if (modal) modal.style.display = "none";
   }
 
   function showAuthError(text) {
-    const el = document.getElementById('authError');
-    if (el) el.innerText = text || '';
+    const el = document.getElementById("authError");
+    if (el) el.innerText = text || "";
   }
 
   function login() {
-    const email = document.getElementById('authEmail').value.trim();
-    const password = document.getElementById('authPassword').value;
-    showAuthError('');
+    const email = document.getElementById("authEmail").value.trim();
+    const password = document.getElementById("authPassword").value;
+    showAuthError("");
 
     if (!email || !password) {
-      showAuthError('Email and password are required.');
+      showAuthError("Email and password are required.");
       return;
     }
 
-    auth.signInWithEmailAndPassword(email, password)
-      .then(() => {
-        showAuthError('');
+    auth
+      .signInWithEmailAndPassword(email, password)
+      .then(function () {
+        showAuthError("");
       })
-      .catch(err => {
+      .catch(function (err) {
         console.error(err);
         showAuthError(err.message);
       });
   }
 
   function signup() {
-    const email = document.getElementById('authEmail').value.trim();
-    const password = document.getElementById('authPassword').value;
-    showAuthError('');
+    const email = document.getElementById("authEmail").value.trim();
+    const password = document.getElementById("authPassword").value;
+    showAuthError("");
 
     if (!email || !password) {
-      showAuthError('Email and password are required.');
+      showAuthError("Email and password are required.");
       return;
     }
 
-    localStorage.setItem('ritewayShowPwaHint', '1');
+    localStorage.setItem("ritewayShowPwaHint", "1");
 
-    auth.createUserWithEmailAndPassword(email, password)
-      .then(() => {
-        showAuthError('Account created. You are now signed in.');
+    auth
+      .createUserWithEmailAndPassword(email, password)
+      .then(function () {
+        showAuthError("Account created. You are now signed in.");
       })
-      .catch(err => {
+      .catch(function (err) {
         console.error(err);
         showAuthError(err.message);
       });
   }
 
-   function logout() {
+  function logout() {
     stopGps();
     releaseWakeLock();
     inTicketCapture = false;
@@ -1227,41 +1059,47 @@
     auth.signOut();
   }
 
-  auth.onAuthStateChanged(user => {
+  auth.onAuthStateChanged(function (user) {
     currentUser = user;
     if (user) {
-      document.getElementById('authCard').style.display = 'none';
-      document.getElementById('driverCard').style.display = 'none';
+      document.getElementById("authCard").style.display = "none";
+      document.getElementById("driverCard").style.display = "none";
       hasAutoSelectedLoad = false;
       inTicketCapture = false;
 
-      showSplash(() => {
-        document.getElementById('driverCard').style.display = 'block';
-        document.getElementById('driverIdentity').innerText =
-          `Logged in as ${user.email}`;
+      showSplash(function () {
+        document.getElementById("driverCard").style.display = "block";
+        document.getElementById("driverIdentity").innerText =
+          "Logged in as " + user.email;
         subscribeToLoadsForUser(user);
 
-        if (localStorage.getItem('ritewayShowPwaHint') === '1') {
-          localStorage.removeItem('ritewayShowPwaHint');
+        if (localStorage.getItem("ritewayShowPwaHint") === "1") {
+          localStorage.removeItem("ritewayShowPwaHint");
           openPwaHint();
         }
       });
     } else {
       hideSplashImmediately();
-      document.getElementById('driverCard').style.display = 'none';
-      document.getElementById('authCard').style.display = 'block';
-      const idEl = document.getElementById('driverIdentity');
-      if (idEl) idEl.innerText = '';
-      const loadsList = document.getElementById('loadsList');
-      if (loadsList) loadsList.innerHTML = '';
-      document.getElementById('loadDetails').innerHTML =
+      document.getElementById("driverCard").style.display = "none";
+      document.getElementById("authCard").style.display = "block";
+
+      const idEl = document.getElementById("driverIdentity");
+      if (idEl) idEl.innerText = "";
+
+      const loadsList = document.getElementById("loadsList");
+      if (loadsList) loadsList.innerHTML = "";
+
+      document.getElementById("loadDetails").innerHTML =
         '<div style="color:var(--text-muted); font-size:0.8rem;">Tap a load on the left to see details and start loading.</div>';
-      setPrimaryButton('Select a load', null, true);
-      setStatusText('No load selected');
+
+      setPrimaryButton("Select a load", null, true);
+      setStatusText("No load selected");
+
       loadsById = {};
       selectedLoadId = null;
       setLoadCountBadge(0);
       hasAutoSelectedLoad = false;
+
       if (loadsRef) loadsRef.off();
     }
   });
@@ -1270,21 +1108,22 @@
     if (!user) return;
     if (loadsRef) loadsRef.off();
 
-    loadsRef = db.ref('deliveries')
-      .orderByChild('details/assignedDriverEmail')
+    loadsRef = db
+      .ref("deliveries")
+      .orderByChild("details/assignedDriverEmail")
       .equalTo(user.email);
 
-    loadsRef.on('value', snapshot => {
+    loadsRef.on("value", function (snapshot) {
       if (inTicketCapture) {
-        log('Loads update ignored (inTicketCapture=true)');
+        log("Loads update ignored (inTicketCapture=true)");
         return;
       }
 
       const val = snapshot.val() || {};
       loadsById = {};
 
-      Object.entries(val).forEach(([id, obj]) => {
-        loadsById[id] = obj;
+      Object.keys(val).forEach(function (id) {
+        loadsById[id] = val[id];
       });
 
       renderLoadsList();
@@ -1300,20 +1139,25 @@
   }
 
   function setLoadCountBadge(count) {
-    const badge = document.getElementById('loadCountBadge');
+    const badge = document.getElementById("loadCountBadge");
     if (!badge) return;
-    badge.innerText = `${count} active load${count === 1 ? '' : 's'}`;
+    badge.innerText =
+      count + " active load" + (count === 1 ? "" : "s");
   }
 
   function renderLoadsList() {
-    const container = document.getElementById('loadsList');
+    const container = document.getElementById("loadsList");
     if (!container) return;
 
     const entries = Object.entries(loadsById)
-      .filter(([id, obj]) => obj.status !== 'complete')
-      .sort((a,b) => (a[0] > b[0] ? -1 : 1));
+      .filter(function (pair) {
+        return pair[1].status !== "complete";
+      })
+      .sort(function (a, b) {
+        return a[0] > b[0] ? -1 : 1;
+      });
 
-    container.innerHTML = '';
+    container.innerHTML = "";
     setLoadCountBadge(entries.length);
 
     if (entries.length === 0) {
@@ -1322,40 +1166,42 @@
       return;
     }
 
-    entries.forEach(([id, obj]) => {
+    entries.forEach(function (pair) {
+      const id = pair[0];
+      const obj = pair[1];
       const details = obj.details || {};
-      const status = obj.status || 'pending';
+      const status = obj.status || "pending";
 
-      const div = document.createElement('div');
-      div.className = 'load-item' + (id === selectedLoadId ? ' active' : '');
-      div.onclick = () => {
+      const div = document.createElement("div");
+      div.className = "load-item" + (id === selectedLoadId ? " active" : "");
+      div.onclick = function () {
         hasAutoSelectedLoad = true;
         if (inTicketCapture) {
-          log('Tap on load ignored because ticket capture is active.');
+          log("Tap on load ignored because ticket capture is active.");
           return;
         }
         selectLoad(id);
       };
 
-      const topRow = document.createElement('div');
-      topRow.className = 'load-header-row';
+      const topRow = document.createElement("div");
+      topRow.className = "load-header-row";
 
-      const idSpan = document.createElement('span');
-      idSpan.className = 'load-id';
+      const idSpan = document.createElement("span");
+      idSpan.className = "load-id";
       idSpan.innerText = id;
 
-      const statusSpan = document.createElement('span');
-      statusSpan.className = 'load-status-pill';
+      const statusSpan = document.createElement("span");
+      statusSpan.className = "load-status-pill";
       statusSpan.innerText = statusLabel(status);
 
       topRow.appendChild(idSpan);
       topRow.appendChild(statusSpan);
 
-      const sub = document.createElement('div');
-      sub.className = 'load-sub';
-      const name = details.customerName || 'No customer set';
-      const addr = details.address || 'No address set';
-      sub.innerText = `${name} · ${addr}`;
+      const sub = document.createElement("div");
+      sub.className = "load-sub";
+      const name = details.customerName || "No customer set";
+      const addr = details.address || "No address set";
+      sub.innerText = name + " · " + addr;
 
       div.appendChild(topRow);
       div.appendChild(sub);
@@ -1367,78 +1213,81 @@
   function selectLoad(id) {
     selectedLoadId = id;
 
-    Array.from(document.querySelectorAll('.load-item')).forEach(el => {
-      el.classList.remove('active');
+    Array.from(document.querySelectorAll(".load-item")).forEach(function (el) {
+      el.classList.remove("active");
     });
 
-    const ticketSection = document.getElementById('ticketUploadSection');
-    const ticketStatusEl = document.getElementById('ticketStatus');
-    if (ticketSection) ticketSection.style.display = 'none';
-    if (ticketStatusEl) ticketStatusEl.textContent = '';
+    const ticketSection = document.getElementById("ticketUploadSection");
+    const ticketStatusEl = document.getElementById("ticketStatus");
+    if (ticketSection) ticketSection.style.display = "none";
+    if (ticketStatusEl) ticketStatusEl.textContent = "";
 
     if (!id || !loadsById[id]) {
-      document.getElementById('loadDetails').innerHTML =
+      document.getElementById("loadDetails").innerHTML =
         '<div style="color:var(--text-muted); font-size:0.8rem;">Tap a load on the left to see details and start loading.</div>';
-      setPrimaryButton('Select a load', null, true);
-      setStatusText('No load selected');
+      setPrimaryButton("Select a load", null, true);
+      setStatusText("No load selected");
       stopGps();
       return;
     }
 
     const obj = loadsById[id];
     const details = obj.details || {};
-    const status = obj.status || 'pending';
+    const status = obj.status || "pending";
 
-    const html = `
-      <div>
-        <div class="detail-label">Delivery ID</div>
-        <div class="detail-value">${id}</div>
+    const html =
+      '<div>' +
+      '<div class="detail-label">Delivery ID</div>' +
+      '<div class="detail-value">' +
+      id +
+      "</div>" +
+      '<div class="detail-label">Customer</div>' +
+      '<div class="detail-value">' +
+      (details.customerName || "—") +
+      "</div>" +
+      '<div class="detail-label">Address</div>' +
+      '<div class="detail-value">' +
+      (details.address || "—") +
+      "</div>" +
+      '<div class="detail-label">Items</div>' +
+      '<div class="detail-value">' +
+      (details.items || "—") +
+      "</div>" +
+      '<div class="detail-label">Status</div>' +
+      '<div class="detail-value">' +
+      statusLabel(status) +
+      "</div>" +
+      "</div>";
 
-        <div class="detail-label">Customer</div>
-        <div class="detail-value">${details.customerName || '—'}</div>
+    document.getElementById("loadDetails").innerHTML = html;
 
-        <div class="detail-label">Address</div>
-        <div class="detail-value">${details.address || '—'}</div>
-
-        <div class="detail-label">Items</div>
-        <div class="detail-value">${details.items || '—'}</div>
-
-        <div class="detail-label">Status</div>
-        <div class="detail-value">${statusLabel(status)}</div>
-      </div>
-    `;
-    document.getElementById('loadDetails').innerHTML = html;
-       
-    // Update in-app directions map for this load
-    updateDestinationForSelectedLoad();
-
-    if (status === 'loading') {
-      if (ticketSection) ticketSection.style.display = 'block';
-      setPrimaryButton('Upload Scale Ticket', uploadScaleTicketForSelected);
-      setStatusText('Loading at pit / getting ticket…');
+    if (status === "loading") {
+      if (ticketSection) ticketSection.style.display = "block";
+      setPrimaryButton("Upload Scale Ticket", uploadScaleTicketForSelected);
+      setStatusText("Loading at pit / getting ticket…");
       ensureGpsRunning(id);
-    } else if (status === 'en_route') {
-      if (ticketSection) ticketSection.style.display = 'none';
-      setPrimaryButton('Complete Delivery', completeSelected);
-      setStatusText('En route to customer…');
+    } else if (status === "en_route") {
+      if (ticketSection) ticketSection.style.display = "none";
+      setPrimaryButton("Complete Delivery", completeSelected);
+      setStatusText("En route to customer…");
       ensureGpsRunning(id);
-    } else if (status === 'complete') {
-      if (ticketSection) ticketSection.style.display = 'none';
-      setPrimaryButton('Completed', null, true);
-      setStatusText('Delivery complete');
+    } else if (status === "complete") {
+      if (ticketSection) ticketSection.style.display = "none";
+      setPrimaryButton("Completed", null, true);
+      setStatusText("Delivery complete");
       stopGps();
     } else {
-      if (ticketSection) ticketSection.style.display = 'none';
-      setPrimaryButton('Start Loading', startLoadingForSelected);
-      setStatusText('Ready to start');
+      if (ticketSection) ticketSection.style.display = "none";
+      setPrimaryButton("Start Loading", startLoadingForSelected);
+      setStatusText("Ready to start");
       stopGps();
     }
 
-    const container = document.getElementById('loadsList');
+    const container = document.getElementById("loadsList");
     if (container) {
-      Array.from(container.children).forEach(child => {
-        if (child.textContent.includes(id)) {
-          child.classList.add('active');
+      Array.from(container.children).forEach(function (child) {
+        if (child.textContent.indexOf(id) !== -1) {
+          child.classList.add("active");
         }
       });
     }
@@ -1448,7 +1297,7 @@
     if (gpsInterval) {
       clearInterval(gpsInterval);
       gpsInterval = null;
-      log('GPS interval stopped');
+      log("GPS interval stopped");
     }
   }
 
@@ -1462,21 +1311,34 @@
     // Clear any old interval
     stopGps();
 
-    const sendGpsOnce = () => {
+    function sendGpsOnce() {
       getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 10000 })
-        .then(pos => {
+        .then(function (pos) {
           const loc = {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
             ts: new Date().toISOString()
           };
 
-          const deliveryRef = db.ref('deliveries/' + deliveryId);
+          const deliveryRef = db.ref("deliveries/" + deliveryId);
 
           // ALWAYS send internal location for dispatch
-          deliveryRef.child('location').set(loc)
-            .then(() => log(`GPS sent for ${deliveryId}: ${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`))
-            .catch(err => log('ERROR sending GPS: ' + err.message));
+          deliveryRef
+            .child("location")
+            .set(loc)
+            .then(function () {
+              log(
+                "GPS sent for " +
+                  deliveryId +
+                  ": " +
+                  loc.lat.toFixed(4) +
+                  ", " +
+                  loc.lng.toFixed(4)
+              );
+            })
+            .catch(function (err) {
+              log("ERROR sending GPS: " + err.message);
+            });
 
           const obj = loadsById[deliveryId] || {};
           const ticketInfo = obj.ticketInfo;
@@ -1488,11 +1350,23 @@
 
           if (!ticketInfo || !ticketInfo.ticketUploadedAt) {
             // Ticket not uploaded yet → hide from customer
-            log(`customerLocation: CLEAR (no ticket yet) for ${deliveryId}`);
-            deliveryRef.child('customerLocation').set(null)
-              .catch(err => log('ERROR clearing customerLocation (no ticket): ' + err.message));
-
-          } else if (ticketInfo.pitLat != null && ticketInfo.pitLng != null) {
+            log(
+              "customerLocation: CLEAR (no ticket yet) for " +
+                deliveryId
+            );
+            deliveryRef
+              .child("customerLocation")
+              .set(null)
+              .catch(function (err) {
+                log(
+                  "ERROR clearing customerLocation (no ticket): " +
+                    err.message
+                );
+              });
+          } else if (
+            ticketInfo.pitLat != null &&
+            ticketInfo.pitLng != null
+          ) {
             // We know where the pit is, so enforce 1-mile radius
             const dist = computeDistanceMeters(
               loc.lat,
@@ -1502,70 +1376,106 @@
             );
             const ONE_MILE_METERS = 1609.34;
 
-            log(`customerLocation: distance from pit = ${dist.toFixed(1)}m for ${deliveryId}`);
+            log(
+              "customerLocation: distance from pit = " +
+                dist.toFixed(1) +
+                "m for " +
+                deliveryId
+            );
 
             if (dist >= ONE_MILE_METERS) {
               // Beyond 1 mile → show driver to customer
-              log(`customerLocation: SET (beyond 1 mile) for ${deliveryId}`);
-              deliveryRef.child('customerLocation').set(loc)
-                .catch(err => log('ERROR setting customerLocation: ' + err.message));
+              log(
+                "customerLocation: SET (beyond 1 mile) for " +
+                  deliveryId
+              );
+              deliveryRef
+                .child("customerLocation")
+                .set(loc)
+                .catch(function (err) {
+                  log(
+                    "ERROR setting customerLocation: " +
+                      err.message
+                  );
+                });
             } else {
               // Still within pit radius → hide
-              log(`customerLocation: CLEAR (inside 1 mile) for ${deliveryId}`);
-              deliveryRef.child('customerLocation').set(null)
-                .catch(err => log('ERROR clearing customerLocation (inside radius): ' + err.message));
+              log(
+                "customerLocation: CLEAR (inside 1 mile) for " +
+                  deliveryId
+              );
+              deliveryRef
+                .child("customerLocation")
+                .set(null)
+                .catch(function (err) {
+                  log(
+                    "ERROR clearing customerLocation (inside radius): " +
+                      err.message
+                  );
+                });
             }
-
-          } else {
           } else {
             // Ticket uploaded but no pit coords (fallback)
-            log(`customerLocation: SET (ticket uploaded but no pit coords) for ${deliveryId}`);
-            deliveryRef.child('customerLocation').set(loc)
-              .catch(err => log('ERROR setting customerLocation (no pit coords): ' + err.message));
+            log(
+              "customerLocation: SET (ticket uploaded but no pit coords) for " +
+                deliveryId
+            );
+            deliveryRef
+              .child("customerLocation")
+              .set(loc)
+              .catch(function (err) {
+                log(
+                  "ERROR setting customerLocation (no pit coords): " +
+                    err.message
+                );
+              });
           }
-
-          // 🔹 ADDED: feed this GPS point into the in-app directions map
-          handleDriverMapUpdate(deliveryId, loc);
-
         })
-        .catch(err => {
-          log('GPS ERROR: ' + err.message);
-          setStatusText('GPS error: ' + err.message);
+        .catch(function (err) {
+          log("GPS ERROR: " + err.message);
+          setStatusText("GPS error: " + err.message);
         });
-    };
+    }
 
     // Send one immediately, then every 5s
     sendGpsOnce();
     gpsInterval = setInterval(sendGpsOnce, 5000);
     gpsInterval._forId = deliveryId;
-    log('GPS interval started for ' + deliveryId);
+    log("GPS interval started for " + deliveryId);
   }
 
-   function startLoadingForSelected() {
+  function startLoadingForSelected() {
     if (!selectedLoadId || !loadsById[selectedLoadId]) return;
     const id = selectedLoadId;
     const obj = loadsById[id];
     const details = obj.details || {};
 
-    if (currentUser && (!details.assignedDriverEmail || details.assignedDriverEmail !== currentUser.email)) {
-      db.ref('deliveries/' + id + '/details/assignedDriverEmail').set(currentUser.email);
+    if (
+      currentUser &&
+      (!details.assignedDriverEmail ||
+        details.assignedDriverEmail !== currentUser.email)
+    ) {
+      db.ref(
+        "deliveries/" + id + "/details/assignedDriverEmail"
+      ).set(currentUser.email);
     }
 
-    inTicketCapture = true;      // freeze UI updates while in loading / ticket flow
+    inTicketCapture = true; // freeze UI updates while in loading / ticket flow
     if (loadsRef) loadsRef.off();
 
-    db.ref('deliveries/' + id + '/status').set('loading')
-      .then(() => {
-        log(`Status for ${id} set to loading`);
-        setStatusText('Loading at pit / getting ticket…');
+    db.ref("deliveries/" + id + "/status")
+      .set("loading")
+      .then(function () {
+        log("Status for " + id + " set to loading");
+        setStatusText("Loading at pit / getting ticket…");
         if (!loadsById[id]) loadsById[id] = {};
-        loadsById[id].status = 'loading';
+        loadsById[id].status = "loading";
         selectLoad(id);
         ensureGpsRunning(id);
         enableWakeLock(); // keep screen awake while on this load
       })
-      .catch(err => {
-        log('ERROR setting status: ' + err.message);
+      .catch(function (err) {
+        log("ERROR setting status: " + err.message);
         inTicketCapture = false;
         if (currentUser) subscribeToLoadsForUser(currentUser);
       });
@@ -1575,51 +1485,68 @@
     if (!selectedLoadId || !loadsById[selectedLoadId]) return;
     const id = selectedLoadId;
     const user = currentUser;
-    const statusEl = document.getElementById('ticketStatus');
-    const fileInput = document.getElementById('ticketFileInput');
+    const statusEl = document.getElementById("ticketStatus");
+    const fileInput = document.getElementById("ticketFileInput");
 
-    log('Upload: starting for delivery ' + id);
+    log("Upload: starting for delivery " + id);
 
-    if (statusEl) statusEl.textContent = '';
+    if (statusEl) statusEl.textContent = "";
 
     if (!user) {
-      alert('Please sign in before uploading a ticket.');
+      alert("Please sign in before uploading a ticket.");
       return;
     }
 
     if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-      alert('Please choose or take a photo of the scale ticket.');
+      alert("Please choose or take a photo of the scale ticket.");
       return;
     }
 
     const file = fileInput.files[0];
-    log('Upload: file ready -> ' + file.name + ' (' + file.size + ' bytes)');
+    log(
+      "Upload: file ready -> " +
+        file.name +
+        " (" +
+        file.size +
+        " bytes)"
+    );
 
     try {
       inTicketCapture = true;
       if (loadsRef) loadsRef.off();
 
-      if (statusEl) statusEl.textContent = 'Getting location…';
+      if (statusEl) statusEl.textContent = "Getting location…";
 
       let pitLocation = null;
       try {
-        const pos = await getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 15000 });
+        const pos = await getCurrentPositionPromise({
+          enableHighAccuracy: true,
+          timeout: 15000
+        });
         pitLocation = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude
         };
-        log('Upload: got pit location ' + pitLocation.lat + ', ' + pitLocation.lng);
+        log(
+          "Upload: got pit location " +
+            pitLocation.lat +
+            ", " +
+            pitLocation.lng
+        );
       } catch (geoErr) {
-        log('Upload: could not get pit location: ' + geoErr.message);
+        log(
+          "Upload: could not get pit location: " + geoErr.message
+        );
       }
 
-      if (statusEl) statusEl.textContent = 'Uploading ticket image…';
+      if (statusEl) statusEl.textContent = "Uploading ticket image…";
 
       const now = new Date();
       const year = now.getFullYear();
       const ticketId = Date.now().toString();
 
-      const storagePath = `scaleTickets/${year}/${user.uid}/${ticketId}.jpg`;
+      const storagePath =
+        "scaleTickets/" + year + "/" + user.uid + "/" + ticketId + ".jpg";
       const storageRef = storage.ref(storagePath);
 
       const metadata = {
@@ -1631,14 +1558,14 @@
         }
       };
 
-      log('Upload: sending to Firebase Storage at ' + storagePath);
+      log("Upload: sending to Firebase Storage at " + storagePath);
       const snapshot = await storageRef.put(file, metadata);
-      log('Upload: storage.put completed');
+      log("Upload: storage.put completed");
 
       const downloadUrl = await snapshot.ref.getDownloadURL();
-      log('Upload: got download URL');
+      log("Upload: got download URL");
 
-      if (statusEl) statusEl.textContent = 'Saving ticket record…';
+      if (statusEl) statusEl.textContent = "Saving ticket record…";
 
       const ticketRecord = {
         ticketId: ticketId,
@@ -1651,8 +1578,8 @@
         downloadUrl: downloadUrl
       };
 
-      await db.ref('scaleTicketsMetadata/' + ticketId).set(ticketRecord);
-      log('Upload: ticket metadata saved');
+      await db.ref("scaleTicketsMetadata/" + ticketId).set(ticketRecord);
+      log("Upload: ticket metadata saved");
 
       const ticketInfo = {
         pitLat: pitLocation ? pitLocation.lat : null,
@@ -1660,73 +1587,97 @@
         ticketUploadedAt: now.toISOString()
       };
 
-      await db.ref('deliveries/' + id + '/ticketInfo').set(ticketInfo);
-      log('Upload: ticketInfo saved on delivery');
+      await db.ref("deliveries/" + id + "/ticketInfo").set(ticketInfo);
+      log("Upload: ticketInfo saved on delivery");
 
       if (!loadsById[id]) loadsById[id] = {};
       loadsById[id].ticketInfo = ticketInfo;
 
-      await db.ref('deliveries/' + id + '/status').set('en_route');
-      loadsById[id].status = 'en_route';
-      log('Upload: status updated to en_route');
+      await db.ref("deliveries/" + id + "/status").set("en_route");
+      loadsById[id].status = "en_route";
+      log("Upload: status updated to en_route");
 
-           if (statusEl) statusEl.textContent = 'Ticket uploaded. You are now en route to customer.';
-      setStatusText('En route to customer…');
-      setPrimaryButton('Complete Delivery', completeSelected);
-      showToast('Scale ticket uploaded ✔');
+      if (statusEl) {
+        statusEl.textContent =
+          "Ticket uploaded. You are now en route to customer.";
+      }
+      setStatusText("En route to customer…");
+      setPrimaryButton("Complete Delivery", completeSelected);
+      showToast("Scale ticket uploaded ✔");
 
-      if (fileInput) fileInput.value = '';
+      if (fileInput) fileInput.value = "";
 
-      log(`Upload: finished OK for ${id}, ticketId=${ticketId}`);
+      log("Upload: finished OK for " + id + ", ticketId=" + ticketId);
 
       inTicketCapture = false;
       if (currentUser) subscribeToLoadsForUser(currentUser);
     } catch (err) {
-      console.error('Error uploading scale ticket:', err);
-      log('Upload ERROR: ' + (err.message || err.code || err.toString()));
-          if (statusEl) statusEl.textContent = 'Upload failed. Please try again.';
-      showToast('Ticket upload failed ❌', 'error');
-      alert('Error uploading ticket: ' + (err.message || err.code || 'Unknown error.'));
+      console.error("Error uploading scale ticket:", err);
+      log("Upload ERROR: " + (err.message || err.code || err.toString()));
+      if (statusEl) {
+        statusEl.textContent = "Upload failed. Please try again.";
+      }
+      showToast("Ticket upload failed ❌", "error");
+      alert(
+        "Error uploading ticket: " +
+          (err.message || err.code || "Unknown error.")
+      );
 
       // IMPORTANT: un-freeze UI after failure
       inTicketCapture = false;
       if (currentUser) subscribeToLoadsForUser(currentUser);
-      setStatusText('Upload failed – tap button to retry.');
+      setStatusText("Upload failed – tap button to retry.");
     }
   }
 
-   function startTrackingForSelected() {
+  function startTrackingForSelected() {
     if (!selectedLoadId || !loadsById[selectedLoadId]) return;
     const id = selectedLoadId;
 
-    db.ref('deliveries/' + id + '/status').set('en_route')
-      .then(() => {
-        log(`Status for ${id} set to en_route`);
-        setStatusText('En route to customer…');
+    db.ref("deliveries/" + id + "/status")
+      .set("en_route")
+      .then(function () {
+        log("Status for " + id + " set to en_route");
+        setStatusText("En route to customer…");
         ensureGpsRunning(id);
         enableWakeLock(); // make sure screen stays awake while driving
       })
-      .catch(err => log('ERROR setting status: ' + err.message));
+      .catch(function (err) {
+        log("ERROR setting status: " + err.message);
+      });
   }
 
   function completeSelected() {
     if (!selectedLoadId || !loadsById[selectedLoadId]) return;
     const id = selectedLoadId;
 
-    db.ref('deliveries/' + id + '/status').set('complete')
-      .then(() => {
-        log(`Status for ${id} set to complete`);
-        setStatusText('Delivery complete');
+    db.ref("deliveries/" + id + "/status")
+      .set("complete")
+      .then(function () {
+        log("Status for " + id + " set to complete");
+        setStatusText("Delivery complete");
       })
-      .catch(err => log('ERROR setting status: ' + err.message));
+      .catch(function (err) {
+        log("ERROR setting status: " + err.message);
+      });
 
-    db.ref('deliveries/' + id + '/location').remove()
-      .then(() => log('Location cleared for ' + id))
-      .catch(err => log('ERROR clearing location: ' + err.message));
+    db.ref("deliveries/" + id + "/location")
+      .remove()
+      .then(function () {
+        log("Location cleared for " + id);
+      })
+      .catch(function (err) {
+        log("ERROR clearing location: " + err.message);
+      });
 
-    db.ref('deliveries/' + id + '/customerLocation').remove()
-      .then(() => log('customerLocation cleared for ' + id))
-      .catch(err => log('ERROR clearing customerLocation: ' + err.message));
+    db.ref("deliveries/" + id + "/customerLocation")
+      .remove()
+      .then(function () {
+        log("customerLocation cleared for " + id);
+      })
+      .catch(function (err) {
+        log("ERROR clearing customerLocation: " + err.message);
+      });
 
     stopGps();
     releaseWakeLock(); // allow screen to sleep again
@@ -1735,18 +1686,22 @@
   }
 
   // file input change logger – confirms iOS gives us a file
-  document.addEventListener('DOMContentLoaded', () => {
-    const inp = document.getElementById('ticketFileInput');
+  document.addEventListener("DOMContentLoaded", function () {
+    const inp = document.getElementById("ticketFileInput");
     if (!inp) return;
-    inp.addEventListener('change', () => {
+    inp.addEventListener("change", function () {
       if (!inp.files || inp.files.length === 0) {
-        log('File input change: no file selected.');
+        log("File input change: no file selected.");
       } else {
         const f = inp.files[0];
-        log('File selected: ' + f.name + ' (' + f.size + ' bytes)');
-        const statusEl = document.getElementById('ticketStatus');
-        if (statusEl) statusEl.textContent = 'Selected: ' + f.name;
-        showToast('Photo added');
+        log(
+          "File selected: " + f.name + " (" + f.size + " bytes)"
+        );
+        const statusEl = document.getElementById("ticketStatus");
+        if (statusEl) {
+          statusEl.textContent = "Selected: " + f.name;
+        }
+        showToast("Photo added");
       }
     });
   });
