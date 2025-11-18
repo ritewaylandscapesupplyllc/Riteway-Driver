@@ -23,7 +23,7 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <!-- Google Maps (for in-app directions) -->
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA955mtbdY2qg_kvyLxWOV1yWN5NYenHcI&libraries=geometry,places"></script>
+ <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA955mtbdY2qg_kvyLxWOV1yWN5NYenHcI&libraries=geometry,places&callback=initDriverMapApp"></script>
 
   <style>
     :root {
@@ -795,6 +795,14 @@
   const auth = firebase.auth();
   const storage = firebase.storage();
 
+  // Driver map globals
+  let driverMap = null;
+  let driverMarker = null;
+  let destMarker = null;
+  let driverGeocoder = null;
+  let driverFollowTruck = true;
+  let mapReady = false;
+
   let loadsById = {};
   let currentUser = null;
   let selectedLoadId = null;
@@ -946,7 +954,116 @@
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
+  // -------- DRIVER MAP SETUP --------
+  function initDriverMapApp() {
+    const mapEl = document.getElementById("driverMap");
+    if (!mapEl) {
+      console.warn("driverMap element not found yet");
+      return;
+    }
 
+    driverMap = new google.maps.Map(mapEl, {
+      center: { lat: 40.612, lng: -112.464 }, // general Grantsville area
+      zoom: 11,
+      gestureHandling: "greedy"
+    });
+
+    driverGeocoder = new google.maps.Geocoder();
+    mapReady = true;
+
+    // Show fullscreen button once map is ready
+    const fsBtn = document.getElementById("fullscreenToggle");
+    if (fsBtn) {
+      fsBtn.style.display = "inline-flex";
+    }
+
+    // If driver drags / zooms, stop auto-centering on truck
+    driverMap.addListener("dragstart", function () {
+      driverFollowTruck = false;
+    });
+
+    driverMap.addListener("zoom_changed", function () {
+      driverFollowTruck = false;
+    });
+
+    log("Driver map initialized");
+  }
+
+  // Make it visible for the Google Maps callback
+  window.initDriverMapApp = initDriverMapApp;
+
+  function updateDriverMapPosition(loc) {
+    if (!loc) return;
+    if (!mapReady || !driverMap || !window.google || !google.maps) return;
+
+    const latLng = new google.maps.LatLng(loc.lat, loc.lng);
+
+    if (!driverMarker) {
+      driverMarker = new google.maps.Marker({
+        map: driverMap,
+        position: latLng,
+        title: "Your truck"
+      });
+    } else {
+      driverMarker.setPosition(latLng);
+    }
+
+    if (driverFollowTruck) {
+      driverMap.panTo(latLng);
+    }
+  }
+
+  function setDriverMapDestination(address) {
+    if (!address) return;
+    if (!mapReady || !driverGeocoder || !window.google || !google.maps) return;
+
+    driverGeocoder.geocode({ address: address }, function (results, status) {
+      if (status !== "OK" || !results[0]) {
+        log("Geocode failed for driver destination: " + status);
+        return;
+      }
+
+      const loc = results[0].geometry.location;
+
+      if (!destMarker) {
+        destMarker = new google.maps.Marker({
+          map: driverMap,
+          position: loc,
+          title: "Delivery address",
+          icon: {
+            path: "M0,-10 L6,-2 L6,6 L-6,6 L-6,-2 Z",
+            fillColor: "#333333",
+            fillOpacity: 1,
+            strokeColor: "#12C3A0",
+            strokeWeight: 2,
+            scale: 1.3
+          }
+        });
+      } else {
+        destMarker.setPosition(loc);
+      }
+    });
+  }
+
+  function toggleFullscreen() {
+    const body = document.body;
+    body.classList.toggle("fullscreen-active");
+
+    // When entering fullscreen, start following truck again
+    driverFollowTruck = body.classList.contains("fullscreen-active");
+
+    // Force map resize so it fills the new area
+    if (driverMap && window.google && google.maps) {
+      setTimeout(function () {
+        google.maps.event.trigger(driverMap, "resize");
+        if (driverMarker) {
+          driverMap.panTo(driverMarker.getPosition());
+        }
+      }, 200);
+    }
+  }
+  // -------- END DRIVER MAP SETUP --------
+  
   function showSplash(onDone) {
     const overlay = document.getElementById("splashOverlay");
     const barFill = document.getElementById("splashBarFill");
@@ -1261,6 +1378,25 @@
 
     document.getElementById("loadDetails").innerHTML = html;
 
+        document.getElementById("loadDetails").innerHTML = html;
+
+    // Update map text + destination
+    const mapText = document.getElementById("mapDirectionsText");
+    if (mapText) {
+      if (details.address) {
+        mapText.textContent = "Routing to: " + details.address;
+      } else {
+        mapText.textContent =
+          "No address set for this load. Ask dispatch to add one.";
+      }
+    }
+    if (details.address) {
+      setDriverMapDestination(details.address);
+    }
+
+    if (status === "loading") {
+      ...
+
     if (status === "loading") {
       if (ticketSection) ticketSection.style.display = "block";
       setPrimaryButton("Upload Scale Ticket", uploadScaleTicketForSelected);
@@ -1321,7 +1457,11 @@
           };
 
           const deliveryRef = db.ref("deliveries/" + deliveryId);
+          
+ // Update driver in-app map
+          updateDriverMapPosition(loc);
 
+          
           // ALWAYS send internal location for dispatch
           deliveryRef
             .child("location")
