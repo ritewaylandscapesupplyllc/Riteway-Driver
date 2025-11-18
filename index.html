@@ -744,6 +744,16 @@
             <div class="map-wrapper" id="mapWrapper">
               <div id="driverMap"></div>
             </div>
+            <!-- In-app directions UI -->
+<div id="nextInstruction"
+     style="margin-top:8px;font-size:0.82rem;color:var(--accent-strong);min-height:1.4em;">
+  Directions will appear here once a route is planned.
+</div>
+
+<div id="directionsList"
+     style="margin-top:6px;max-height:140px;overflow-y:auto;font-size:0.78rem;color:var(--text-muted);border-top:1px solid rgba(37,44,53,0.9);padding-top:6px;">
+  <!-- Step-by-step directions will be rendered here -->
+</div>
           </div>
         </div>
       </div>
@@ -822,6 +832,13 @@ document.addEventListener("DOMContentLoaded", function () {
   let driverGeocoder = null;
   let driverFollowTruck = true;
   let mapReady = false;
+
+  // Directions (in-app navigation)
+let directionsService = null;
+let directionsRenderer = null;
+let routeSteps = [];
+let currentStepIndex = 0;
+let routeDestinationAddress = null;
 
   // --- App state ---
   let loadsById = {};
@@ -1295,6 +1312,13 @@ document.addEventListener("DOMContentLoaded", function () {
       setDriverMapDestination(details.address);
     }
 
+    // Build route and directions list for this load
+if (details.address) {
+  buildRouteForSelectedLoad();
+} else {
+  updateDirectionsUI(null);
+}
+
     if (status === "loading") {
       if (ticketSection) ticketSection.style.display = "block";
       setPrimaryButton("Upload Scale Ticket", uploadScaleTicketForSelected);
@@ -1356,6 +1380,11 @@ document.addEventListener("DOMContentLoaded", function () {
           // update in-app driver map
           updateDriverMapPosition(loc);
 
+// Update in-app directions step if route exists
+if (deliveryId === selectedLoadId) {
+  maybeAdvanceStepWithLocation(loc);
+}
+          
           // internal dispatch location
           deliveryRef.child("location")
             .set(loc)
@@ -1423,6 +1452,30 @@ document.addEventListener("DOMContentLoaded", function () {
     gpsInterval._forId = deliveryId;
     log("GPS interval started for " + deliveryId);
   }
+
+  function maybeAdvanceStepWithLocation(loc) {
+  if (!routeSteps.length) return;
+  if (!window.google || !google.maps) return;
+  if (currentStepIndex >= routeSteps.length) return;
+
+  const step = routeSteps[currentStepIndex];
+  if (!step.start_location) return;
+
+  const s = step.start_location; // this is a google.maps.LatLng
+  const dist = computeDistanceMeters(loc.lat, loc.lng, s.lat(), s.lng());
+
+  // If within ~30m of the step's start, move to the next one
+  if (dist < 30 && currentStepIndex < routeSteps.length - 1) {
+    currentStepIndex++;
+    log(
+      "Advancing to step " +
+        (currentStepIndex + 1) +
+        " of " +
+        routeSteps.length
+    );
+    updateNextInstructionOnly();
+  }
+}
 
   function startLoadingForSelected() {
     if (!selectedLoadId || !loadsById[selectedLoadId]) return;
@@ -1645,39 +1698,133 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // --- Map setup ---
   function initDriverMapApp() {
-    if (!window.google || !google.maps) {
-      // maps script not loaded yet; try again shortly
-      setTimeout(initDriverMapApp, 500);
-      return;
-    }
-    const mapEl = document.getElementById("driverMap");
-    if (!mapEl) {
-      return;
-    }
-
-    driverMap = new google.maps.Map(mapEl, {
-      center: { lat: 40.612, lng: -112.464 }, // Grantsville-ish
-      zoom: 11,
-      gestureHandling: "greedy"
-    });
-
-    driverGeocoder = new google.maps.Geocoder();
-    mapReady = true;
-
-    const fsBtn = document.getElementById("fullscreenToggle");
-    if (fsBtn) {
-      fsBtn.style.display = "inline-flex";
-    }
-
-    driverMap.addListener("dragstart", function () {
-      driverFollowTruck = false;
-    });
-    driverMap.addListener("zoom_changed", function () {
-      driverFollowTruck = false;
-    });
-
-    log("Driver map initialized");
+  const mapEl = document.getElementById("driverMap");
+  if (!mapEl) {
+    console.warn("driverMap element not found yet");
+    return;
   }
+
+  driverMap = new google.maps.Map(mapEl, {
+    center: { lat: 40.612, lng: -112.464 }, // general Grantsville area
+    zoom: 11,
+    gestureHandling: "greedy"
+  });
+
+  driverGeocoder = new google.maps.Geocoder();
+  mapReady = true;
+
+  // Directions service + renderer for route polyline
+  directionsService = new google.maps.DirectionsService();
+  directionsRenderer = new google.maps.DirectionsRenderer({
+    map: driverMap,
+    suppressMarkers: true,
+    polylineOptions: {
+      strokeColor: "#12C3A0",
+      strokeWeight: 5
+    }
+  });
+
+  // Show fullscreen button once map is ready
+  const fsBtn = document.getElementById("fullscreenToggle");
+  if (fsBtn) {
+    fsBtn.style.display = "inline-flex";
+  }
+
+  // If driver drags / zooms, stop auto-centering on truck
+  driverMap.addListener("dragstart", function () {
+    driverFollowTruck = false;
+  });
+
+  driverMap.addListener("zoom_changed", function () {
+    driverFollowTruck = false;
+  });
+
+  log("Driver map initialized");
+}
+
+  window.initDriverMapApp = initDriverMapApp;
+  // Strip HTML tags from Google step instructions
+function stripHtml(html) {
+  if (!html) return "";
+  return html.replace(/<[^>]+>/g, "");
+}
+
+// Update "next step" and full list UI
+function updateDirectionsUI(leg) {
+  const nextEl = document.getElementById("nextInstruction");
+  const listEl = document.getElementById("directionsList");
+
+  if (!nextEl || !listEl) return;
+
+  if (!leg || !routeSteps.length) {
+    nextEl.textContent =
+      "Directions will appear here once a route is planned.";
+    listEl.innerHTML = "";
+    return;
+  }
+
+  // Next instruction
+  if (currentStepIndex >= routeSteps.length) {
+    nextEl.textContent = "You are near your destination.";
+  } else {
+    const step = routeSteps[currentStepIndex];
+    const text = stripHtml(step.instructions);
+    const distText = step.distance && step.distance.text
+      ? " (" + step.distance.text + ")"
+      : "";
+    nextEl.textContent = text + distText;
+  }
+
+  // Full step list
+  let html = "";
+  routeSteps.forEach(function (step, idx) {
+    const text = stripHtml(step.instructions);
+    const distText = step.distance && step.distance.text
+      ? " – " + step.distance.text
+      : "";
+    html +=
+      '<div style="padding:2px 0;' +
+      (idx === currentStepIndex ? "color:#12C3A0;font-weight:500;" : "") +
+      '">Step ' +
+      (idx + 1) +
+      ": " +
+      text +
+      distText +
+      "</div>";
+  });
+
+  listEl.innerHTML = html;
+}
+
+// Only update the next-step text + highlight
+function updateNextInstructionOnly() {
+  const nextEl = document.getElementById("nextInstruction");
+  const listEl = document.getElementById("directionsList");
+  if (!nextEl || !listEl) return;
+
+  if (!routeSteps.length || currentStepIndex >= routeSteps.length) {
+    nextEl.textContent = "You are near your destination.";
+  } else {
+    const step = routeSteps[currentStepIndex];
+    const text = stripHtml(step.instructions);
+    const distText = step.distance && step.distance.text
+      ? " (" + step.distance.text + ")"
+      : "";
+    nextEl.textContent = text + distText;
+  }
+
+  // Re-highlight the active step in the list
+  const children = Array.from(listEl.children || []);
+  children.forEach(function (child, idx) {
+    if (idx === currentStepIndex) {
+      child.style.color = "#12C3A0";
+      child.style.fontWeight = "500";
+    } else {
+      child.style.color = "var(--text-muted)";
+      child.style.fontWeight = "400";
+    }
+  });
+}
 
   function updateDriverMapPosition(loc) {
     if (!loc) return;
@@ -1709,6 +1856,66 @@ document.addEventListener("DOMContentLoaded", function () {
         log("Geocode failed for driver destination: " + status);
         return;
       }
+
+      function buildRouteForSelectedLoad() {
+  if (!selectedLoadId) return;
+
+  const obj = loadsById[selectedLoadId];
+  if (!obj || !obj.details || !obj.details.address) {
+    log("No address on selected load, cannot build route.");
+    updateDirectionsUI(null);
+    return;
+  }
+
+  const address = obj.details.address;
+  routeDestinationAddress = address;
+
+  if (!mapReady || !window.google || !google.maps || !directionsService) {
+    log("Map or directions not ready yet.");
+    return;
+  }
+
+  // Get current position as origin
+  getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 10000 })
+    .then(function (pos) {
+      const origin = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude
+      };
+
+      const req = {
+        origin: origin,
+        destination: address,
+        travelMode: google.maps.TravelMode.DRIVING
+      };
+
+      directionsService.route(req, function (result, status) {
+        if (status !== "OK" || !result.routes || !result.routes[0]) {
+          log("Directions failed: " + status);
+          updateDirectionsUI(null);
+          return;
+        }
+
+        const route = result.routes[0];
+        const leg = route.legs && route.legs[0] ? route.legs[0] : null;
+        if (!leg) {
+          log("No leg in directions result.");
+          updateDirectionsUI(null);
+          return;
+        }
+
+        directionsRenderer.setDirections(result);
+        routeSteps = leg.steps || [];
+        currentStepIndex = 0;
+        updateDirectionsUI(leg);
+        log("Route built with " + routeSteps.length + " steps.");
+      });
+    })
+    .catch(function (err) {
+      log("Could not get GPS for directions: " + err.message);
+      updateDirectionsUI(null);
+    });
+}
 
       const loc = results[0].geometry.location;
 
