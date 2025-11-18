@@ -715,21 +715,31 @@
           </div>
 
           <div class="map-card">
-            <div class="map-header-row">
-              <div>
-                <div class="status-label" style="margin-bottom:4px;">In-App Directions</div>
-                <div id="mapDirectionsText" style="font-size:0.8rem; color:var(--text-muted);">
-                  Select a load with an address to see your route and live position.
-                </div>
-              </div>
-              <button
-                id="fullscreenToggle"
-                class="btn-small"
-                onclick="toggleFullscreen()"
-              >
-                Full Screen Map
-              </button>
-            </div>
+           <div class="map-header-row">
+  <div>
+    <div class="status-label" style="margin-bottom:4px;">In-App Directions</div>
+    <div id="mapDirectionsText" style="font-size:0.8rem; color:var(--text-muted);">
+      Select a load with an address to see your route and live position.
+    </div>
+  </div>
+  <div style="display:flex; gap:6px;">
+    <button
+      id="fullscreenToggle"
+      class="btn-small"
+      onclick="toggleFullscreen()"
+    >
+      Full Screen
+    </button>
+    <button
+      id="navButton"
+      class="btn-small"
+      onclick="openNativeNavigation()"
+      style="background:rgba(18,195,160,0.12);border:1px solid var(--accent-soft);color:var(--accent-strong);"
+    >
+      Start Nav
+    </button>
+  </div>
+</div>
 
             <div class="map-wrapper" id="mapWrapper">
               <div id="driverMap"></div>
@@ -1078,6 +1088,7 @@ document.addEventListener("DOMContentLoaded", function () {
   window.signup = signup;
   window.logout = logout;
   window.handlePrimaryClick = handlePrimaryClick;
+  window.openNativeNavigation = openNativeNavigation;
 
   // --- Firebase: listen to auth state ---
   auth.onAuthStateChanged(function (user) {
@@ -1737,6 +1748,38 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  function openNativeNavigation() {
+    // Need a selected load
+    if (!selectedLoadId || !loadsById[selectedLoadId]) {
+      alert("Select a load with an address first.");
+      return;
+    }
+
+    const details = loadsById[selectedLoadId].details || {};
+    const address = details.address;
+    if (!address) {
+      alert("This load doesn’t have an address yet. Ask dispatch to add one.");
+      return;
+    }
+
+    const encodedAddress = encodeURIComponent(address);
+
+    // Basic device sniffing to decide Apple vs Google Maps
+    const ua = navigator.userAgent || navigator.vendor || "";
+    let url;
+
+    if (/iPhone|iPad|iPod/i.test(ua)) {
+      // iOS → Apple Maps (will still offer Google Maps if installed)
+      url = "https://maps.apple.com/?daddr=" + encodedAddress + "&dirflg=d";
+    } else {
+      // Everything else → Google Maps
+      url = "https://www.google.com/maps/dir/?api=1&destination=" + encodedAddress + "&travelmode=driving";
+    }
+
+    // Open external navigation
+    window.location.href = url;
+  }
+  
   window.toggleFullscreen = toggleFullscreen;
 
   // --- File input change logger ---
