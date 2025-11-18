@@ -22,6 +22,8 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+    <!-- Google Maps (for in-app directions) -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA955mtbdY2qg_kvyLxWOV1yWN5NYenHcI&libraries=geometry,places"></script>
 
   <style>
     :root {
@@ -490,7 +492,88 @@
       letter-spacing: 0.08em;
     }
 
-      @media (max-width: 640px) {
+        /* --- IN-APP MAP + FULLSCREEN --- */
+    .map-card {
+      margin-top: 12px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+      background: rgba(5,8,11,0.95);
+      box-shadow: var(--shadow-soft);
+      padding: 10px 10px 12px;
+    }
+
+    .map-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .map-wrapper {
+      position: relative;
+      margin-top: 8px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #05070b;
+    }
+
+    #driverMap {
+      width: 100%;
+      height: 260px;
+      border-radius: 12px;
+    }
+
+    #fullscreenToggle {
+      margin-top: 8px;
+      font-size: 0.78rem;
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--accent-soft);
+      background: rgba(5,8,11,0.9);
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      display: none; /* shown on mobile + when map ready */
+    }
+
+    body.fullscreen-active {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    body.fullscreen-active .logo-wrapper {
+      display: none;
+    }
+
+    body.fullscreen-active .app-shell {
+      max-width: none;
+    }
+
+    body.fullscreen-active #driverCard {
+      position: fixed;
+      inset: 0;
+      margin: 0;
+      border-radius: 0;
+      border: none;
+      padding: 12px;
+      z-index: 9999;
+    }
+
+    body.fullscreen-active #driverMap {
+      height: calc(100vh - 120px);
+      border-radius: 12px;
+    }
+
+    body.fullscreen-active #fullscreenToggle {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 1000;
+      background: rgba(0,0,0,0.78);
+      color: #f5f7fb;
+      border-color: rgba(255,255,255,0.25);
+    }
+    @media (max-width: 640px) {
       body {
         padding: 12px;
       }
@@ -627,7 +710,27 @@
             </div>
           </div>
 
-          <div id="debug"><strong>Debug Log</strong></div>
+                  <div class="map-card">
+            <div class="map-header-row">
+              <div>
+                <div class="status-label" style="margin-bottom:4px;">In-App Directions</div>
+                <div id="mapDirectionsText" style="font-size:0.8rem; color:var(--text-muted);">
+                  Select a load with an address to see your route and live position.
+                </div>
+              </div>
+              <button
+                id="fullscreenToggle"
+                class="btn-small"
+                onclick="toggleFullscreen()"
+              >
+                Full Screen Map
+              </button>
+            </div>
+
+            <div class="map-wrapper" id="mapWrapper">
+              <div id="driverMap"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -701,6 +804,194 @@
   let currentPrimaryHandler = null;
   let hasAutoSelectedLoad = false;
   let inTicketCapture = false; // freeze UI while taking/uploading ticket
+     // --- In-app directions map state ---
+  let driverMap = null;
+  let driverDirectionsService = null;
+  let driverDirectionsRenderer = null;
+  let driverGeocoder = null;
+  let driverDestLatLng = null;
+  let driverMarker = null;
+  let destMarker = null;
+  let lastDriverLoc = null;
+
+  function isMobile() {
+    return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+  }
+
+  function toggleFullscreen() {
+    if (!isMobile()) return; // keep fullscreen for phones only
+
+    const body = document.body;
+    const btn = document.getElementById('fullscreenToggle');
+    const active = body.classList.contains('fullscreen-active');
+
+    if (active) {
+      body.classList.remove('fullscreen-active');
+      if (btn) btn.textContent = 'Full Screen Map';
+    } else {
+      body.classList.add('fullscreen-active');
+      if (btn) btn.textContent = 'Exit Full Screen';
+    }
+
+    // Make sure map redraws correctly
+    if (driverMap && typeof google !== 'undefined' && google.maps) {
+      google.maps.event.trigger(driverMap, 'resize');
+    }
+  }
+
+  function initDriverMap() {
+    if (driverMap) return;
+    const mapEl = document.getElementById('driverMap');
+    if (!mapEl) return;
+    if (typeof google === 'undefined' || !google.maps) {
+      console.error('Google Maps not loaded yet');
+      return;
+    }
+
+    driverMap = new google.maps.Map(mapEl, {
+      center: { lat: 40.612, lng: -112.464 },
+      zoom: 11,
+      gestureHandling: 'greedy'
+    });
+
+    driverDirectionsService = new google.maps.DirectionsService();
+    driverDirectionsRenderer = new google.maps.DirectionsRenderer({
+      map: driverMap,
+      suppressMarkers: true,
+      polylineOptions: {
+        strokeWeight: 5
+      }
+    });
+
+    driverGeocoder = new google.maps.Geocoder();
+
+    const fsBtn = document.getElementById('fullscreenToggle');
+    if (fsBtn && isMobile()) {
+      fsBtn.style.display = 'inline-block';
+    }
+  }
+
+  function calculateAndShowRoute(originLoc, destLatLng) {
+    if (!driverDirectionsService || !driverDirectionsRenderer) return;
+    if (!originLoc || !destLatLng) return;
+
+    driverDirectionsService.route(
+      {
+        origin: new google.maps.LatLng(originLoc.lat, originLoc.lng),
+        destination: destLatLng,
+        travelMode: google.maps.TravelMode.DRIVING
+      },
+      (result, status) => {
+        const directionsPanel = document.getElementById('mapDirectionsText');
+        if (status === 'OK' && result.routes && result.routes[0] && result.routes[0].legs[0]) {
+          driverDirectionsRenderer.setDirections(result);
+          const leg = result.routes[0].legs[0];
+          if (directionsPanel) {
+            directionsPanel.textContent = `${leg.distance.text} • approx ${leg.duration.text}`;
+          }
+        } else {
+          if (directionsPanel) {
+            directionsPanel.textContent = 'Could not load route. You can still use the map to navigate.';
+          }
+        }
+      }
+    );
+  }
+
+  function handleDriverMapUpdate(deliveryId, loc) {
+    // Only show map for the currently selected load
+    if (deliveryId !== selectedLoadId) return;
+    if (!loc) return;
+    if (typeof google === 'undefined' || !google.maps) return;
+
+    initDriverMap();
+    if (!driverMap) return;
+
+    lastDriverLoc = loc;
+    const pos = new google.maps.LatLng(loc.lat, loc.lng);
+
+    if (!driverMarker) {
+      driverMarker = new google.maps.Marker({
+        map: driverMap,
+        position: pos,
+        title: 'Your truck',
+        icon: {
+          path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+          scale: 5,
+          strokeColor: '#12c3a0'
+        }
+      });
+    } else {
+      driverMarker.setPosition(pos);
+    }
+
+    // If no customer destination yet, keep map centered on driver
+    if (!driverDestLatLng) {
+      driverMap.setCenter(pos);
+    } else {
+      // Keep driver roughly centered while moving
+      driverMap.panTo(pos);
+    }
+  }
+
+  function updateDestinationForSelectedLoad() {
+    if (!selectedLoadId || !loadsById[selectedLoadId]) return;
+    const obj = loadsById[selectedLoadId];
+    const details = obj.details || {};
+    const addr = details.address;
+    const directionsPanel = document.getElementById('mapDirectionsText');
+
+    if (!addr) {
+      if (directionsPanel) {
+        directionsPanel.textContent = 'No address on file for this load.';
+      }
+      return;
+    }
+
+    if (typeof google === 'undefined' || !google.maps) return;
+    initDriverMap();
+    if (!driverGeocoder) return;
+
+    if (directionsPanel) {
+      directionsPanel.textContent = 'Loading route…';
+    }
+
+    driverGeocoder.geocode({ address: addr }, (results, status) => {
+      if (status !== 'OK' || !results[0]) {
+        if (directionsPanel) {
+          directionsPanel.textContent = 'Could not locate this address.';
+        }
+        return;
+      }
+
+      driverDestLatLng = results[0].geometry.location;
+
+      if (!destMarker) {
+        destMarker = new google.maps.Marker({
+          map: driverMap,
+          position: driverDestLatLng,
+          title: 'Customer',
+          icon: {
+            path: 'M0,-10 L4,-2 L4,6 L-4,6 L-4,-2 Z',
+            fillColor: '#ffffff',
+            fillOpacity: 1,
+            strokeColor: '#12c3a0',
+            strokeWeight: 2
+          }
+        });
+      } else {
+        destMarker.setPosition(driverDestLatLng);
+      }
+
+      // If we already know driver position, draw route once
+      if (lastDriverLoc) {
+        calculateAndShowRoute(lastDriverLoc, driverDestLatLng);
+      } else {
+        driverMap.setCenter(driverDestLatLng);
+        driverMap.setZoom(14);
+      }
+    });
+  }
 
   // --- Toast helper ---
   function showToast(message, type = "success") {
@@ -1117,6 +1408,9 @@
       </div>
     `;
     document.getElementById('loadDetails').innerHTML = html;
+       
+    // Update in-app directions map for this load
+    updateDestinationForSelectedLoad();
 
     if (status === 'loading') {
       if (ticketSection) ticketSection.style.display = 'block';
@@ -1223,11 +1517,16 @@
             }
 
           } else {
+          } else {
             // Ticket uploaded but no pit coords (fallback)
             log(`customerLocation: SET (ticket uploaded but no pit coords) for ${deliveryId}`);
             deliveryRef.child('customerLocation').set(loc)
               .catch(err => log('ERROR setting customerLocation (no pit coords): ' + err.message));
           }
+
+          // 🔹 ADDED: feed this GPS point into the in-app directions map
+          handleDriverMapUpdate(deliveryId, loc);
+
         })
         .catch(err => {
           log('GPS ERROR: ' + err.message);
