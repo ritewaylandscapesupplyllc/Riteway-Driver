@@ -195,10 +195,17 @@
       box-shadow: none;
     }
 
-    .btn-primary {
+        .btn-primary {
       background: linear-gradient(135deg, var(--accent), var(--accent-strong));
       color: #031210;
       box-shadow: 0 10px 24px rgba(18, 195, 160, 0.45);
+      transform: translateY(0);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .btn-primary:active {
+      transform: translateY(2px);
+      box-shadow: 0 6px 12px rgba(18,195,160,0.28);
     }
 
     .btn-small {
@@ -483,7 +490,7 @@
       letter-spacing: 0.08em;
     }
 
-    @media (max-width: 640px) {
+      @media (max-width: 640px) {
       body {
         padding: 12px;
       }
@@ -492,6 +499,33 @@
         align-items: flex-start;
         gap: 8px;
       }
+    }
+
+    /* --- PREMIUM TOAST NOTIFICATIONS --- */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(20, 230, 170, 0.95);
+      color: #031210;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease-out;
+      z-index: 9999;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    .toast.error {
+      background: rgba(255, 85, 85, 0.92);
+      color: white;
     }
   </style>
 </head>
@@ -658,7 +692,7 @@
   const auth = firebase.auth();
   const storage = firebase.storage();
 
-  let loadsById = {};
+   let loadsById = {};
   let currentUser = null;
   let selectedLoadId = null;
   let gpsInterval = null;
@@ -667,6 +701,49 @@
   let currentPrimaryHandler = null;
   let hasAutoSelectedLoad = false;
   let inTicketCapture = false; // freeze UI while taking/uploading ticket
+
+  // --- Toast helper ---
+  function showToast(message, type = "success") {
+    const toast = document.getElementById("toast");
+    if (!toast) return;
+    toast.innerText = message;
+    toast.classList.remove("error", "show");
+
+    if (type === "error") toast.classList.add("error");
+
+    // force reflow so animation can restart
+    void toast.offsetWidth;
+
+    toast.classList.add("show");
+
+    setTimeout(() => {
+      toast.classList.remove("show");
+    }, 2500);
+  }
+
+  // --- SCREEN WAKE LOCK (keep screen on while on a load) ---
+  let wakeLock = null;
+  async function enableWakeLock() {
+    try {
+      if ("wakeLock" in navigator) {
+        wakeLock = await navigator.wakeLock.request("screen");
+        log("WakeLock activated");
+      }
+    } catch (err) {
+      log("WakeLock error: " + err.message);
+    }
+  }
+  async function releaseWakeLock() {
+    try {
+      if (wakeLock) {
+        await wakeLock.release();
+        wakeLock = null;
+        log("WakeLock released");
+      }
+    } catch (err) {
+      log("WakeLock release error: " + err.message);
+    }
+  }
 
   function log(msg) {
     const debug = document.getElementById('debug');
@@ -851,8 +928,9 @@
       });
   }
 
-  function logout() {
+   function logout() {
     stopGps();
+    releaseWakeLock();
     inTicketCapture = false;
     if (loadsRef) loadsRef.off();
     auth.signOut();
@@ -1164,7 +1242,7 @@
     log('GPS interval started for ' + deliveryId);
   }
 
-  function startLoadingForSelected() {
+   function startLoadingForSelected() {
     if (!selectedLoadId || !loadsById[selectedLoadId]) return;
     const id = selectedLoadId;
     const obj = loadsById[id];
@@ -1185,6 +1263,7 @@
         loadsById[id].status = 'loading';
         selectLoad(id);
         ensureGpsRunning(id);
+        enableWakeLock(); // keep screen awake while on this load
       })
       .catch(err => {
         log('ERROR setting status: ' + err.message);
@@ -1292,9 +1371,10 @@
       loadsById[id].status = 'en_route';
       log('Upload: status updated to en_route');
 
-      if (statusEl) statusEl.textContent = 'Ticket uploaded. You are now en route to customer.';
+           if (statusEl) statusEl.textContent = 'Ticket uploaded. You are now en route to customer.';
       setStatusText('En route to customer…');
       setPrimaryButton('Complete Delivery', completeSelected);
+      showToast('Scale ticket uploaded ✔');
 
       if (fileInput) fileInput.value = '';
 
@@ -1305,7 +1385,8 @@
     } catch (err) {
       console.error('Error uploading scale ticket:', err);
       log('Upload ERROR: ' + (err.message || err.code || err.toString()));
-      if (statusEl) statusEl.textContent = 'Upload failed. Please try again.';
+          if (statusEl) statusEl.textContent = 'Upload failed. Please try again.';
+      showToast('Ticket upload failed ❌', 'error');
       alert('Error uploading ticket: ' + (err.message || err.code || 'Unknown error.'));
 
       // IMPORTANT: un-freeze UI after failure
@@ -1315,7 +1396,7 @@
     }
   }
 
-  function startTrackingForSelected() {
+   function startTrackingForSelected() {
     if (!selectedLoadId || !loadsById[selectedLoadId]) return;
     const id = selectedLoadId;
 
@@ -1324,6 +1405,7 @@
         log(`Status for ${id} set to en_route`);
         setStatusText('En route to customer…');
         ensureGpsRunning(id);
+        enableWakeLock(); // make sure screen stays awake while driving
       })
       .catch(err => log('ERROR setting status: ' + err.message));
   }
@@ -1348,6 +1430,7 @@
       .catch(err => log('ERROR clearing customerLocation: ' + err.message));
 
     stopGps();
+    releaseWakeLock(); // allow screen to sleep again
     inTicketCapture = false;
     if (currentUser) subscribeToLoadsForUser(currentUser);
   }
@@ -1364,9 +1447,12 @@
         log('File selected: ' + f.name + ' (' + f.size + ' bytes)');
         const statusEl = document.getElementById('ticketStatus');
         if (statusEl) statusEl.textContent = 'Selected: ' + f.name;
+        showToast('Photo added');
       }
     });
   });
 </script>
+
+<div id="toast" class="toast"></div>
 </body>
 </html>
