@@ -24,9 +24,9 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 
- <!-- Google Maps (for in-app directions) -->
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA955mtbdY2qg_kvyLxWOV1yWN5NYenHcI&libraries=geometry,places"></script>
-  
+  <!-- Google Maps (for in-app directions) -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA955mtbdY2qg_kvyLxWOV1yWN5NYenHcI&libraries=geometry,places"></script>
+
   <style>
     :root {
       --bg: #050608;
@@ -261,7 +261,7 @@
       color: var(--text-muted);
       max-height: 140px;
       overflow-y: auto;
-      display: none; /* hide in production; set to block if you want */
+      display: none;
     }
 
     .auth-hint {
@@ -536,7 +536,7 @@
       color: var(--text-muted);
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      display: none; /* shown on mobile + when map ready */
+      display: none;
     }
 
     body.fullscreen-active {
@@ -715,45 +715,46 @@
           </div>
 
           <div class="map-card">
-           <div class="map-header-row">
-  <div>
-    <div class="status-label" style="margin-bottom:4px;">In-App Directions</div>
-    <div id="mapDirectionsText" style="font-size:0.8rem; color:var(--text-muted);">
-      Select a load with an address to see your route and live position.
-    </div>
-  </div>
-  <div style="display:flex; gap:6px;">
-    <button
-      id="fullscreenToggle"
-      class="btn-small"
-      onclick="toggleFullscreen()"
-    >
-      Full Screen
-    </button>
-    <button
-      id="navButton"
-      class="btn-small"
-      onclick="openNativeNavigation()"
-      style="background:rgba(18,195,160,0.12);border:1px solid var(--accent-soft);color:var(--accent-strong);"
-    >
-      Start Nav
-    </button>
-  </div>
-</div>
+            <div class="map-header-row">
+              <div>
+                <div class="status-label" style="margin-bottom:4px;">In-App Directions</div>
+                <div id="mapDirectionsText" style="font-size:0.8rem; color:var(--text-muted);">
+                  Select a load with an address to see your route and live position.
+                </div>
+              </div>
+              <div style="display:flex; gap:6px;">
+                <button
+                  id="fullscreenToggle"
+                  class="btn-small"
+                  onclick="toggleFullscreen()"
+                >
+                  Full Screen
+                </button>
+                <button
+                  id="navButton"
+                  class="btn-small"
+                  onclick="startInAppNavigation()"
+                  style="background:rgba(18,195,160,0.12);border:1px solid var(--accent-soft);color:var(--accent-strong);"
+                >
+                  Start Nav
+                </button>
+              </div>
+            </div>
 
             <div class="map-wrapper" id="mapWrapper">
               <div id="driverMap"></div>
             </div>
-            <!-- In-app directions UI -->
-<div id="nextInstruction"
-     style="margin-top:8px;font-size:0.82rem;color:var(--accent-strong);min-height:1.4em;">
-  Directions will appear here once a route is planned.
-</div>
 
-<div id="directionsList"
-     style="margin-top:6px;max-height:140px;overflow-y:auto;font-size:0.78rem;color:var(--text-muted);border-top:1px solid rgba(37,44,53,0.9);padding-top:6px;">
-  <!-- Step-by-step directions will be rendered here -->
-</div>
+            <!-- In-app directions UI -->
+            <div id="nextInstruction"
+                 style="margin-top:8px;font-size:0.82rem;color:var(--accent-strong);min-height:1.4em;">
+              Directions will appear here once a route is planned.
+            </div>
+
+            <div id="directionsList"
+                 style="margin-top:6px;max-height:140px;overflow-y:auto;font-size:0.78rem;color:var(--text-muted);border-top:1px solid rgba(37,44,53,0.9);padding-top:6px;">
+              <!-- Step-by-step directions will be rendered here -->
+            </div>
           </div>
         </div>
       </div>
@@ -834,11 +835,11 @@ document.addEventListener("DOMContentLoaded", function () {
   let mapReady = false;
 
   // Directions (in-app navigation)
-let directionsService = null;
-let directionsRenderer = null;
-let routeSteps = [];
-let currentStepIndex = 0;
-let routeDestinationAddress = null;
+  let directionsService = null;
+  let directionsRenderer = null;
+  let routeSteps = [];
+  let currentStepIndex = 0;
+  let routeDestinationAddress = null;
 
   // --- App state ---
   let loadsById = {};
@@ -861,7 +862,6 @@ let routeDestinationAddress = null;
     if (type === "error") {
       toast.classList.add("error");
     }
-    // restart animation
     void toast.offsetWidth;
     toast.classList.add("show");
     setTimeout(function () {
@@ -1100,12 +1100,11 @@ let routeDestinationAddress = null;
     auth.signOut();
   }
 
-  // make these callable from HTML
+  // Make these callable from HTML
   window.login = login;
   window.signup = signup;
   window.logout = logout;
   window.handlePrimaryClick = handlePrimaryClick;
-  window.openNativeNavigation = openNativeNavigation;
 
   // --- Firebase: listen to auth state ---
   auth.onAuthStateChanged(function (user) {
@@ -1276,6 +1275,7 @@ let routeDestinationAddress = null;
       setPrimaryButton("Select a load", null, true);
       setStatusText("No load selected");
       stopGps();
+      updateDirectionsUI(null);
       return;
     }
 
@@ -1310,14 +1310,10 @@ let routeDestinationAddress = null;
     }
     if (details.address) {
       setDriverMapDestination(details.address);
+      buildRouteForSelectedLoad();
+    } else {
+      updateDirectionsUI(null);
     }
-
-    // Build route and directions list for this load
-if (details.address) {
-  buildRouteForSelectedLoad();
-} else {
-  updateDirectionsUI(null);
-}
 
     if (status === "loading") {
       if (ticketSection) ticketSection.style.display = "block";
@@ -1380,11 +1376,11 @@ if (details.address) {
           // update in-app driver map
           updateDriverMapPosition(loc);
 
-// Update in-app directions step if route exists
-if (deliveryId === selectedLoadId) {
-  maybeAdvanceStepWithLocation(loc);
-}
-          
+          // Update in-app directions step if route exists
+          if (deliveryId === selectedLoadId) {
+            maybeAdvanceStepWithLocation(loc);
+          }
+
           // internal dispatch location
           deliveryRef.child("location")
             .set(loc)
@@ -1454,28 +1450,28 @@ if (deliveryId === selectedLoadId) {
   }
 
   function maybeAdvanceStepWithLocation(loc) {
-  if (!routeSteps.length) return;
-  if (!window.google || !google.maps) return;
-  if (currentStepIndex >= routeSteps.length) return;
+    if (!routeSteps.length) return;
+    if (!window.google || !google.maps) return;
+    if (currentStepIndex >= routeSteps.length) return;
 
-  const step = routeSteps[currentStepIndex];
-  if (!step.start_location) return;
+    const step = routeSteps[currentStepIndex];
+    if (!step.start_location) return;
 
-  const s = step.start_location; // this is a google.maps.LatLng
-  const dist = computeDistanceMeters(loc.lat, loc.lng, s.lat(), s.lng());
+    const s = step.start_location; // google.maps.LatLng
+    const dist = computeDistanceMeters(loc.lat, loc.lng, s.lat(), s.lng());
 
-  // If within ~30m of the step's start, move to the next one
-  if (dist < 30 && currentStepIndex < routeSteps.length - 1) {
-    currentStepIndex++;
-    log(
-      "Advancing to step " +
-        (currentStepIndex + 1) +
-        " of " +
-        routeSteps.length
-    );
-    updateNextInstructionOnly();
+    // If within ~30m of the step's start, move to the next one
+    if (dist < 30 && currentStepIndex < routeSteps.length - 1) {
+      currentStepIndex++;
+      log(
+        "Advancing to step " +
+          (currentStepIndex + 1) +
+          " of " +
+          routeSteps.length
+      );
+      updateNextInstructionOnly();
+    }
   }
-}
 
   function startLoadingForSelected() {
     if (!selectedLoadId || !loadsById[selectedLoadId]) return;
@@ -1698,133 +1694,131 @@ if (deliveryId === selectedLoadId) {
 
   // --- Map setup ---
   function initDriverMapApp() {
-  const mapEl = document.getElementById("driverMap");
-  if (!mapEl) {
-    console.warn("driverMap element not found yet");
-    return;
-  }
-
-  driverMap = new google.maps.Map(mapEl, {
-    center: { lat: 40.612, lng: -112.464 }, // general Grantsville area
-    zoom: 11,
-    gestureHandling: "greedy"
-  });
-
-  driverGeocoder = new google.maps.Geocoder();
-  mapReady = true;
-
-  // Directions service + renderer for route polyline
-  directionsService = new google.maps.DirectionsService();
-  directionsRenderer = new google.maps.DirectionsRenderer({
-    map: driverMap,
-    suppressMarkers: true,
-    polylineOptions: {
-      strokeColor: "#12C3A0",
-      strokeWeight: 5
+    if (!window.google || !google.maps) {
+      console.warn("Google Maps not ready yet");
+      return;
     }
-  });
 
-  // Show fullscreen button once map is ready
-  const fsBtn = document.getElementById("fullscreenToggle");
-  if (fsBtn) {
-    fsBtn.style.display = "inline-flex";
+    const mapEl = document.getElementById("driverMap");
+    if (!mapEl) {
+      console.warn("driverMap element not found");
+      return;
+    }
+
+    driverMap = new google.maps.Map(mapEl, {
+      center: { lat: 40.612, lng: -112.464 }, // Grantsville area
+      zoom: 11,
+      gestureHandling: "greedy"
+    });
+
+    driverGeocoder = new google.maps.Geocoder();
+    mapReady = true;
+
+    directionsService = new google.maps.DirectionsService();
+    directionsRenderer = new google.maps.DirectionsRenderer({
+      map: driverMap,
+      suppressMarkers: true,
+      polylineOptions: {
+        strokeColor: "#12C3A0",
+        strokeWeight: 5
+      }
+    });
+
+    const fsBtn = document.getElementById("fullscreenToggle");
+    if (fsBtn) {
+      fsBtn.style.display = "inline-flex";
+    }
+
+    driverMap.addListener("dragstart", function () {
+      driverFollowTruck = false;
+    });
+
+    driverMap.addListener("zoom_changed", function () {
+      driverFollowTruck = false;
+    });
+
+    log("Driver map initialized");
   }
 
-  // If driver drags / zooms, stop auto-centering on truck
-  driverMap.addListener("dragstart", function () {
-    driverFollowTruck = false;
-  });
-
-  driverMap.addListener("zoom_changed", function () {
-    driverFollowTruck = false;
-  });
-
-  log("Driver map initialized");
-}
-
-  window.initDriverMapApp = initDriverMapApp;
   // Strip HTML tags from Google step instructions
-function stripHtml(html) {
-  if (!html) return "";
-  return html.replace(/<[^>]+>/g, "");
-}
-
-// Update "next step" and full list UI
-function updateDirectionsUI(leg) {
-  const nextEl = document.getElementById("nextInstruction");
-  const listEl = document.getElementById("directionsList");
-
-  if (!nextEl || !listEl) return;
-
-  if (!leg || !routeSteps.length) {
-    nextEl.textContent =
-      "Directions will appear here once a route is planned.";
-    listEl.innerHTML = "";
-    return;
+  function stripHtml(html) {
+    if (!html) return "";
+    return html.replace(/<[^>]+>/g, "");
   }
 
-  // Next instruction
-  if (currentStepIndex >= routeSteps.length) {
-    nextEl.textContent = "You are near your destination.";
-  } else {
-    const step = routeSteps[currentStepIndex];
-    const text = stripHtml(step.instructions);
-    const distText = step.distance && step.distance.text
-      ? " (" + step.distance.text + ")"
-      : "";
-    nextEl.textContent = text + distText;
-  }
+  // Update "next step" and full list UI
+  function updateDirectionsUI(leg) {
+    const nextEl = document.getElementById("nextInstruction");
+    const listEl = document.getElementById("directionsList");
 
-  // Full step list
-  let html = "";
-  routeSteps.forEach(function (step, idx) {
-    const text = stripHtml(step.instructions);
-    const distText = step.distance && step.distance.text
-      ? " – " + step.distance.text
-      : "";
-    html +=
-      '<div style="padding:2px 0;' +
-      (idx === currentStepIndex ? "color:#12C3A0;font-weight:500;" : "") +
-      '">Step ' +
-      (idx + 1) +
-      ": " +
-      text +
-      distText +
-      "</div>";
-  });
+    if (!nextEl || !listEl) return;
 
-  listEl.innerHTML = html;
-}
-
-// Only update the next-step text + highlight
-function updateNextInstructionOnly() {
-  const nextEl = document.getElementById("nextInstruction");
-  const listEl = document.getElementById("directionsList");
-  if (!nextEl || !listEl) return;
-
-  if (!routeSteps.length || currentStepIndex >= routeSteps.length) {
-    nextEl.textContent = "You are near your destination.";
-  } else {
-    const step = routeSteps[currentStepIndex];
-    const text = stripHtml(step.instructions);
-    const distText = step.distance && step.distance.text
-      ? " (" + step.distance.text + ")"
-      : "";
-    nextEl.textContent = text + distText;
-  }
-
-  // Re-highlight the active step in the list
-  const children = Array.from(listEl.children || []);
-  children.forEach(function (child, idx) {
-    if (idx === currentStepIndex) {
-      child.style.color = "#12C3A0";
-      child.style.fontWeight = "500";
-    } else {
-      child.style.color = "var(--text-muted)";
-      child.style.fontWeight = "400";
+    if (!leg || !routeSteps.length) {
+      nextEl.textContent =
+        "Directions will appear here once a route is planned.";
+      listEl.innerHTML = "";
+      return;
     }
-  });
-}
+
+    if (currentStepIndex >= routeSteps.length) {
+      nextEl.textContent = "You are near your destination.";
+    } else {
+      const step = routeSteps[currentStepIndex];
+      const text = stripHtml(step.instructions);
+      const distText = step.distance && step.distance.text
+        ? " (" + step.distance.text + ")"
+        : "";
+      nextEl.textContent = text + distText;
+    }
+
+    let html = "";
+    routeSteps.forEach(function (step, idx) {
+      const text = stripHtml(step.instructions);
+      const distText = step.distance && step.distance.text
+        ? " – " + step.distance.text
+        : "";
+      html +=
+        '<div style="padding:2px 0;' +
+        (idx === currentStepIndex ? "color:#12C3A0;font-weight:500;" : "") +
+        '">Step ' +
+        (idx + 1) +
+        ": " +
+        text +
+        distText +
+        "</div>";
+    });
+
+    listEl.innerHTML = html;
+  }
+
+  // Only update the next-step text + highlight
+  function updateNextInstructionOnly() {
+    const nextEl = document.getElementById("nextInstruction");
+    const listEl = document.getElementById("directionsList");
+    if (!nextEl || !listEl) return;
+
+    if (!routeSteps.length || currentStepIndex >= routeSteps.length) {
+      nextEl.textContent = "You are near your destination.";
+    } else {
+      const step = routeSteps[currentStepIndex];
+      const text = stripHtml(step.instructions);
+      const distText = step.distance && step.distance.text
+        ? " (" + step.distance.text + ")"
+        : "";
+      nextEl.textContent = text + distText;
+    }
+
+    const children = Array.from(listEl.children || []);
+    children.forEach(function (child, idx) {
+      if (idx === currentStepIndex) {
+        child.style.color = "#12C3A0";
+        child.style.fontWeight = "500";
+      } else {
+        child.style.color = "var(--text-muted)";
+        child.style.fontWeight = "400";
+      }
+    });
+  }
 
   function updateDriverMapPosition(loc) {
     if (!loc) return;
@@ -1848,156 +1842,14 @@ function updateNextInstructionOnly() {
   }
 
   function setDriverMapDestination(address) {
-  if (!address) return;
-  if (!mapReady || !driverGeocoder || !window.google || !google.maps) return;
+    if (!address) return;
+    if (!mapReady || !driverGeocoder || !window.google || !google.maps) return;
 
-  driverGeocoder.geocode({ address: address }, function (results, status) {
-    if (status !== "OK" || !results[0]) {
-      log("Geocode failed for driver destination: " + status);
-      return;
-    }
-
-    const loc = results[0].geometry.location;
-
-    if (!destMarker) {
-      destMarker = new google.maps.Marker({
-        map: driverMap,
-        position: loc,
-        title: "Delivery address",
-        icon: {
-          path: "M0,-10 L6,-2 L6,6 L-6,6 L-6,-2 Z",
-          fillColor: "#333333",
-          fillOpacity: 1,
-          strokeColor: "#12C3A0",
-          strokeWeight: 2,
-          scale: 1.3
-        }
-      });
-    } else {
-      destMarker.setPosition(loc);
-    }
-  });
-}
-
-  function buildRouteForSelectedLoad() {
-  if (!selectedLoadId) return;
-
-  const obj = loadsById[selectedLoadId];
-  if (!obj || !obj.details || !obj.details.address) {
-    log("No address on selected load, cannot build route.");
-    updateDirectionsUI(null);
-    return;
-  }
-
-  const address = obj.details.address;
-  routeDestinationAddress = address;
-
-  if (!mapReady || !window.google || !google.maps || !directionsService) {
-    log("Map or directions not ready yet.");
-    return;
-  }
-
-  // Get current position as origin
-  getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 10000 })
-    .then(function (pos) {
-      const origin = {
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude
-      };
-
-      const req = {
-        origin: origin,
-        destination: address,
-        travelMode: google.maps.TravelMode.DRIVING
-      };
-
-      directionsService.route(req, function (result, status) {
-        if (status !== "OK" || !result.routes || !result.routes[0]) {
-          log("Directions failed: " + status);
-          updateDirectionsUI(null);
-          return;
-        }
-
-        const route = result.routes[0];
-        const leg = route.legs && route.legs[0] ? route.legs[0] : null;
-        if (!leg) {
-          log("No leg in directions result.");
-          updateDirectionsUI(null);
-          return;
-        }
-
-        directionsRenderer.setDirections(result);
-        routeSteps = leg.steps || [];
-        currentStepIndex = 0;
-        updateDirectionsUI(leg);
-        log("Route built with " + routeSteps.length + " steps.");
-      });
-    })
-    .catch(function (err) {
-      log("Could not get GPS for directions: " + err.message);
-      updateDirectionsUI(null);
-    });
-}
-
-      function buildRouteForSelectedLoad() {
-  if (!selectedLoadId) return;
-
-  const obj = loadsById[selectedLoadId];
-  if (!obj || !obj.details || !obj.details.address) {
-    log("No address on selected load, cannot build route.");
-    updateDirectionsUI(null);
-    return;
-  }
-
-  const address = obj.details.address;
-  routeDestinationAddress = address;
-
-  if (!mapReady || !window.google || !google.maps || !directionsService) {
-    log("Map or directions not ready yet.");
-    return;
-  }
-
-  // Get current position as origin
-  getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 10000 })
-    .then(function (pos) {
-      const origin = {
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude
-      };
-
-      const req = {
-        origin: origin,
-        destination: address,
-        travelMode: google.maps.TravelMode.DRIVING
-      };
-
-      directionsService.route(req, function (result, status) {
-        if (status !== "OK" || !result.routes || !result.routes[0]) {
-          log("Directions failed: " + status);
-          updateDirectionsUI(null);
-          return;
-        }
-
-        const route = result.routes[0];
-        const leg = route.legs && route.legs[0] ? route.legs[0] : null;
-        if (!leg) {
-          log("No leg in directions result.");
-          updateDirectionsUI(null);
-          return;
-        }
-
-        directionsRenderer.setDirections(result);
-        routeSteps = leg.steps || [];
-        currentStepIndex = 0;
-        updateDirectionsUI(leg);
-        log("Route built with " + routeSteps.length + " steps.");
-      });
-    })
-    .catch(function (err) {
-      log("Could not get GPS for directions: " + err.message);
-      updateDirectionsUI(null);
-    });
-}
+    driverGeocoder.geocode({ address: address }, function (results, status) {
+      if (status !== "OK" || !results[0]) {
+        log("Geocode failed for driver destination: " + status);
+        return;
+      }
 
       const loc = results[0].geometry.location;
 
@@ -2021,6 +1873,110 @@ function updateNextInstructionOnly() {
     });
   }
 
+  function buildRouteForSelectedLoad() {
+    if (!selectedLoadId) return;
+
+    const obj = loadsById[selectedLoadId];
+    if (!obj || !obj.details || !obj.details.address) {
+      log("No address on selected load, cannot build route.");
+      updateDirectionsUI(null);
+      return;
+    }
+
+    const address = obj.details.address;
+    routeDestinationAddress = address;
+
+    if (!mapReady || !window.google || !google.maps || !directionsService) {
+      log("Map or directions not ready yet.");
+      return;
+    }
+
+    getCurrentPositionPromise({ enableHighAccuracy: true, timeout: 10000 })
+      .then(function (pos) {
+        const origin = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        };
+
+        const req = {
+          origin: origin,
+          destination: address,
+          travelMode: google.maps.TravelMode.DRIVING
+        };
+
+        directionsService.route(req, function (result, status) {
+          if (status !== "OK" || !result.routes || !result.routes[0]) {
+            log("Directions failed: " + status);
+            updateDirectionsUI(null);
+            return;
+          }
+
+          const route = result.routes[0];
+          const leg = route.legs && route.legs[0] ? route.legs[0] : null;
+          if (!leg) {
+            log("No leg in directions result.");
+            updateDirectionsUI(null);
+            return;
+          }
+
+          directionsRenderer.setDirections(result);
+          routeSteps = leg.steps || [];
+          currentStepIndex = 0;
+          updateDirectionsUI(leg);
+          log("Route built with " + routeSteps.length + " steps.");
+        });
+      })
+      .catch(function (err) {
+        log("Could not get GPS for directions: " + err.message);
+        updateDirectionsUI(null);
+      });
+  }
+
+  function startInAppNavigation() {
+    if (!selectedLoadId || !loadsById[selectedLoadId]) {
+      alert("Select a load with an address first.");
+      return;
+    }
+
+    const details = loadsById[selectedLoadId].details || {};
+    if (!details.address) {
+      alert("This load doesn’t have an address yet. Ask dispatch to add one.");
+      return;
+    }
+
+    driverFollowTruck = true;
+    buildRouteForSelectedLoad();
+    ensureGpsRunning(selectedLoadId);
+    enableWakeLock();
+    showToast("In-app navigation started");
+  }
+
+  function openNativeNavigation() {
+    if (!selectedLoadId || !loadsById[selectedLoadId]) {
+      alert("Select a load with an address first.");
+      return;
+    }
+
+    const details = loadsById[selectedLoadId].details || {};
+    const address = details.address;
+    if (!address) {
+      alert("This load doesn’t have an address yet. Ask dispatch to add one.");
+      return;
+    }
+
+    const encodedAddress = encodeURIComponent(address);
+    const ua = navigator.userAgent || navigator.vendor || "";
+    let url;
+
+    if (/iPhone|iPad|iPod/i.test(ua)) {
+      url = "https://maps.apple.com/?daddr=" + encodedAddress + "&dirflg=d";
+    } else {
+      url = "https://www.google.com/maps/dir/?api=1&destination=" + encodedAddress + "&travelmode=driving";
+    }
+
+    window.location.href = url;
+  }
+
   function toggleFullscreen() {
     const body = document.body;
     body.classList.toggle("fullscreen-active");
@@ -2037,39 +1993,10 @@ function updateNextInstructionOnly() {
     }
   }
 
-  function openNativeNavigation() {
-    // Need a selected load
-    if (!selectedLoadId || !loadsById[selectedLoadId]) {
-      alert("Select a load with an address first.");
-      return;
-    }
-
-    const details = loadsById[selectedLoadId].details || {};
-    const address = details.address;
-    if (!address) {
-      alert("This load doesn’t have an address yet. Ask dispatch to add one.");
-      return;
-    }
-
-    const encodedAddress = encodeURIComponent(address);
-
-    // Basic device sniffing to decide Apple vs Google Maps
-    const ua = navigator.userAgent || navigator.vendor || "";
-    let url;
-
-    if (/iPhone|iPad|iPod/i.test(ua)) {
-      // iOS → Apple Maps (will still offer Google Maps if installed)
-      url = "https://maps.apple.com/?daddr=" + encodedAddress + "&dirflg=d";
-    } else {
-      // Everything else → Google Maps
-      url = "https://www.google.com/maps/dir/?api=1&destination=" + encodedAddress + "&travelmode=driving";
-    }
-
-    // Open external navigation
-    window.location.href = url;
-  }
-  
+  // Expose map/nav functions used by HTML
+  window.startInAppNavigation = startInAppNavigation;
   window.toggleFullscreen = toggleFullscreen;
+  window.openNativeNavigation = openNativeNavigation;
 
   // --- File input change logger ---
   (function setupTicketInputListener() {
@@ -2090,13 +2017,8 @@ function updateNextInstructionOnly() {
     });
   })();
 
-  // --- Expose functions used from buttons ---
-  // (startLoadingForSelected & completeSelected & uploadScaleTicketForSelected are
-  // assigned to the primary button via setPrimaryButton and handlePrimaryClick.)
-
-  // initialize map after DOM load & after maps script is (eventually) ready
+  // Initialize map once DOM is ready and script has loaded
   initDriverMapApp();
-
 });
 </script>
 </body>
