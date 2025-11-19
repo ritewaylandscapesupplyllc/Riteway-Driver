@@ -624,6 +624,81 @@
       <img src="riteway-logo.png" class="brand-logo" alt="Riteway Logo">
     </div>
 
+    /* --- UBER-STYLE NAV BANNER --- */
+    .nav-banner {
+      margin-top: 8px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(5,8,11,0.96), rgba(10,18,23,0.96));
+      border: 1px solid rgba(18,195,160,0.35);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+    }
+
+    .nav-banner-idle {
+      opacity: 0.85;
+    }
+
+    .nav-arrow {
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      border: 2px solid rgba(18,195,160,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      font-weight: 700;
+      background: radial-gradient(circle at 30% 20%, #12c3a0, #0a1418);
+      color: #031210;
+      transform-origin: center center;
+      transition: transform 0.15s ease-out;
+    }
+
+    .nav-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .nav-primary {
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .nav-secondary {
+      margin-top: 2px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .nav-distance {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent-strong);
+      white-space: nowrap;
+    }
+
+    /* arrow orientation */
+    .nav-arrow.turn-left {
+      transform: rotate(-90deg);
+    }
+
+    .nav-arrow.turn-right {
+      transform: rotate(90deg);
+    }
+
+    .nav-arrow.uturn {
+      transform: rotate(180deg);
+    }
+
+    .nav-arrow.straight {
+      transform: rotate(0deg);
+    }
+    
     <!-- AUTH CARD -->
     <div class="card" id="authCard">
       <header class="header">
@@ -745,16 +820,22 @@
               <div id="driverMap"></div>
             </div>
 
-            <!-- In-app directions UI -->
-            <div id="nextInstruction"
-                 style="margin-top:8px;font-size:0.82rem;color:var(--accent-strong);min-height:1.4em;">
-              Directions will appear here once a route is planned.
-            </div>
+                      <!-- In-app directions UI (Uber-style) -->
+<div id="navBanner" class="nav-banner nav-banner-idle">
+  <div id="navArrow" class="nav-arrow straight">↑</div>
+  <div class="nav-text">
+    <div id="navPrimary" class="nav-primary">Waiting for route…</div>
+    <div id="navSecondary" class="nav-secondary">
+      Select a load with an address to begin navigation.
+    </div>
+  </div>
+  <div id="navDistance" class="nav-distance">--</div>
+</div>
 
-            <div id="directionsList"
-                 style="margin-top:6px;max-height:140px;overflow-y:auto;font-size:0.78rem;color:var(--text-muted);border-top:1px solid rgba(37,44,53,0.9);padding-top:6px;">
-              <!-- Step-by-step directions will be rendered here -->
-            </div>
+<div id="directionsList"
+     style="margin-top:6px;max-height:140px;overflow-y:auto;font-size:0.78rem;color:var(--text-muted);border-top:1px solid rgba(37,44,53,0.9);padding-top:6px;">
+  <!-- Step-by-step directions will be rendered here -->
+</div>
           </div>
         </div>
       </div>
@@ -1461,7 +1542,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const dist = computeDistanceMeters(loc.lat, loc.lng, s.lat(), s.lng());
 
     // If within ~30m of the step's start, move to the next one
-    if (dist < 30 && currentStepIndex < routeSteps.length - 1) {
+    if (dist < 50 && currentStepIndex < routeSteps.length - 1) {
       currentStepIndex++;
       log(
         "Advancing to step " +
@@ -1740,46 +1821,134 @@ document.addEventListener("DOMContentLoaded", function () {
     log("Driver map initialized");
   }
 
-  // Strip HTML tags from Google step instructions
+    // Strip HTML tags from Google step instructions
   function stripHtml(html) {
     if (!html) return "";
     return html.replace(/<[^>]+>/g, "");
   }
 
-  // Update "next step" and full list UI
-  function updateDirectionsUI(leg) {
-    const nextEl = document.getElementById("nextInstruction");
-    const listEl = document.getElementById("directionsList");
+  // Decide arrow direction & label based on maneuver
+  function getManeuverInfo(step) {
+    const m = (step.maneuver || "").toLowerCase();
 
-    if (!nextEl || !listEl) return;
+    if (m.includes("uturn") || m.includes("u-turn")) {
+      return { arrowClass: "uturn", labelPrefix: "Make a U-turn" };
+    }
+    if (m.includes("left")) {
+      return { arrowClass: "turn-left", labelPrefix: "Turn left" };
+    }
+    if (m.includes("right")) {
+      return { arrowClass: "turn-right", labelPrefix: "Turn right" };
+    }
+    if (m.includes("roundabout")) {
+      return { arrowClass: "turn-right", labelPrefix: "At the roundabout" };
+    }
+    if (m.includes("merge")) {
+      return { arrowClass: "straight", labelPrefix: "Merge" };
+    }
+    if (m.includes("ramp")) {
+      return { arrowClass: "straight", labelPrefix: "Take the ramp" };
+    }
+
+    return { arrowClass: "straight", labelPrefix: "" };
+  }
+
+  // Put banner back into idle state
+  function setNavIdle() {
+    const banner = document.getElementById("navBanner");
+    const arrow = document.getElementById("navArrow");
+    const primary = document.getElementById("navPrimary");
+    const secondary = document.getElementById("navSecondary");
+    const distance = document.getElementById("navDistance");
+
+    if (!banner || !arrow || !primary || !secondary || !distance) return;
+
+    banner.classList.add("nav-banner-idle");
+    arrow.className = "nav-arrow straight";
+    arrow.textContent = "↑";
+    primary.textContent = "Waiting for route…";
+    secondary.textContent =
+      "Select a load with an address to begin navigation.";
+    distance.textContent = "--";
+  }
+
+  // Update the big nav banner for the current step
+  function updateNavBannerFromStep(step, leg) {
+    const banner = document.getElementById("navBanner");
+    const arrow = document.getElementById("navArrow");
+    const primary = document.getElementById("navPrimary");
+    const secondary = document.getElementById("navSecondary");
+    const distance = document.getElementById("navDistance");
+
+    if (!banner || !arrow || !primary || !secondary || !distance || !step) {
+      return;
+    }
+
+    banner.classList.remove("nav-banner-idle");
+
+    const info = getManeuverInfo(step);
+    arrow.className = "nav-arrow " + info.arrowClass;
+    arrow.textContent = "↑"; // we rotate the arrow via CSS
+
+    const rawInstr = stripHtml(step.instructions || "");
+    const distText =
+      step.distance && step.distance.text ? step.distance.text : "";
+
+    // Main line: instruction text
+    primary.textContent = rawInstr || "Continue";
+
+    // Distance for THIS step only
+    distance.textContent = distText || "";
+
+    // Secondary line: trip overview (distance + ETA)
+    const legDistance =
+      leg && leg.distance && leg.distance.text ? leg.distance.text : null;
+    const legDuration =
+      leg && leg.duration && leg.duration.text ? leg.duration.text : null;
+
+    if (legDistance && legDuration) {
+      secondary.textContent = "Trip " + legDistance + " • ETA " + legDuration;
+    } else if (legDistance) {
+      secondary.textContent = "Trip distance " + legDistance;
+    } else if (legDuration) {
+      secondary.textContent = "ETA " + legDuration;
+    } else {
+      secondary.textContent = "";
+    }
+  }
+
+  // Update banner + full text list
+  function updateDirectionsUI(leg) {
+    const listEl = document.getElementById("directionsList");
+    if (!listEl) return;
 
     if (!leg || !routeSteps.length) {
-      nextEl.textContent =
-        "Directions will appear here once a route is planned.";
+      setNavIdle();
       listEl.innerHTML = "";
       return;
     }
 
+    // keep index in range
     if (currentStepIndex >= routeSteps.length) {
-      nextEl.textContent = "You are near your destination.";
-    } else {
-      const step = routeSteps[currentStepIndex];
-      const text = stripHtml(step.instructions);
-      const distText = step.distance && step.distance.text
-        ? " (" + step.distance.text + ")"
-        : "";
-      nextEl.textContent = text + distText;
+      currentStepIndex = routeSteps.length - 1;
     }
 
+    const currentStep = routeSteps[currentStepIndex];
+    updateNavBannerFromStep(currentStep, leg);
+
+    // Full step list under the banner
     let html = "";
     routeSteps.forEach(function (step, idx) {
       const text = stripHtml(step.instructions);
-      const distText = step.distance && step.distance.text
-        ? " – " + step.distance.text
-        : "";
+      const distText =
+        step.distance && step.distance.text
+          ? " – " + step.distance.text
+          : "";
       html +=
         '<div style="padding:2px 0;' +
-        (idx === currentStepIndex ? "color:#12C3A0;font-weight:500;" : "") +
+        (idx === currentStepIndex
+          ? "color:#12C3A0;font-weight:500;"
+          : "") +
         '">Step ' +
         (idx + 1) +
         ": " +
@@ -1791,22 +1960,18 @@ document.addEventListener("DOMContentLoaded", function () {
     listEl.innerHTML = html;
   }
 
-  // Only update the next-step text + highlight
-  function updateNextInstructionOnly() {
-    const nextEl = document.getElementById("nextInstruction");
+  // Only update current step banner + highlight
+  function updateNextInstructionOnly(leg) {
     const listEl = document.getElementById("directionsList");
-    if (!nextEl || !listEl) return;
+    if (!listEl) return;
 
     if (!routeSteps.length || currentStepIndex >= routeSteps.length) {
-      nextEl.textContent = "You are near your destination.";
-    } else {
-      const step = routeSteps[currentStepIndex];
-      const text = stripHtml(step.instructions);
-      const distText = step.distance && step.distance.text
-        ? " (" + step.distance.text + ")"
-        : "";
-      nextEl.textContent = text + distText;
+      setNavIdle();
+      return;
     }
+
+    const step = routeSteps[currentStepIndex];
+    updateNavBannerFromStep(step, leg || null);
 
     const children = Array.from(listEl.children || []);
     children.forEach(function (child, idx) {
