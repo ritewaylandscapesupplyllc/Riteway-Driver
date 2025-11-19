@@ -539,7 +539,7 @@
       display: none;
     }
 
-    body.fullscreen-active {
+       body.fullscreen-active {
       padding: 0;
       overflow: hidden;
     }
@@ -558,15 +558,17 @@
       margin: 0;
       border-radius: 0;
       border: none;
-      padding: 12px;
+      padding: 8px 8px 10px;
       z-index: 9999;
     }
 
+    /* Map taller in drive mode */
     body.fullscreen-active #driverMap {
       height: calc(100vh - 120px);
-      border-radius: 12px;
+      border-radius: 16px;
     }
 
+    /* Move the fullscreen button over the map */
     body.fullscreen-active #fullscreenToggle {
       position: absolute;
       top: 14px;
@@ -577,15 +579,37 @@
       border-color: rgba(255,255,255,0.25);
     }
 
-    @media (max-width: 640px) {
-      body {
-        padding: 12px;
-      }
-      .header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
-      }
+    /* Hide non-nav UI in drive mode */
+    body.fullscreen-active .layout-two-col > :first-child {
+      display: none;              /* hides “Your Loads” column */
+    }
+
+    body.fullscreen-active #ticketUploadSection,
+    body.fullscreen-active .status-row {
+      display: none;              /* hides status + ticket area */
+    }
+
+    body.fullscreen-active .map-card {
+      margin-top: 4px;
+    }
+
+    /* Make nav banner more readable while driving */
+    body.fullscreen-active .nav-banner {
+      margin-top: 6px;
+    }
+
+    body.fullscreen-active .nav-arrow {
+      width: 52px;
+      height: 52px;
+      font-size: 1.6rem;
+    }
+
+    body.fullscreen-active .nav-primary {
+      font-size: 1.05rem;
+    }
+
+    body.fullscreen-active .nav-secondary {
+      font-size: 0.82rem;
     }
 
     /* --- PREMIUM TOAST NOTIFICATIONS --- */
