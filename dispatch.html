@@ -137,6 +137,7 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+      min-height: 0;
     }
 
     @media (max-width: 960px) {
@@ -157,6 +158,16 @@
     }
 
     .map-card {
+      padding: 10px;
+    }
+
+    .ops-bar {
+      position: sticky;
+      top: 8px;
+      z-index: 6;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
       padding: 10px;
     }
 
@@ -492,6 +503,192 @@
       margin-top: 6px;
     }
 
+    .ops-bar-controls {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .search-input {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(4,7,11,0.96);
+      color: var(--text);
+      padding: 7px 11px;
+      font-size: 0.8rem;
+      outline: none;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+
+    @media (max-width: 860px) {
+      .ops-bar-controls {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .table-row-clickable {
+      cursor: pointer;
+    }
+
+    .table-row-clickable td:first-child {
+      border-left: 3px solid rgba(149,165,166,0.8);
+      padding-left: 10px;
+    }
+
+    .table-row-clickable[data-status="loading"] td:first-child {
+      border-left-color: rgba(241,196,15,0.95);
+    }
+
+    .table-row-clickable[data-status="en_route"] td:first-child {
+      border-left-color: rgba(18,195,160,0.95);
+    }
+
+    .table-row-clickable[data-status="pending"] td:first-child {
+      border-left-color: rgba(149,165,166,0.9);
+    }
+
+    .table-row-clickable[data-status="complete"] td:first-child,
+    .table-row-clickable[data-status="completed"] td:first-child,
+    .table-row-clickable[data-status="delivered"] td:first-child {
+      border-left-color: rgba(46,204,113,0.95);
+    }
+
+    .table-row-selected td {
+      background: rgba(18,195,160,0.17) !important;
+      box-shadow: inset 0 0 0 1px rgba(18,195,160,0.38);
+    }
+
+    .driver-pill-btn {
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(4,7,11,0.96);
+      color: var(--text);
+      font-size: 0.74rem;
+      padding: 4px 9px;
+      cursor: pointer;
+      max-width: 170px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .driver-popover-wrap {
+      position: relative;
+      display: inline-block;
+    }
+
+    .driver-popover {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      min-width: 240px;
+      max-height: 210px;
+      overflow-y: auto;
+      background: rgba(6, 9, 13, 0.99);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      box-shadow: var(--shadow-soft);
+      z-index: 7;
+      padding: 6px;
+      display: none;
+    }
+
+    .driver-popover.open {
+      display: block;
+    }
+
+    .driver-popover-option {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      padding: 6px 8px;
+      cursor: pointer;
+      font-size: 0.76rem;
+    }
+
+    .driver-popover-option:hover {
+      background: rgba(18,195,160,0.14);
+      border-color: rgba(18,195,160,0.4);
+    }
+
+    .accordion-toggle {
+      border: 1px solid var(--border-subtle);
+      background: rgba(5, 8, 11, 0.88);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 5px 12px;
+      cursor: pointer;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .accordion-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.22s ease;
+    }
+
+    .accordion-content.open {
+      max-height: 520px;
+    }
+
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.46);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+      z-index: 15;
+    }
+
+    .drawer-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .load-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: min(520px, 96vw);
+      height: 100vh;
+      transform: translateX(104%);
+      transition: transform 0.24s ease;
+      z-index: 16;
+      border-left: 1px solid var(--border-subtle);
+      border-radius: 0;
+      padding: 12px;
+      overflow-y: auto;
+    }
+
+    .load-drawer.open {
+      transform: translateX(0);
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      position: sticky;
+      top: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.78));
+      padding-bottom: 6px;
+      z-index: 2;
+    }
+
     .filter-select {
       padding: 5px 9px;
       border-radius: 999px;
@@ -704,73 +901,9 @@
   <div class="app-shell">
     <!-- LEFT COLUMN -->
     <div class="left-column">
-
-      <!-- New Load Card -->
-      <div class="card">
+      <div class="card ops-bar">
         <div class="section-title-row">
-          <div class="section-title">New Load</div>
-          <div class="pill" id="newLoadPill">Create a delivery for drivers</div>
-        </div>
-
-        <div class="new-load-grid">
-          <div>
-            <div class="field-label">Delivery ID</div>
-            <input id="newDeliveryId" class="field-input" placeholder="E.g. RITE123">
-          </div>
-          <div>
-            <div class="field-label">Customer Name</div>
-            <input id="newCustomerName" class="field-input" placeholder="E.g. John Smith">
-          </div>
-
-          <div class="full-span">
-            <div class="field-label">Address</div>
-            <input id="newAddress" class="field-input" placeholder="Drop location address">
-          </div>
-
-          <div class="full-span">
-            <div class="field-label">Items</div>
-            <input id="newItems" class="field-input" placeholder="E.g. 10 yd topsoil, 5 yd gravel">
-          </div>
-
-          <div>
-            <div class="field-label">Yards</div>
-            <input id="newYards" class="field-input" type="number" step="0.1" placeholder="10">
-          </div>
-          <div>
-            <div class="field-label">Price / Yard ($)</div>
-            <input id="newRatePerYard" class="field-input" type="number" step="0.01" placeholder="20">
-          </div>
-
-          <div>
-            <div class="field-label">Trucking Charge ($)</div>
-            <input id="newTruckingCharge" class="field-input" type="number" step="0.01" placeholder="75">
-          </div>
-          <div>
-            <div class="field-label">Cost / Yard ($)</div>
-            <input id="newCostPerYard" class="field-input" type="number" step="0.01" placeholder="Your material cost">
-          </div>
-
-          <div class="full-span">
-            <div class="field-label">Assign Driver</div>
-            <select id="newAssignedDriverEmail" class="field-input">
-              <option value="">Unassigned</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="new-load-actions">
-          <button class="btn-secondary" id="cancelEditButton" style="display:none;" onclick="cancelEdit()">Cancel Edit</button>
-          <button class="btn-primary" id="newLoadButton" onclick="createNewLoad()">Create Load</button>
-        </div>
-        <div class="new-load-hint">
-          Revenue = yards × price/yard + trucking. Profit = revenue − (yards × cost/yard).
-        </div>
-      </div>
-
-      <!-- Active Deliveries Card -->
-      <div class="card">
-        <div class="section-title-row">
-          <div class="section-title">Active Deliveries</div>
+          <div class="section-title">Ops Bar</div>
           <div class="pill" id="last-updated">Updated: --</div>
         </div>
 
@@ -797,7 +930,8 @@
           </div>
         </div>
 
-        <div class="filter-row">
+        <div class="ops-bar-controls">
+          <input id="searchFilter" class="search-input" placeholder="Search ID, customer, address, items..." oninput="applyFilter()">
           <select id="statusFilter" class="filter-select" onchange="applyFilter()">
             <option value="active" selected>Status: Active</option>
             <option value="all">All Active (not complete)</option>
@@ -808,6 +942,15 @@
           <select id="driverFilter" class="filter-select" onchange="applyFilter()">
             <option value="all">Driver: All</option>
           </select>
+          <button class="btn-primary" onclick="openNewLoadDrawer()">+ New Load</button>
+        </div>
+      </div>
+
+      <!-- Active Deliveries Card -->
+      <div class="card">
+        <div class="section-title-row">
+          <div class="section-title">Active Deliveries</div>
+          <div class="pill">Tap row to focus map</div>
         </div>
 
         <div class="deliveries-table-wrapper">
@@ -832,10 +975,14 @@
       <div class="card">
         <div class="section-title-row">
           <div class="section-title">Past Loads</div>
-          <div class="pill">Complete / Inactive / Cancelled</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="pill" id="pastLoadsCount">0</div>
+            <button class="accordion-toggle" id="pastLoadsToggle" onclick="togglePastLoads()">Show</button>
+          </div>
         </div>
 
-        <div class="deliveries-table-wrapper">
+        <div class="accordion-content" id="pastLoadsContent">
+          <div class="deliveries-table-wrapper">
           <table>
             <thead>
               <tr>
@@ -850,6 +997,7 @@
             </thead>
             <tbody id="pastDeliveriesBody"></tbody>
           </table>
+          </div>
         </div>
       </div>
 
@@ -870,6 +1018,71 @@
           <div class="legend-dest"></div> <span>Drop location</span>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div id="loadDrawerBackdrop" class="drawer-backdrop" onclick="cancelEdit()"></div>
+  <div id="loadDrawer" class="card load-drawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div class="section-title">Load Form</div>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <div class="pill" id="newLoadPill">Create a delivery for drivers</div>
+        <button class="side-menu-close" onclick="cancelEdit()">✕</button>
+      </div>
+    </div>
+
+    <div class="new-load-grid">
+      <div>
+        <div class="field-label">Delivery ID</div>
+        <input id="newDeliveryId" class="field-input" placeholder="E.g. RITE123">
+      </div>
+      <div>
+        <div class="field-label">Customer Name</div>
+        <input id="newCustomerName" class="field-input" placeholder="E.g. John Smith">
+      </div>
+
+      <div class="full-span">
+        <div class="field-label">Address</div>
+        <input id="newAddress" class="field-input" placeholder="Drop location address">
+      </div>
+
+      <div class="full-span">
+        <div class="field-label">Items</div>
+        <input id="newItems" class="field-input" placeholder="E.g. 10 yd topsoil, 5 yd gravel">
+      </div>
+
+      <div>
+        <div class="field-label">Yards</div>
+        <input id="newYards" class="field-input" type="number" step="0.1" placeholder="10">
+      </div>
+      <div>
+        <div class="field-label">Price / Yard ($)</div>
+        <input id="newRatePerYard" class="field-input" type="number" step="0.01" placeholder="20">
+      </div>
+
+      <div>
+        <div class="field-label">Trucking Charge ($)</div>
+        <input id="newTruckingCharge" class="field-input" type="number" step="0.01" placeholder="75">
+      </div>
+      <div>
+        <div class="field-label">Cost / Yard ($)</div>
+        <input id="newCostPerYard" class="field-input" type="number" step="0.01" placeholder="Your material cost">
+      </div>
+
+      <div class="full-span">
+        <div class="field-label">Assign Driver</div>
+        <select id="newAssignedDriverEmail" class="field-input">
+          <option value="">Unassigned</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="new-load-actions">
+      <button class="btn-secondary" id="cancelEditButton" style="display:none;" onclick="cancelEdit()">Cancel Edit</button>
+      <button class="btn-primary" id="newLoadButton" onclick="createNewLoad()">Create Load</button>
+    </div>
+    <div class="new-load-hint">
+      Revenue = yards × price/yard + trucking. Profit = revenue − (yards × cost/yard).
     </div>
   </div>
 
@@ -900,8 +1113,13 @@
     let destMarkers = {};
     let statusFilter = 'active';
     let driverFilter = 'all';
+    let searchFilter = '';
     let currentEditId = null;
+    let selectedDeliveryId = null;
+    let activeDriverPopoverId = null;
+    let pastLoadsOpen = false;
     let driversList = [];
+    let infoWindow = null;
 
     /* ---------- SIDE MENU ---------- */
 
@@ -939,12 +1157,35 @@
       if (sel) sel.value = '';
     }
 
+    function openLoadDrawer() {
+      document.getElementById('loadDrawer').classList.add('open');
+      document.getElementById('loadDrawer').setAttribute('aria-hidden', 'false');
+      document.getElementById('loadDrawerBackdrop').classList.add('open');
+    }
+
+    function closeLoadDrawer() {
+      document.getElementById('loadDrawer').classList.remove('open');
+      document.getElementById('loadDrawer').setAttribute('aria-hidden', 'true');
+      document.getElementById('loadDrawerBackdrop').classList.remove('open');
+    }
+
+    function openNewLoadDrawer() {
+      currentEditId = null;
+      resetForm();
+      document.getElementById('newLoadButton').textContent = 'Create Load';
+      document.getElementById('newLoadPill').textContent = 'Create a delivery for drivers';
+      document.getElementById('cancelEditButton').style.display = 'none';
+      openLoadDrawer();
+      document.getElementById('newDeliveryId').focus();
+    }
+
     function cancelEdit() {
       currentEditId = null;
       resetForm();
       document.getElementById('newLoadButton').textContent = 'Create Load';
       document.getElementById('newLoadPill').textContent = 'Create a delivery for drivers';
       document.getElementById('cancelEditButton').style.display = 'none';
+      closeLoadDrawer();
     }
 
     function startEditLoad(id) {
@@ -967,10 +1208,10 @@
       sel.value = details.assignedDriverEmail || '';
 
       document.getElementById('newLoadButton').textContent = 'Save Changes';
-      document.getElementById('newLoadPill').textContent = 'Editing existing load: ' + id;
+      document.getElementById('newLoadPill').textContent = 'Editing: ' + id;
       document.getElementById('cancelEditButton').style.display = 'inline-block';
-
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      openLoadDrawer();
+      document.getElementById('newCustomerName').focus();
     }
 
     function deleteLoad(id) {
@@ -1054,7 +1295,7 @@
         };
 
         db.ref('deliveries/' + id).set(payload)
-          .then(resetForm)
+          .then(cancelEdit)
           .catch(err => {
             console.error('Error creating load:', err);
             alert('Error creating load. Check console for details.');
@@ -1126,6 +1367,7 @@ async function loadDriversForDispatch() {
 
       if ([...newSel.options].some(o => o.value === prevNew)) newSel.value = prevNew;
       if ([...filterSel.options].some(o => o.value === prevFilter)) filterSel.value = prevFilter;
+      applyFilter();
     }
 
     /* ---------- MAP ---------- */
@@ -1171,6 +1413,7 @@ async function loadDriversForDispatch() {
           }
         ]
       });
+      infoWindow = new google.maps.InfoWindow();
     }
 
     function waitForMapsThenInit() {
@@ -1230,9 +1473,143 @@ async function loadDriversForDispatch() {
       return ['complete', 'completed', 'delivered', 'done', 'finished'].includes(s);
     }
 
+    function normalizeSearchText(text) {
+      return String(text || '').toLowerCase();
+    }
+
+    function matchesSearch(id, details) {
+      if (!searchFilter) return true;
+      const haystack = [
+        id,
+        details.customerName || '',
+        details.address || '',
+        details.items || ''
+      ].join(' ').toLowerCase();
+      return haystack.includes(searchFilter);
+    }
+
+    function setPastLoadsCount(count) {
+      const countEl = document.getElementById('pastLoadsCount');
+      if (countEl) countEl.textContent = String(count);
+    }
+
+    function togglePastLoads(forceOpen) {
+      if (typeof forceOpen === 'boolean') pastLoadsOpen = forceOpen;
+      else pastLoadsOpen = !pastLoadsOpen;
+
+      const content = document.getElementById('pastLoadsContent');
+      const toggle = document.getElementById('pastLoadsToggle');
+      if (!content || !toggle) return;
+
+      content.classList.toggle('open', pastLoadsOpen);
+      toggle.textContent = pastLoadsOpen ? 'Hide' : 'Show';
+    }
+
+    function openDriverPopover(id) {
+      activeDriverPopoverId = activeDriverPopoverId === id ? null : id;
+      renderDeliveriesTable();
+    }
+
+    function assignDriverToLoad(id, newEmail) {
+      let newName = null;
+      if (newEmail) {
+        const drv = getDriverByEmail(newEmail);
+        newName = drv ? (drv.displayName || drv.email) : newEmail;
+      }
+      const ref = db.ref('deliveries/' + id + '/details');
+      ref.child('assignedDriverEmail').set(newEmail || null);
+      ref.child('assignedDriverName').set(newName || null);
+      activeDriverPopoverId = null;
+    }
+
+    function buildDriverAssigner(id, assignedEmail) {
+      const wrap = document.createElement('div');
+      wrap.className = 'driver-popover-wrap';
+      wrap.addEventListener('click', e => e.stopPropagation());
+
+      const pillBtn = document.createElement('button');
+      pillBtn.type = 'button';
+      pillBtn.className = 'driver-pill-btn';
+      const drv = getDriverByEmail(assignedEmail);
+      pillBtn.textContent = drv ? (drv.displayName || drv.email) : (assignedEmail || 'Unassigned');
+      pillBtn.title = pillBtn.textContent;
+      pillBtn.addEventListener('click', () => openDriverPopover(id));
+      wrap.appendChild(pillBtn);
+
+      const pop = document.createElement('div');
+      pop.className = 'driver-popover' + (activeDriverPopoverId === id ? ' open' : '');
+
+      const noOne = document.createElement('button');
+      noOne.type = 'button';
+      noOne.className = 'driver-popover-option';
+      noOne.textContent = 'Unassigned';
+      noOne.addEventListener('click', () => assignDriverToLoad(id, ''));
+      pop.appendChild(noOne);
+
+      driversList
+        .slice()
+        .sort((a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email))
+        .forEach(driver => {
+          const option = document.createElement('button');
+          option.type = 'button';
+          option.className = 'driver-popover-option';
+          option.textContent = driver.displayName ? `${driver.displayName} (${driver.email})` : driver.email;
+          option.addEventListener('click', () => assignDriverToLoad(id, driver.email));
+          pop.appendChild(option);
+        });
+
+      wrap.appendChild(pop);
+      return wrap;
+    }
+
+    function openDeliveryInfoWindow(id) {
+      const marker = markers[id];
+      const d = deliveries[id];
+      if (!marker || !d || !infoWindow) return;
+
+      const details = d.details || {};
+      const status = formatStatus(d.status || '').label;
+      const driver = details.assignedDriverName || details.assignedDriverEmail || 'Unassigned';
+      infoWindow.setContent(
+        `<div style="min-width:170px">
+          <div style="font-weight:700; margin-bottom:2px;">${id}</div>
+          <div style="font-size:0.78rem; margin-bottom:2px;">${details.customerName || 'N/A'}</div>
+          <div style="font-size:0.74rem; color:#9ca5b3; margin-bottom:4px;">${details.address || 'N/A'}</div>
+          <div style="font-size:0.72rem;">Status: ${status}</div>
+          <div style="font-size:0.72rem;">Driver: ${driver}</div>
+        </div>`
+      );
+      infoWindow.open({ map, anchor: marker });
+    }
+
+    function focusMapOnDelivery(id) {
+      const marker = markers[id];
+      if (!map || !marker) return;
+      map.panTo(marker.getPosition());
+      const zoom = map.getZoom() || 10;
+      if (zoom < 13) map.setZoom(13);
+      openDeliveryInfoWindow(id);
+    }
+
+    function selectDelivery(id, options = {}) {
+      selectedDeliveryId = id;
+      if (options.renderTable !== false) renderDeliveriesTable();
+
+      const row = document.querySelector(`tr[data-delivery-id="${id}"]`);
+      if (row && options.scroll !== false) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      if (options.focusMap !== false) {
+        focusMapOnDelivery(id);
+      }
+    }
+
     function applyFilter() {
       statusFilter = document.getElementById('statusFilter').value;
       driverFilter = document.getElementById('driverFilter').value;
+      searchFilter = normalizeSearchText(document.getElementById('searchFilter').value).trim();
+      activeDriverPopoverId = null;
       renderDeliveriesTable();
       renderPastDeliveriesTable();
       renderMapMarkers();
@@ -1241,6 +1618,7 @@ async function loadDriversForDispatch() {
     function listenForDeliveries() {
       db.ref('deliveries').on('value', snapshot => {
         deliveries = snapshot.val() || {};
+        if (selectedDeliveryId && !deliveries[selectedDeliveryId]) selectedDeliveryId = null;
         updateStats();
         renderDeliveriesTable();
         renderPastDeliveriesTable();
@@ -1302,8 +1680,14 @@ async function loadDriversForDispatch() {
 
         const assignedEmail = (details.assignedDriverEmail || '').trim();
         if (driverFilter !== 'all' && assignedEmail !== driverFilter) return;
+        if (!matchesSearch(id, details)) return;
 
         const tr = document.createElement('tr');
+        tr.className = 'table-row-clickable';
+        tr.dataset.deliveryId = id;
+        tr.dataset.status = statusNorm || 'pending';
+        if (selectedDeliveryId === id) tr.classList.add('table-row-selected');
+        tr.addEventListener('click', () => selectDelivery(id, { renderTable: true, scroll: false, focusMap: true }));
 
         // ID
         const tdId = document.createElement('td');
@@ -1333,42 +1717,9 @@ async function loadDriversForDispatch() {
         tdStatus.appendChild(statusSpan);
         tr.appendChild(tdStatus);
 
-        // Driver (inline select)
+        // Driver (pill + popover)
         const tdDriver = document.createElement('td');
-        const sel = document.createElement('select');
-        sel.className = 'driver-input';
-
-        const optNone = document.createElement('option');
-        optNone.value = '';
-        optNone.textContent = 'Unassigned';
-        sel.appendChild(optNone);
-
-        driversList
-          .slice()
-          .sort((a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email))
-          .forEach(drv => {
-            const opt = document.createElement('option');
-            opt.value = drv.email;
-            const label = drv.displayName ? `${drv.displayName} (${drv.email})` : drv.email;
-            opt.textContent = label;
-            sel.appendChild(opt);
-          });
-
-        sel.value = assignedEmail;
-
-        sel.addEventListener('change', () => {
-          const newEmail = sel.value;
-          let newName = null;
-          if (newEmail) {
-            const drv = getDriverByEmail(newEmail);
-            newName = drv ? (drv.displayName || drv.email) : newEmail;
-          }
-          const ref = db.ref('deliveries/' + id + '/details');
-          ref.child('assignedDriverEmail').set(newEmail || null);
-          ref.child('assignedDriverName').set(newName || null);
-        });
-
-        tdDriver.appendChild(sel);
+        tdDriver.appendChild(buildDriverAssigner(id, assignedEmail));
         tr.appendChild(tdDriver);
 
         // ETA
@@ -1394,12 +1745,18 @@ async function loadDriversForDispatch() {
         const editBtn = document.createElement('button');
         editBtn.className = 'action-btn action-btn-edit';
         editBtn.textContent = 'Edit';
-        editBtn.addEventListener('click', () => startEditLoad(id));
+        editBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          startEditLoad(id);
+        });
 
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'action-btn action-btn-delete';
         deleteBtn.textContent = 'Delete';
-        deleteBtn.addEventListener('click', () => deleteLoad(id));
+        deleteBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          deleteLoad(id);
+        });
 
         tdActions.appendChild(editBtn);
         tdActions.appendChild(deleteBtn);
@@ -1412,7 +1769,7 @@ async function loadDriversForDispatch() {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
         td.colSpan = 7;
-        td.textContent = 'No active deliveries match current filters.';
+        td.textContent = 'No active deliveries match current filters/search.';
         td.style.textAlign = 'center';
         td.style.padding = '14px';
         tr.appendChild(td);
@@ -1425,6 +1782,7 @@ async function loadDriversForDispatch() {
       tbody.innerHTML = '';
 
       const entries = Object.entries(deliveries).filter(([, d]) => isPastLoadStatus(d.status));
+      setPastLoadsCount(entries.length);
       if (!entries.length) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
@@ -1445,6 +1803,7 @@ async function loadDriversForDispatch() {
         const assignedEmail = (details.assignedDriverEmail || '').trim();
 
         if (driverFilter !== 'all' && assignedEmail !== driverFilter) return;
+        if (!matchesSearch(id, details)) return;
 
         const tr = document.createElement('tr');
 
@@ -1487,12 +1846,18 @@ async function loadDriversForDispatch() {
         const editBtn = document.createElement('button');
         editBtn.className = 'action-btn action-btn-edit';
         editBtn.textContent = 'Edit';
-        editBtn.addEventListener('click', () => startEditLoad(id));
+        editBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          startEditLoad(id);
+        });
 
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'action-btn action-btn-delete';
         deleteBtn.textContent = 'Delete';
-        deleteBtn.addEventListener('click', () => deleteLoad(id));
+        deleteBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          deleteLoad(id);
+        });
 
         tdActions.appendChild(editBtn);
         tdActions.appendChild(deleteBtn);
@@ -1505,7 +1870,7 @@ async function loadDriversForDispatch() {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
         td.colSpan = 7;
-        td.textContent = 'No past loads match current filters.';
+        td.textContent = 'No past loads match current filters/search.';
         td.style.textAlign = 'center';
         td.style.padding = '14px';
         tr.appendChild(td);
@@ -1532,6 +1897,7 @@ async function loadDriversForDispatch() {
 
       const bounds = new google.maps.LatLngBounds();
       let hasBounds = false;
+      const visibleIds = new Set();
 
       Object.entries(deliveries).forEach(([id, d]) => {
         const details = d.details || {};
@@ -1545,27 +1911,34 @@ async function loadDriversForDispatch() {
         if (statusFilter !== 'all' && statusFilter !== 'active' &&
             statusNorm !== statusFilter) return;
         if (driverFilter !== 'all' && assignedEmail !== driverFilter) return;
+        if (!matchesSearch(id, details)) return;
 
         const loc = d.location;
         if (loc && typeof loc.lat === 'number' && typeof loc.lng === 'number') {
-  const pos = new google.maps.LatLng(loc.lat, loc.lng);
-  if (!markers[id]) {
-    markers[id] = new google.maps.Marker({
-      map,
-      position: pos,
-      title: id + ' – truck',
-      icon: {
-        url: 'riteway-truck-marker.png',          // your custom truck icon
-        scaledSize: new google.maps.Size(40, 40), // adjust size if needed
-        anchor: new google.maps.Point(20, 20)     // centers the icon on the point
-      }
-    });
-  } else {
-    markers[id].setPosition(pos);
-  }
-  bounds.extend(pos);
-  hasBounds = true;
-}
+          const pos = new google.maps.LatLng(loc.lat, loc.lng);
+          if (!markers[id]) {
+            markers[id] = new google.maps.Marker({
+              map,
+              position: pos,
+              title: id + ' – truck',
+              icon: {
+                url: 'riteway-truck-marker.png',
+                scaledSize: new google.maps.Size(40, 40),
+                anchor: new google.maps.Point(20, 20)
+              }
+            });
+            markers[id].addListener('click', () => {
+              selectDelivery(id, { renderTable: true, scroll: true, focusMap: false });
+              focusMapOnDelivery(id);
+            });
+          } else {
+            markers[id].setPosition(pos);
+            markers[id].setMap(map);
+          }
+          visibleIds.add(id);
+          bounds.extend(pos);
+          hasBounds = true;
+        }
 
         const dest = d._resolvedDestLatLng;
         if (dest && typeof dest.lat === 'number' && typeof dest.lng === 'number') {
@@ -1586,13 +1959,26 @@ async function loadDriversForDispatch() {
             });
           } else {
             destMarkers[id].setPosition(destPos);
+            destMarkers[id].setMap(map);
           }
+          visibleIds.add(id);
           bounds.extend(destPos);
           hasBounds = true;
         }
       });
 
-      if (hasBounds) {
+      Object.keys(markers).forEach(id => {
+        if (!visibleIds.has(id)) markers[id].setMap(null);
+      });
+      Object.keys(destMarkers).forEach(id => {
+        if (!visibleIds.has(id)) destMarkers[id].setMap(null);
+      });
+
+      if (selectedDeliveryId && !visibleIds.has(selectedDeliveryId)) {
+        selectedDeliveryId = null;
+      }
+
+      if (hasBounds && !selectedDeliveryId) {
         map.fitBounds(bounds);
       }
     }
@@ -1600,8 +1986,31 @@ async function loadDriversForDispatch() {
     /* ---------- BOOTSTRAP ---------- */
 
     window.addEventListener('load', () => {
+      togglePastLoads(false);
       loadDriversForDispatch();
       waitForMapsThenInit();
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+
+      if (activeDriverPopoverId) {
+        activeDriverPopoverId = null;
+        renderDeliveriesTable();
+        return;
+      }
+
+      const drawer = document.getElementById('loadDrawer');
+      if (drawer && drawer.classList.contains('open')) {
+        cancelEdit();
+      }
+    });
+
+    document.addEventListener('click', e => {
+      if (!activeDriverPopoverId) return;
+      if (e.target.closest('.driver-popover-wrap')) return;
+      activeDriverPopoverId = null;
+      renderDeliveriesTable();
     });
   </script>
 </body>
