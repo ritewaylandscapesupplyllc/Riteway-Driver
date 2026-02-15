@@ -1441,6 +1441,101 @@
         });
     }
 
+    // Update these with your real pit/company aliases as you see OCR variants.
+    const PIT_ALIAS_RULES = [
+      { canonical: 'Lakeside Pit', patterns: [/lake\s*side/i, /lakeside/i] },
+      { canonical: 'Point Of The Mountain Pit', patterns: [/point\s*of\s*the\s*mountain/i, /pomt/i] },
+      { canonical: 'Geneva Rock', patterns: [/geneva\s*rock/i, /genevarock/i] },
+      { canonical: 'Staker Parson', patterns: [/staker\s*parson/i, /staker\s*&?\s*parson/i] },
+      { canonical: 'Kilgore Companies', patterns: [/kilgore/i] },
+      { canonical: 'Sunroc', patterns: [/sunroc/i] }
+    ];
+
+    function normalizeCandidateText(value) {
+      return String(value || '')
+        .replace(/[|*_~`]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function looksLikeNoiseForPit(line) {
+      if (!line) return true;
+      const low = line.toLowerCase();
+      if (line.length < 3 || line.length > 90) return true;
+      if (/^\d+([.,]\d+)?$/.test(line)) return true;
+      if (/\b(gross|tare|net|weight|ticket|invoice|date|time|truck|driver|axle|lb|pound|qty|quantity)\b/i.test(low)) {
+        return true;
+      }
+      return false;
+    }
+
+    function scorePitCandidate(line) {
+      let score = 0;
+      const low = line.toLowerCase();
+      if (/\bpit\b/.test(low)) score += 8;
+      if (/\bquarry\b/.test(low)) score += 7;
+      if (/\bplant\b/.test(low)) score += 5;
+      if (/\bsource\b/.test(low)) score += 4;
+      if (/\borigin\b/.test(low)) score += 4;
+      if (/\b(materials?|aggregate|gravel|sand|rock|landscape)\b/.test(low)) score += 4;
+      if (/\b(inc|llc|co|company)\b/.test(low)) score += 2;
+      if (/\d{3,}/.test(low)) score -= 2;
+      if (line.length > 60) score -= 2;
+      return score;
+    }
+
+    function applyPitAliasRules(candidate) {
+      const clean = normalizeCandidateText(candidate);
+      if (!clean) return '';
+      for (const rule of PIT_ALIAS_RULES) {
+        if (rule.patterns.some(re => re.test(clean))) return rule.canonical;
+      }
+      return clean;
+    }
+
+    function extractPitNameSmart(ocrText) {
+      const cleanText = String(ocrText || '');
+      if (!cleanText.trim()) return '';
+
+      const labeledPatterns = [
+        /(?:pit|source|origin|vendor|supplier|plant|quarry|loaded\s*at|shipper)\s*(?:name|company)?\s*[:#-]?\s*([^\n]{2,80})/i,
+        /(?:from|pickup\s*at|picked\s*up\s*at)\s*[:#-]?\s*([^\n]{2,80})/i
+      ];
+
+      for (const re of labeledPatterns) {
+        const m = cleanText.match(re);
+        if (m && m[1]) {
+          const candidate = normalizeCandidateText(m[1]);
+          if (!looksLikeNoiseForPit(candidate)) {
+            return applyPitAliasRules(candidate);
+          }
+        }
+      }
+
+      const lines = cleanText
+        .split('\n')
+        .map(l => normalizeCandidateText(l))
+        .filter(Boolean);
+
+      let best = '';
+      let bestScore = -Infinity;
+
+      for (const line of lines) {
+        if (looksLikeNoiseForPit(line)) continue;
+        const score = scorePitCandidate(line);
+        if (score > bestScore) {
+          bestScore = score;
+          best = line;
+        }
+      }
+
+      if (bestScore >= 4 && best) {
+        return applyPitAliasRules(best);
+      }
+
+      return '';
+    }
+
     function parseOcrFields(text) {
       const clean = String(text || '');
       const find = (re) => {
@@ -1462,9 +1557,7 @@
       const material =
         find(/(?:material|commodity|description|product)[^\n:]*[:#]?\s*([^\n]{2,80})/i) ||
         '';
-      const pit =
-        find(/(?:pit|source|origin|plant|quarry|yard)\s*(?:name)?[^\n:]{0,24}[:#-]?\s*([^\n]{2,80})/i) ||
-        find(/\b([A-Za-z0-9\s-]{3,40}\s+pit)\b/i);
+      const pit = extractPitNameSmart(clean);
 
       let netTons = null;
       const netNumber = Number(String(net || '').replace(/,/g, ''));
