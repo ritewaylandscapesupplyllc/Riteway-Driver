@@ -799,11 +799,11 @@
 
         <div class="filter-row">
           <select id="statusFilter" class="filter-select" onchange="applyFilter()">
-            <option value="all">Status: All</option>
-            <option value="active">Active (not complete)</option>
+            <option value="active" selected>Status: Active</option>
+            <option value="all">All Active (not complete)</option>
+            <option value="pending">Pending</option>
             <option value="loading">Loading</option>
             <option value="en_route">En Route</option>
-            <option value="complete">Complete</option>
           </select>
           <select id="driverFilter" class="filter-select" onchange="applyFilter()">
             <option value="all">Driver: All</option>
@@ -824,6 +824,31 @@
               </tr>
             </thead>
             <tbody id="deliveriesBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Past Loads Card -->
+      <div class="card">
+        <div class="section-title-row">
+          <div class="section-title">Past Loads</div>
+          <div class="pill">Complete / Inactive / Cancelled</div>
+        </div>
+
+        <div class="deliveries-table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Customer / Address</th>
+                <th>Items</th>
+                <th>Status</th>
+                <th>Driver</th>
+                <th>ETA</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pastDeliveriesBody"></tbody>
           </table>
         </div>
       </div>
@@ -873,7 +898,7 @@
     let deliveries = {};
     let markers = {};
     let destMarkers = {};
-    let statusFilter = 'all';
+    let statusFilter = 'active';
     let driverFilter = 'all';
     let currentEditId = null;
     let driversList = [];
@@ -1179,20 +1204,37 @@ async function loadDriversForDispatch() {
 
     /* ---------- DELIVERIES LISTENERS & RENDERING ---------- */
 
+    function normalizeStatus(status) {
+      return String(status || '').trim().toLowerCase();
+    }
+
     function formatStatus(status) {
       if (!status) return { label: 'Pending', cls: 'status-unknown' };
-      const s = status.toLowerCase();
+      const s = normalizeStatus(status);
       if (s === 'loading') return { label: 'Loading', cls: 'status-loading' };
       if (s === 'en_route') return { label: 'En Route', cls: 'status-en_route' };
       if (s === 'complete') return { label: 'Complete', cls: 'status-complete' };
+      if (s === 'completed') return { label: 'Completed', cls: 'status-complete' };
+      if (s === 'delivered') return { label: 'Delivered', cls: 'status-complete' };
       if (s === 'pending') return { label: 'Pending', cls: 'status-unknown' };
       return { label: status, cls: 'status-unknown' };
+    }
+
+    function isPastLoadStatus(status) {
+      const s = normalizeStatus(status);
+      return ['complete', 'completed', 'delivered', 'finished', 'closed', 'inactive', 'cancelled', 'canceled', 'archived', 'done'].includes(s);
+    }
+
+    function isCompletedStatus(status) {
+      const s = normalizeStatus(status);
+      return ['complete', 'completed', 'delivered', 'done', 'finished'].includes(s);
     }
 
     function applyFilter() {
       statusFilter = document.getElementById('statusFilter').value;
       driverFilter = document.getElementById('driverFilter').value;
       renderDeliveriesTable();
+      renderPastDeliveriesTable();
       renderMapMarkers();
     }
 
@@ -1201,6 +1243,7 @@ async function loadDriversForDispatch() {
         deliveries = snapshot.val() || {};
         updateStats();
         renderDeliveriesTable();
+        renderPastDeliveriesTable();
         renderMapMarkers();
         document.getElementById('last-updated').innerText =
           'Updated: ' + new Date().toLocaleTimeString();
@@ -1214,9 +1257,9 @@ async function loadDriversForDispatch() {
       let totalProfit = 0;
 
       Object.entries(deliveries).forEach(([id, d]) => {
-        const status = (d.status || '').toLowerCase();
-        if (status !== 'complete') activeCount++;
-        if (status === 'complete') completeCount++;
+        const status = normalizeStatus(d.status);
+        if (!isPastLoadStatus(status)) activeCount++;
+        if (isCompletedStatus(status)) completeCount++;
 
         const details = d.details || {};
         const yards = Number(details.yards || 0);
@@ -1235,12 +1278,12 @@ async function loadDriversForDispatch() {
       const tbody = document.getElementById('deliveriesBody');
       tbody.innerHTML = '';
 
-      const entries = Object.entries(deliveries);
+      const entries = Object.entries(deliveries).filter(([, d]) => !isPastLoadStatus(d.status));
       if (!entries.length) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
         td.colSpan = 7;
-        td.textContent = 'No deliveries in progress.';
+        td.textContent = 'No active deliveries.';
         td.style.textAlign = 'center';
         td.style.padding = '14px';
         tr.appendChild(td);
@@ -1251,11 +1294,11 @@ async function loadDriversForDispatch() {
       entries.forEach(([id, d]) => {
         const details = d.details || {};
         const statusRaw = d.status || '';
+        const statusNorm = normalizeStatus(statusRaw);
         const { label: statusLabel, cls: statusCls } = formatStatus(statusRaw);
 
-        if (statusFilter === 'active' && statusRaw.toLowerCase() === 'complete') return;
         if (statusFilter !== 'all' && statusFilter !== 'active' &&
-            statusRaw.toLowerCase() !== statusFilter) return;
+            statusNorm !== statusFilter) return;
 
         const assignedEmail = (details.assignedDriverEmail || '').trim();
         if (driverFilter !== 'all' && assignedEmail !== driverFilter) return;
@@ -1336,9 +1379,9 @@ async function loadDriversForDispatch() {
         let etaText = 'N/A';
         if (loc && dest) {
           etaText = computeEtaText(loc, dest);
-        } else if (statusRaw.toLowerCase() === 'loading') {
+        } else if (statusNorm === 'loading') {
           etaText = 'Loading materials';
-        } else if (statusRaw.toLowerCase() === 'pending') {
+        } else if (statusNorm === 'pending') {
           etaText = 'Pending start';
         }
         tdEta.textContent = etaText;
@@ -1364,6 +1407,110 @@ async function loadDriversForDispatch() {
 
         tbody.appendChild(tr);
       });
+
+      if (!tbody.children.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 7;
+        td.textContent = 'No active deliveries match current filters.';
+        td.style.textAlign = 'center';
+        td.style.padding = '14px';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      }
+    }
+
+    function renderPastDeliveriesTable() {
+      const tbody = document.getElementById('pastDeliveriesBody');
+      tbody.innerHTML = '';
+
+      const entries = Object.entries(deliveries).filter(([, d]) => isPastLoadStatus(d.status));
+      if (!entries.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 7;
+        td.textContent = 'No past loads yet.';
+        td.style.textAlign = 'center';
+        td.style.padding = '14px';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+
+      entries.forEach(([id, d]) => {
+        const details = d.details || {};
+        const statusRaw = d.status || '';
+        const statusNorm = normalizeStatus(statusRaw);
+        const { label: statusLabel, cls: statusCls } = formatStatus(statusRaw);
+        const assignedEmail = (details.assignedDriverEmail || '').trim();
+
+        if (driverFilter !== 'all' && assignedEmail !== driverFilter) return;
+
+        const tr = document.createElement('tr');
+
+        const tdId = document.createElement('td');
+        tdId.innerHTML = '<span class="delivery-id">' + id + '</span>';
+        tr.appendChild(tdId);
+
+        const tdCust = document.createElement('td');
+        const cust = details.customerName || 'N/A';
+        const addr = details.address || 'N/A';
+        tdCust.innerHTML = `
+          <div style="font-size:0.8rem;">${cust}</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">${addr}</div>
+        `;
+        tr.appendChild(tdCust);
+
+        const tdItems = document.createElement('td');
+        tdItems.textContent = details.items || '';
+        tr.appendChild(tdItems);
+
+        const tdStatus = document.createElement('td');
+        const statusSpan = document.createElement('span');
+        statusSpan.className = 'status-pill ' + statusCls;
+        statusSpan.textContent = statusLabel;
+        tdStatus.appendChild(statusSpan);
+        tr.appendChild(tdStatus);
+
+        const tdDriver = document.createElement('td');
+        tdDriver.textContent = details.assignedDriverName || assignedEmail || 'Unassigned';
+        tr.appendChild(tdDriver);
+
+        const tdEta = document.createElement('td');
+        tdEta.className = 'eta-cell';
+        tdEta.textContent = isCompletedStatus(statusNorm) ? 'Delivered' : 'N/A';
+        tr.appendChild(tdEta);
+
+        const tdActions = document.createElement('td');
+        tdActions.style.whiteSpace = 'nowrap';
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'action-btn action-btn-edit';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', () => startEditLoad(id));
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'action-btn action-btn-delete';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.addEventListener('click', () => deleteLoad(id));
+
+        tdActions.appendChild(editBtn);
+        tdActions.appendChild(deleteBtn);
+        tr.appendChild(tdActions);
+
+        tbody.appendChild(tr);
+      });
+
+      if (!tbody.children.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 7;
+        td.textContent = 'No past loads match current filters.';
+        td.style.textAlign = 'center';
+        td.style.padding = '14px';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      }
     }
 
     function renderMapMarkers() {
@@ -1389,12 +1536,14 @@ async function loadDriversForDispatch() {
       Object.entries(deliveries).forEach(([id, d]) => {
         const details = d.details || {};
         const statusRaw = d.status || '';
+        const statusNorm = normalizeStatus(statusRaw);
         const assignedEmail = (details.assignedDriverEmail || '').trim();
 
+        if (isPastLoadStatus(statusRaw)) return;
+
         // Respect filters
-        if (statusFilter === 'active' && statusRaw.toLowerCase() === 'complete') return;
         if (statusFilter !== 'all' && statusFilter !== 'active' &&
-            statusRaw.toLowerCase() !== statusFilter) return;
+            statusNorm !== statusFilter) return;
         if (driverFilter !== 'all' && assignedEmail !== driverFilter) return;
 
         const loc = d.location;
