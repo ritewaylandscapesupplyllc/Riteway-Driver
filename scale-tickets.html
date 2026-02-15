@@ -388,7 +388,9 @@
     }
 
     .modal-card {
-      background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(0,0,0,0.9));
+      background:
+        radial-gradient(circle at top right, rgba(18,195,160,0.12), transparent 38%),
+        linear-gradient(145deg, rgba(255,255,255,0.06), rgba(0,0,0,0.92));
       border-radius: 18px;
       border: 1px solid var(--border-subtle);
       max-width: 960px;
@@ -408,7 +410,9 @@
     }
 
     .modal-left {
-      background: #050608;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(18,195,160,0.08), transparent 45%),
+        #050608;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -422,6 +426,9 @@
       max-height: 100%;
       object-fit: contain;
       display: block;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 18px 45px rgba(0,0,0,0.55);
     }
 
     .modal-right {
@@ -431,6 +438,7 @@
       gap: 8px;
       max-height: 90vh;
       overflow-y: auto; /* so buttons don’t get cut off */
+      background: linear-gradient(180deg, rgba(8,12,16,0.86), rgba(4,7,11,0.9));
     }
 
     .modal-header-row {
@@ -480,6 +488,13 @@
       font-size: 0.76rem;
     }
 
+    .modal-detail-grid > div {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 11px;
+      padding: 8px;
+    }
+
     .detail-label {
       font-size: 0.7rem;
       text-transform: uppercase;
@@ -498,6 +513,10 @@
       margin-top: 6px;
       font-size: 0.76rem;
       color: var(--text-muted);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 11px;
+      padding: 9px;
     }
 
     .modal-ocr {
@@ -507,6 +526,10 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 11px;
+      padding: 9px;
     }
 
     .ocr-status {
@@ -535,11 +558,15 @@
     }
 
     .modal-actions-row {
-      margin-top: auto;
+      margin-top: 4px;
       display: flex;
       justify-content: flex-end;
       gap: 8px;
       flex-wrap: wrap;
+      position: sticky;
+      bottom: 0;
+      padding-top: 10px;
+      background: linear-gradient(180deg, rgba(8,12,16,0), rgba(8,12,16,0.95) 38%);
     }
 
     .btn-outline {
@@ -552,6 +579,13 @@
       cursor: pointer;
       text-transform: uppercase;
       letter-spacing: 0.08em;
+      transition: transform 0.12s ease, border-color 0.2s ease, color 0.2s ease;
+    }
+
+    .btn-outline:hover {
+      border-color: rgba(18,195,160,0.5);
+      color: var(--text);
+      transform: translateY(-1px);
     }
 
     .btn-accent {
@@ -565,6 +599,11 @@
       text-transform: uppercase;
       letter-spacing: 0.08em;
       box-shadow: 0 10px 24px rgba(18, 195, 160, 0.45);
+      transition: transform 0.12s ease;
+    }
+
+    .btn-accent:hover {
+      transform: translateY(-1px);
     }
 
     .btn-accent:active {
@@ -835,6 +874,7 @@
         <div class="tickets-meta">
           <span id="ticketCountLabel">0 tickets</span>
           <span id="lastUpdatedLabel">Updated: --</span>
+          <span id="autoOcrStatus">Auto OCR: waiting</span>
         </div>
       </div>
 
@@ -956,6 +996,13 @@
     let allTickets = [];
     let filteredTickets = [];
     let ocrRunning = false;
+    let ocrWorkerBusy = false;
+    let autoOcrBusy = false;
+    let hasSeenInitialTicketSnapshot = false;
+    const knownTicketIds = new Set();
+    const eligibleAutoOcrIds = new Set();
+    const autoOcrQueuedIds = new Set();
+    const autoOcrQueue = [];
 
     /* ---------- SIDE MENU ---------- */
 
@@ -1000,11 +1047,54 @@
           arr.push(t);
         });
 
+        handleAutoOcrCandidates(arr);
+
         allTickets = arr;
         buildDriverFilterOptions();
         document.getElementById('lastUpdatedLabel').textContent =
           'Updated: ' + new Date().toLocaleTimeString();
         applyFilters();
+      });
+    }
+
+    function setAutoOcrStatus(text) {
+      const el = document.getElementById('autoOcrStatus');
+      if (el) el.textContent = text;
+    }
+
+    function handleAutoOcrCandidates(tickets) {
+      const idsNow = new Set(tickets.map(t => t.id));
+
+      if (!hasSeenInitialTicketSnapshot) {
+        tickets.forEach(t => knownTicketIds.add(t.id));
+        hasSeenInitialTicketSnapshot = true;
+        setAutoOcrStatus('Auto OCR: watching for new tickets');
+        return;
+      }
+
+      tickets.forEach(t => {
+        if (!knownTicketIds.has(t.id)) {
+          knownTicketIds.add(t.id);
+          eligibleAutoOcrIds.add(t.id);
+        }
+
+        if (t.ocr) {
+          eligibleAutoOcrIds.delete(t.id);
+          autoOcrQueuedIds.delete(t.id);
+          return;
+        }
+
+        if (eligibleAutoOcrIds.has(t.id) && t.imageUrl) {
+          enqueueAutoOcr(t);
+        }
+      });
+
+      [...knownTicketIds].forEach(id => {
+        if (!idsNow.has(id)) {
+          knownTicketIds.delete(id);
+          eligibleAutoOcrIds.delete(id);
+          autoOcrQueuedIds.delete(id);
+        }
       });
     }
 
@@ -1320,6 +1410,24 @@
       return { ticketNumber, date, gross, tare, net, material };
     }
 
+    async function buildOcrPayloadFromImage(imageUrl, onProgress) {
+      const result = await Tesseract.recognize(imageUrl, 'eng', {
+        logger: (m) => {
+          if (m && m.status === 'recognizing text' && typeof m.progress === 'number' && onProgress) {
+            onProgress(Math.round(m.progress * 100));
+          }
+        }
+      });
+
+      const text = (result && result.data && result.data.text) ? result.data.text.trim() : '';
+      const fields = parseOcrFields(text);
+      return {
+        text,
+        fields,
+        extractedAt: new Date().toISOString()
+      };
+    }
+
     function renderOcrInModal(ocr) {
       const statusEl = document.getElementById('ocrStatus');
       const textEl = document.getElementById('ocrText');
@@ -1365,31 +1473,23 @@
         alert('OCR engine did not load. Refresh and try again.');
         return;
       }
+      if (ocrWorkerBusy) {
+        alert('OCR engine is busy. Please try again in a few seconds.');
+        return;
+      }
 
       const statusEl = document.getElementById('ocrStatus');
       const ocrBtn = document.getElementById('modalOcrBtn');
       ocrRunning = true;
+      ocrWorkerBusy = true;
       ocrBtn.disabled = true;
       ocrBtn.style.opacity = '0.65';
       statusEl.textContent = 'Running OCR...';
 
       try {
-        const result = await Tesseract.recognize(t.imageUrl, 'eng', {
-          logger: (m) => {
-            if (m && m.status === 'recognizing text' && typeof m.progress === 'number') {
-              const pct = Math.round(m.progress * 100);
-              statusEl.textContent = 'Running OCR... ' + pct + '%';
-            }
-          }
+        const payload = await buildOcrPayloadFromImage(t.imageUrl, pct => {
+          statusEl.textContent = 'Running OCR... ' + pct + '%';
         });
-
-        const text = (result && result.data && result.data.text) ? result.data.text.trim() : '';
-        const fields = parseOcrFields(text);
-        const payload = {
-          text,
-          fields,
-          extractedAt: new Date().toISOString()
-        };
 
         await db.ref(TICKETS_REF_PATH + '/' + t.id + '/ocr').set(payload);
         renderOcrInModal(payload);
@@ -1399,8 +1499,63 @@
         alert('OCR failed for this ticket. Check the console for details.');
       } finally {
         ocrRunning = false;
+        ocrWorkerBusy = false;
         ocrBtn.disabled = false;
         ocrBtn.style.opacity = '';
+        processAutoOcrQueue();
+      }
+    }
+
+    function enqueueAutoOcr(t) {
+      if (!t || !t.id || !t.imageUrl || t.ocr) return;
+      if (autoOcrQueuedIds.has(t.id)) return;
+
+      autoOcrQueue.push({
+        id: t.id,
+        imageUrl: t.imageUrl,
+        ticketLabel: t.ticketId || t.id
+      });
+      autoOcrQueuedIds.add(t.id);
+      setAutoOcrStatus('Auto OCR: ' + autoOcrQueue.length + ' queued');
+      processAutoOcrQueue();
+    }
+
+    async function processAutoOcrQueue() {
+      if (autoOcrBusy || ocrWorkerBusy) return;
+      if (!autoOcrQueue.length) {
+        setAutoOcrStatus('Auto OCR: idle');
+        return;
+      }
+      if (typeof Tesseract === 'undefined') {
+        setAutoOcrStatus('Auto OCR: OCR engine unavailable');
+        return;
+      }
+
+      autoOcrBusy = true;
+      while (autoOcrQueue.length && !ocrWorkerBusy) {
+        const job = autoOcrQueue.shift();
+        if (!job) break;
+
+        ocrWorkerBusy = true;
+        setAutoOcrStatus('Auto OCR: processing ' + job.ticketLabel);
+
+        try {
+          const payload = await buildOcrPayloadFromImage(job.imageUrl);
+          await db.ref(TICKETS_REF_PATH + '/' + job.id + '/ocr').set(payload);
+        } catch (err) {
+          console.error('Auto OCR failed for ticket', job.id, err);
+        } finally {
+          ocrWorkerBusy = false;
+          autoOcrQueuedIds.delete(job.id);
+        }
+      }
+
+      autoOcrBusy = false;
+      if (autoOcrQueue.length) {
+        setAutoOcrStatus('Auto OCR: ' + autoOcrQueue.length + ' queued');
+        setTimeout(processAutoOcrQueue, 250);
+      } else {
+        setAutoOcrStatus('Auto OCR: idle');
       }
     }
 
