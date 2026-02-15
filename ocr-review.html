@@ -157,12 +157,82 @@
     }
 
     .ticket-list {
-      max-height: 70vh;
+      max-height: 44vh;
       overflow-y: auto;
       border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.06);
       background: rgba(6, 9, 13, 0.95);
       padding: 6px;
+    }
+
+    .pit-chart {
+      max-height: 28vh;
+      overflow-y: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(6, 9, 13, 0.95);
+      padding: 6px;
+      margin-bottom: 10px;
+    }
+
+    .pit-row {
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 8px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      background: rgba(255,255,255,0.01);
+    }
+
+    .pit-row:hover,
+    .pit-row.active {
+      border-color: rgba(18,195,160,0.5);
+      background: rgba(18,195,160,0.1);
+    }
+
+    .pit-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 5px;
+      font-size: 0.75rem;
+    }
+
+    .pit-name {
+      color: var(--text);
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pit-tons {
+      color: var(--accent);
+      font-weight: 600;
+      white-space: nowrap;
+      font-size: 0.72rem;
+    }
+
+    .pit-bar {
+      width: 100%;
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+
+    .pit-bar-fill {
+      height: 100%;
+      background: linear-gradient(135deg, var(--accent), #12e1b5);
+      border-radius: 999px;
+      min-width: 2px;
+    }
+
+    .pit-meta {
+      font-size: 0.69rem;
+      color: var(--text-muted);
     }
 
     .ticket-row {
@@ -309,6 +379,37 @@
       color: var(--text-muted);
       margin-top: 6px;
       min-height: 1.1em;
+    }
+
+    .toggle-group {
+      display: inline-flex;
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(5, 8, 11, 0.9);
+    }
+
+    .toggle-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+
+    .toggle-btn.active {
+      background: rgba(18,195,160,0.2);
+      color: var(--text);
+    }
+
+    .filter-hint {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+      margin-bottom: 8px;
     }
 
     .hamburger-btn {
@@ -499,10 +600,20 @@
   <div class="app-shell">
     <div class="card">
       <div class="section-title-row">
-        <div class="section-title">OCR Records</div>
-        <div class="pill" id="listCount">0</div>
+        <div class="section-title">Pit Tonnage</div>
+        <div class="pill" id="pitCount">0 pits</div>
       </div>
       <input id="searchInput" class="field-input" placeholder="Search by ticket, delivery, pit, material...">
+      <div id="pitChart" class="pit-chart"></div>
+      <div class="section-title-row" style="margin-top:2px;">
+        <div class="section-title" id="listTitle">Needs Review</div>
+        <div class="toggle-group">
+          <button id="needsOnlyBtn" class="toggle-btn active">Needs Review</button>
+          <button id="allRecordsBtn" class="toggle-btn">All Records</button>
+        </div>
+        <div class="pill" id="listCount">0</div>
+      </div>
+      <div class="filter-hint" id="filterHint">Pit filter: All Pits</div>
       <div id="ticketList" class="ticket-list"></div>
     </div>
 
@@ -583,6 +694,8 @@
     let allRecords = [];
     let filteredRecords = [];
     let selectedRecordId = '';
+    let selectedPit = 'all';
+    let showNeedsOnly = true;
 
     function openMenu() {
       document.getElementById('sideMenu').classList.add('open');
@@ -623,6 +736,62 @@
       return (rec.ocr && rec.ocr.fields) || {};
     }
 
+    function normalizeValue(v) {
+      return String(v == null ? '' : v).trim().toLowerCase();
+    }
+
+    function isMissingValue(v) {
+      const clean = normalizeValue(v);
+      return !clean || clean === 'unknown' || clean === 'unknown pit' || clean === 'unknown product' || clean === 'n/a' || clean === 'na' || clean === '-' || clean === '—';
+    }
+
+    function getPitName(rec) {
+      const pit = normalizeValue(currentFields(rec).pit);
+      return pit ? currentFields(rec).pit.trim() : 'Unknown Pit';
+    }
+
+    function getNetTons(rec) {
+      const n = Number(currentFields(rec).netTons);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    }
+
+    function getMissingFields(rec) {
+      const f = currentFields(rec);
+      const missing = [];
+      if (isMissingValue(f.pit)) missing.push('pit');
+      if (isMissingValue(f.material)) missing.push('material');
+      if (!Number.isFinite(Number(f.netTons)) || Number(f.netTons) <= 0) missing.push('net tons');
+      return missing;
+    }
+
+    function needsReview(rec) {
+      return getMissingFields(rec).length > 0;
+    }
+
+    function setModeButtons() {
+      const needsBtn = document.getElementById('needsOnlyBtn');
+      const allBtn = document.getElementById('allRecordsBtn');
+      const title = document.getElementById('listTitle');
+      if (!needsBtn || !allBtn || !title) return;
+      if (showNeedsOnly) {
+        needsBtn.classList.add('active');
+        allBtn.classList.remove('active');
+        title.textContent = 'Needs Review';
+      } else {
+        allBtn.classList.add('active');
+        needsBtn.classList.remove('active');
+        title.textContent = 'Records';
+      }
+    }
+
+    function updateFilterHint() {
+      const hint = document.getElementById('filterHint');
+      if (!hint) return;
+      const pitText = selectedPit === 'all' ? 'All Pits' : selectedPit;
+      const modeText = showNeedsOnly ? 'Needs Review Only' : 'All Records';
+      hint.textContent = 'Pit filter: ' + pitText + ' · ' + modeText;
+    }
+
     function listenForRecords() {
       db.ref(TICKETS_REF_PATH).on('value', snapshot => {
         const val = snapshot.val() || {};
@@ -641,21 +810,18 @@
 
         arr.sort((a, b) => (parseUploadedTime(b.uploadedAt) || 0) - (parseUploadedTime(a.uploadedAt) || 0));
         allRecords = arr;
-        document.getElementById('metaBadge').textContent = arr.length + ' OCR Records';
+        const needsCount = arr.filter(needsReview).length;
+        document.getElementById('metaBadge').textContent = arr.length + ' OCR · ' + needsCount + ' Need Review';
+        renderPitSummary();
         applySearch();
-
-        if (selectedRecordId) {
-          const updated = arr.find(x => x.id === selectedRecordId);
-          if (updated) {
-            fillEditor(updated);
-          }
-        }
       });
     }
 
     function applySearch() {
       const q = document.getElementById('searchInput').value.trim().toLowerCase();
       filteredRecords = allRecords.filter(rec => {
+        if (showNeedsOnly && !needsReview(rec)) return false;
+        if (selectedPit !== 'all' && getPitName(rec) !== selectedPit) return false;
         const f = currentFields(rec);
         const haystack = [
           rec.id,
@@ -667,10 +833,85 @@
         ].join(' ').toLowerCase();
         return !q || haystack.includes(q);
       });
-      renderList();
+      updateFilterHint();
+      renderNeedsReviewList();
+
+      if (!filteredRecords.some(r => r.id === selectedRecordId)) {
+        if (filteredRecords.length) {
+          fillEditor(filteredRecords[0], true);
+        } else {
+          clearEditor();
+        }
+      }
     }
 
-    function renderList() {
+    function renderPitSummary() {
+      const chart = document.getElementById('pitChart');
+      const pitCountEl = document.getElementById('pitCount');
+      chart.innerHTML = '';
+
+      const aggregate = {};
+      allRecords.forEach(rec => {
+        const pit = getPitName(rec);
+        if (!aggregate[pit]) {
+          aggregate[pit] = { pit, tons: 0, loads: 0, needs: 0 };
+        }
+        aggregate[pit].loads += 1;
+        aggregate[pit].tons += getNetTons(rec);
+        if (needsReview(rec)) aggregate[pit].needs += 1;
+      });
+
+      const rows = Object.values(aggregate).sort((a, b) => a.pit.localeCompare(b.pit));
+      pitCountEl.textContent = rows.length + (rows.length === 1 ? ' pit' : ' pits');
+
+      const maxTons = rows.reduce((m, r) => Math.max(m, r.tons), 0) || 1;
+
+      const allRow = document.createElement('div');
+      allRow.className = 'pit-row' + (selectedPit === 'all' ? ' active' : '');
+      allRow.innerHTML = `
+        <div class="pit-top">
+          <span class="pit-name">All Pits</span>
+          <span class="pit-tons">${rows.reduce((s, r) => s + r.tons, 0).toFixed(2)} tons</span>
+        </div>
+        <div class="pit-meta">${allRecords.length} OCR records</div>
+      `;
+      allRow.addEventListener('click', () => {
+        selectedPit = 'all';
+        renderPitSummary();
+        applySearch();
+      });
+      chart.appendChild(allRow);
+
+      if (!rows.length) {
+        const div = document.createElement('div');
+        div.className = 'empty-state';
+        div.textContent = 'No OCR records found.';
+        chart.appendChild(div);
+        return;
+      }
+
+      rows.forEach(r => {
+        const pct = Math.max(2, Math.round((r.tons / maxTons) * 100));
+        const row = document.createElement('div');
+        row.className = 'pit-row' + (selectedPit === r.pit ? ' active' : '');
+        row.innerHTML = `
+          <div class="pit-top">
+            <span class="pit-name">${r.pit}</span>
+            <span class="pit-tons">${r.tons.toFixed(2)} tons</span>
+          </div>
+          <div class="pit-bar"><div class="pit-bar-fill" style="width:${pct}%;"></div></div>
+          <div class="pit-meta">${r.loads} loads · ${r.needs} need review</div>
+        `;
+        row.addEventListener('click', () => {
+          selectedPit = r.pit;
+          renderPitSummary();
+          applySearch();
+        });
+        chart.appendChild(row);
+      });
+    }
+
+    function renderNeedsReviewList() {
       const el = document.getElementById('ticketList');
       el.innerHTML = '';
       document.getElementById('listCount').textContent = String(filteredRecords.length);
@@ -678,13 +919,16 @@
       if (!filteredRecords.length) {
         const div = document.createElement('div');
         div.className = 'empty-state';
-        div.textContent = 'No OCR records found.';
+        div.textContent = selectedPit === 'all'
+          ? 'No OCR records need review.'
+          : 'No records need review for this pit.';
         el.appendChild(div);
         return;
       }
 
       filteredRecords.forEach(rec => {
         const f = currentFields(rec);
+        const missing = getMissingFields(rec);
         const row = document.createElement('div');
         row.className = 'ticket-row' + (rec.id === selectedRecordId ? ' active' : '');
         row.innerHTML = `
@@ -695,8 +939,11 @@
           <div class="ticket-meta">Delivery: ${rec.deliveryId || '—'}</div>
           <div class="ticket-meta">Pit: ${f.pit || '—'}</div>
           <div class="ticket-meta">Material: ${f.material || '—'}</div>
+          <div class="ticket-meta" style="color:${missing.length ? '#ffb3b3' : 'var(--text-muted)'};">
+            ${missing.length ? ('Missing: ' + missing.join(', ')) : 'Complete'}
+          </div>
         `;
-        row.addEventListener('click', () => fillEditor(rec));
+        row.addEventListener('click', () => fillEditor(rec, true));
         el.appendChild(row);
       });
     }
@@ -706,7 +953,30 @@
       if (el) el.value = value == null ? '' : String(value);
     }
 
-    function fillEditor(rec) {
+    function clearEditor() {
+      selectedRecordId = '';
+      document.getElementById('selectedLabel').textContent = 'No selection';
+      setField('editTicketNumber', '');
+      setField('editDate', '');
+      setField('editGross', '');
+      setField('editTare', '');
+      setField('editNet', '');
+      setField('editNetTons', '');
+      setField('editPit', '');
+      setField('editMaterial', '');
+      document.getElementById('saveStatus').textContent = '';
+
+      const img = document.getElementById('ticketImage');
+      const ph = document.getElementById('imagePlaceholder');
+      img.removeAttribute('src');
+      img.style.display = 'none';
+      ph.style.display = 'block';
+      document.getElementById('openImageBtn').onclick = null;
+
+      renderNeedsReviewList();
+    }
+
+    function fillEditor(rec, rerenderList) {
       selectedRecordId = rec.id;
       const fields = currentFields(rec);
       document.getElementById('selectedLabel').textContent = rec.ticketId || rec.id;
@@ -736,7 +1006,7 @@
         if (rec.imageUrl) window.open(rec.imageUrl, '_blank');
       };
 
-      renderList();
+      if (rerenderList) renderNeedsReviewList();
     }
 
     async function saveEdits() {
@@ -766,7 +1036,7 @@
 
       try {
         await db.ref(TICKETS_REF_PATH + '/' + selectedRecordId + '/ocr').update(payload);
-        status.textContent = 'Saved.';
+        status.textContent = 'Saved at ' + new Date().toLocaleTimeString();
       } catch (err) {
         console.error('Save failed', err);
         status.textContent = 'Save failed. See console.';
@@ -774,9 +1044,27 @@
     }
 
     window.addEventListener('load', () => {
+      setModeButtons();
+      updateFilterHint();
       listenForRecords();
       document.getElementById('searchInput').addEventListener('input', applySearch);
       document.getElementById('saveBtn').addEventListener('click', saveEdits);
+      document.getElementById('needsOnlyBtn').addEventListener('click', () => {
+        showNeedsOnly = true;
+        setModeButtons();
+        applySearch();
+      });
+      document.getElementById('allRecordsBtn').addEventListener('click', () => {
+        showNeedsOnly = false;
+        setModeButtons();
+        applySearch();
+      });
+      document.addEventListener('keydown', (e) => {
+        const isSave = (e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 's';
+        if (!isSave) return;
+        e.preventDefault();
+        if (selectedRecordId) saveEdits();
+      });
     });
   </script>
 </body>
