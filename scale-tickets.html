@@ -1443,12 +1443,17 @@
 
     // Update these with your real pit/company aliases as you see OCR variants.
     const PIT_ALIAS_RULES = [
+      { canonical: 'Adobe Rock', patterns: [/adobe\s*rock/i, /\badobe\b/i] },
+      { canonical: 'RA Johnson', patterns: [/\bra\s*johnson\b/i, /r\.?\s*a\.?\s*johnson/i] },
+      { canonical: 'Double E Trucking', patterns: [/double\s*e\s*trucking/i, /\bdbl?\s*e\s*trucking/i] },
       { canonical: 'Lakeside Pit', patterns: [/lake\s*side/i, /lakeside/i] },
       { canonical: 'Point Of The Mountain Pit', patterns: [/point\s*of\s*the\s*mountain/i, /pomt/i] },
-      { canonical: 'Geneva Rock', patterns: [/geneva\s*rock/i, /genevarock/i] },
-      { canonical: 'Staker Parson', patterns: [/staker\s*parson/i, /staker\s*&?\s*parson/i] },
+      { canonical: 'Geneva Rock', patterns: [/geneva\s*rock/i, /genevarock/i, /\bgeneva\b/i] },
+      { canonical: 'Staker Parsons', patterns: [/staker\s*parsons?/i, /staker\s*&?\s*parsons?/i] },
       { canonical: 'Kilgore Companies', patterns: [/kilgore/i] },
-      { canonical: 'Sunroc', patterns: [/sunroc/i] }
+      { canonical: 'Sunroc', patterns: [/sunroc/i] },
+      { canonical: 'Rollins', patterns: [/\brollins\b/i] },
+      { canonical: 'Utah Rock', patterns: [/utah\s*rock/i] }
     ];
 
     function normalizeCandidateText(value) {
