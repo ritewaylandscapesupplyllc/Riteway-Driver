@@ -412,6 +412,12 @@
       margin-bottom: 8px;
     }
 
+    .report-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 8px;
+    }
+
     .hamburger-btn {
       width: 38px;
       height: 34px;
@@ -603,6 +609,9 @@
         <div class="section-title">Pit Tonnage</div>
         <div class="pill" id="pitCount">0 pits</div>
       </div>
+      <div class="report-actions">
+        <button class="btn-outline" id="printReportBtn">Print Report</button>
+      </div>
       <input id="searchInput" class="field-input" placeholder="Search by ticket, delivery, pit, material...">
       <div id="pitChart" class="pit-chart"></div>
       <div class="section-title-row" style="margin-top:2px;">
@@ -753,6 +762,11 @@
     function getNetTons(rec) {
       const n = Number(currentFields(rec).netTons);
       return Number.isFinite(n) && n > 0 ? n : 0;
+    }
+
+    function getMaterialName(rec) {
+      const material = normalizeValue(currentFields(rec).material);
+      return material ? currentFields(rec).material.trim() : 'Unknown Material';
     }
 
     function getMissingFields(rec) {
@@ -911,6 +925,194 @@
       });
     }
 
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function getReportSourceRecords() {
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+      return allRecords.filter(rec => {
+        if (selectedPit !== 'all' && getPitName(rec) !== selectedPit) return false;
+        const f = currentFields(rec);
+        const haystack = [
+          rec.id,
+          rec.ticketId,
+          rec.deliveryId,
+          f.pit,
+          f.material,
+          f.ticketNumber
+        ].join(' ').toLowerCase();
+        return !q || haystack.includes(q);
+      });
+    }
+
+    function buildPrintableReportHtml(records) {
+      const pitAgg = {};
+      const materialAgg = {};
+
+      records.forEach(rec => {
+        const pit = getPitName(rec);
+        const material = getMaterialName(rec);
+        const tons = getNetTons(rec);
+
+        if (!pitAgg[pit]) pitAgg[pit] = { name: pit, tons: 0, loads: 0 };
+        pitAgg[pit].tons += tons;
+        pitAgg[pit].loads += 1;
+
+        if (!materialAgg[material]) materialAgg[material] = { name: material, tons: 0, loads: 0 };
+        materialAgg[material].tons += tons;
+        materialAgg[material].loads += 1;
+      });
+
+      const pitRows = Object.values(pitAgg).sort((a, b) => b.tons - a.tons || a.name.localeCompare(b.name));
+      const materialRows = Object.values(materialAgg).sort((a, b) => b.tons - a.tons || a.name.localeCompare(b.name));
+
+      const totalLoads = records.length;
+      const totalTons = pitRows.reduce((sum, r) => sum + r.tons, 0);
+      const maxPit = pitRows.reduce((m, r) => Math.max(m, r.tons), 0) || 1;
+      const maxMaterial = materialRows.reduce((m, r) => Math.max(m, r.tons), 0) || 1;
+
+      const pitGraphHtml = pitRows.map(r => {
+        const pct = Math.max(2, Math.round((r.tons / maxPit) * 100));
+        return `
+          <div class="bar-row">
+            <div class="bar-label">${escapeHtml(r.name)}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+            <div class="bar-value">${r.tons.toFixed(2)} t</div>
+          </div>
+        `;
+      }).join('');
+
+      const materialGraphHtml = materialRows.map(r => {
+        const pct = Math.max(2, Math.round((r.tons / maxMaterial) * 100));
+        return `
+          <div class="bar-row">
+            <div class="bar-label">${escapeHtml(r.name)}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+            <div class="bar-value">${r.tons.toFixed(2)} t</div>
+          </div>
+        `;
+      }).join('');
+
+      const pitTableHtml = pitRows.map(r => `
+        <tr>
+          <td>${escapeHtml(r.name)}</td>
+          <td>${r.tons.toFixed(2)}</td>
+          <td>${r.loads}</td>
+        </tr>
+      `).join('');
+
+      const materialTableHtml = materialRows.map(r => `
+        <tr>
+          <td>${escapeHtml(r.name)}</td>
+          <td>${r.tons.toFixed(2)}</td>
+          <td>${r.loads}</td>
+        </tr>
+      `).join('');
+
+      return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Riteway Tonnage Report</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; color:#0f1720; margin:24px; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px; }
+    .brand { display:flex; align-items:center; gap:10px; }
+    .logo { width:130px; height:auto; }
+    .title { font-size:20px; font-weight:700; margin:0; }
+    .subtitle { margin:2px 0 0; font-size:12px; color:#475569; }
+    .meta { text-align:right; font-size:12px; color:#475569; }
+    .kpis { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; margin-bottom:12px; }
+    .kpi { border:1px solid #d4dbe5; border-radius:10px; padding:8px 10px; }
+    .kpi-label { font-size:11px; color:#475569; text-transform:uppercase; letter-spacing:.06em; }
+    .kpi-value { font-size:18px; font-weight:700; margin-top:2px; }
+    .section { margin-top:12px; border:1px solid #d4dbe5; border-radius:12px; padding:10px; }
+    .section h2 { margin:0 0 8px; font-size:14px; text-transform:uppercase; letter-spacing:.08em; color:#334155; }
+    .bar-row { display:grid; grid-template-columns: 220px 1fr 72px; gap:8px; align-items:center; margin-bottom:6px; }
+    .bar-label { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .bar-track { background:#e6edf5; border-radius:999px; overflow:hidden; height:10px; }
+    .bar-fill { height:100%; background: linear-gradient(135deg, #12C3A0, #12e1b5); }
+    .bar-value { font-size:12px; text-align:right; font-weight:700; }
+    table { width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; }
+    th, td { border-bottom:1px solid #e6edf5; padding:6px 4px; text-align:left; }
+    th { text-transform:uppercase; font-size:10px; letter-spacing:.08em; color:#475569; }
+    .footer { margin-top:10px; font-size:11px; color:#64748b; }
+    @media print { body { margin:12mm; } .section { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <img src="riteway-logo.png" alt="Riteway Logo" class="logo">
+      <div>
+        <h1 class="title">Riteway Materials Report</h1>
+        <p class="subtitle">Pit and material tonnage summary</p>
+      </div>
+    </div>
+    <div class="meta">
+      <div>Generated: ${escapeHtml(new Date().toLocaleString())}</div>
+      <div>Pit filter: ${escapeHtml(selectedPit === 'all' ? 'All Pits' : selectedPit)}</div>
+      <div>Search filter: ${escapeHtml(document.getElementById('searchInput').value.trim() || 'None')}</div>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-label">Total Loads</div><div class="kpi-value">${totalLoads}</div></div>
+    <div class="kpi"><div class="kpi-label">Total Tons</div><div class="kpi-value">${totalTons.toFixed(2)}</div></div>
+    <div class="kpi"><div class="kpi-label">Pits Included</div><div class="kpi-value">${pitRows.length}</div></div>
+  </div>
+
+  <div class="section">
+    <h2>Tonnage By Pit</h2>
+    ${pitGraphHtml || '<div class="subtitle">No data.</div>'}
+    <table>
+      <thead><tr><th>Pit</th><th>Tons</th><th>Loads</th></tr></thead>
+      <tbody>${pitTableHtml}</tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Material Quantities</h2>
+    ${materialGraphHtml || '<div class="subtitle">No data.</div>'}
+    <table>
+      <thead><tr><th>Material</th><th>Tons</th><th>Loads</th></tr></thead>
+      <tbody>${materialTableHtml}</tbody>
+    </table>
+  </div>
+
+  <div class="footer">Riteway Dispatch OCR Report</div>
+</body>
+</html>`;
+    }
+
+    function printTonnageReport() {
+      const records = getReportSourceRecords();
+      if (!records.length) {
+        const status = document.getElementById('saveStatus');
+        if (status) status.textContent = 'No data to print for current filters.';
+        return;
+      }
+
+      const html = buildPrintableReportHtml(records);
+      const win = window.open('', '_blank', 'noopener,noreferrer,width=1200,height=900');
+      if (!win) {
+        const status = document.getElementById('saveStatus');
+        if (status) status.textContent = 'Popup blocked. Allow popups to print report.';
+        return;
+      }
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 350);
+    }
+
     function renderNeedsReviewList() {
       const el = document.getElementById('ticketList');
       el.innerHTML = '';
@@ -1049,6 +1251,7 @@
       listenForRecords();
       document.getElementById('searchInput').addEventListener('input', applySearch);
       document.getElementById('saveBtn').addEventListener('click', saveEdits);
+      document.getElementById('printReportBtn').addEventListener('click', printTonnageReport);
       document.getElementById('needsOnlyBtn').addEventListener('click', () => {
         showNeedsOnly = true;
         setModeButtons();
