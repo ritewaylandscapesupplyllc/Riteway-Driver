@@ -177,6 +177,54 @@
       margin-top: 4px;
     }
 
+    .summary-block {
+      margin-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 10px;
+    }
+
+    .summary-table-wrap {
+      margin-top: 6px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(6, 9, 13, 0.9);
+      max-height: 260px;
+      overflow-y: auto;
+    }
+
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+    }
+
+    .summary-table thead {
+      position: sticky;
+      top: 0;
+      background: rgba(4,7,11,0.97);
+      z-index: 1;
+    }
+
+    .summary-table th,
+    .summary-table td {
+      padding: 7px 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      text-align: left;
+    }
+
+    .summary-table th {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.67rem;
+    }
+
+    .summary-table td.tons-cell {
+      color: var(--accent);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
     /* FILTERS */
 
     .filters-grid {
@@ -544,19 +592,6 @@
       font-size: 0.76rem;
     }
 
-    .ocr-text {
-      width: 100%;
-      min-height: 120px;
-      border-radius: 10px;
-      border: 1px solid var(--border-subtle);
-      background: rgba(5, 8, 11, 0.95);
-      color: var(--text);
-      padding: 8px;
-      font-size: 0.73rem;
-      line-height: 1.35;
-      resize: vertical;
-    }
-
     .modal-actions-row {
       margin-top: 4px;
       display: flex;
@@ -865,6 +900,27 @@
       <div class="subtext">
         Viewer shows tickets from Firebase. Click any row on the right to see a full-size ticket and basic details.
       </div>
+
+      <div class="summary-block">
+        <div class="section-title-row" style="margin-bottom:4px;">
+          <div class="section-title">Pit/Product Totals</div>
+          <div class="pill" id="pitSummaryMeta">0 rows</div>
+        </div>
+        <div class="subtext">Sorted by pit. Tons are estimated from OCR net weight.</div>
+        <div class="summary-table-wrap">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Pit</th>
+                <th>Product</th>
+                <th>Tons</th>
+                <th>Loads</th>
+              </tr>
+            </thead>
+            <tbody id="pitSummaryBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- RIGHT: Ticket list -->
@@ -956,7 +1012,6 @@
             </div>
           </div>
 
-          <textarea id="ocrText" class="ocr-text" placeholder="OCR text will appear here..." readonly></textarea>
         </div>
 
        <div class="modal-actions-row">
@@ -1207,6 +1262,7 @@
 
       updateFilterSummary();
       renderTicketsList();
+      renderPitSummary();
     }
 
     function updateFilterSummary() {
@@ -1406,8 +1462,30 @@
       const material =
         find(/(?:material|commodity|description|product)[^\n:]*[:#]?\s*([^\n]{2,80})/i) ||
         '';
+      const pit =
+        find(/(?:pit|source|origin|plant|quarry|yard)\s*(?:name)?[^\n:]{0,24}[:#-]?\s*([^\n]{2,80})/i) ||
+        find(/\b([A-Za-z0-9\s-]{3,40}\s+pit)\b/i);
 
-      return { ticketNumber, date, gross, tare, net, material };
+      let netTons = null;
+      const netNumber = Number(String(net || '').replace(/,/g, ''));
+      if (Number.isFinite(netNumber) && netNumber > 0) {
+        const netLineMatch = clean.match(/net(?:\s*weight)?[^\n]*/i);
+        const netLine = netLineMatch ? netLineMatch[0].toLowerCase() : '';
+        if (netLine.includes('ton')) netTons = netNumber;
+        else if (netLine.includes('lb') || netLine.includes('pound')) netTons = netNumber / 2000;
+        else netTons = netNumber >= 1000 ? netNumber / 2000 : netNumber;
+      }
+
+      return {
+        ticketNumber,
+        date,
+        gross,
+        tare,
+        net,
+        material,
+        pit,
+        netTons: netTons !== null ? Number(netTons.toFixed(2)) : null
+      };
     }
 
     async function buildOcrPayloadFromImage(imageUrl, onProgress) {
@@ -1430,7 +1508,6 @@
 
     function renderOcrInModal(ocr) {
       const statusEl = document.getElementById('ocrStatus');
-      const textEl = document.getElementById('ocrText');
       const ticketEl = document.getElementById('ocrTicketNumber');
       const dateEl = document.getElementById('ocrDate');
       const grossEl = document.getElementById('ocrGross');
@@ -1440,7 +1517,6 @@
 
       if (!ocr) {
         statusEl.textContent = 'No OCR extracted yet.';
-        textEl.value = '';
         ticketEl.textContent = '—';
         dateEl.textContent = '—';
         grossEl.textContent = '—';
@@ -1452,15 +1528,94 @@
 
       const extractedAtLabel = ocr.extractedAt ? new Date(ocr.extractedAt).toLocaleString() : 'Saved';
       statusEl.textContent = 'OCR ready · ' + extractedAtLabel;
-      textEl.value = ocr.text || '';
 
       const fields = ocr.fields || {};
       ticketEl.textContent = fields.ticketNumber || '—';
       dateEl.textContent = fields.date || '—';
       grossEl.textContent = fields.gross || '—';
       tareEl.textContent = fields.tare || '—';
-      netEl.textContent = fields.net || '—';
+      if (fields.netTons && Number.isFinite(Number(fields.netTons))) {
+        netEl.textContent = Number(fields.netTons).toFixed(2) + ' tons';
+      } else {
+        netEl.textContent = fields.net || '—';
+      }
       materialEl.textContent = fields.material || '—';
+    }
+
+    function normalizeLabel(value, fallback) {
+      const clean = String(value || '').replace(/\s+/g, ' ').trim();
+      if (!clean) return fallback;
+      return clean.length > 60 ? clean.slice(0, 60) + '…' : clean;
+    }
+
+    function extractPitProductTons(ticket) {
+      if (!ticket || !ticket.ocr) return null;
+      const ocr = ticket.ocr;
+      const fields = ocr.fields || {};
+      const parsedFromText = parseOcrFields(ocr.text || '');
+
+      const pit = normalizeLabel(fields.pit || parsedFromText.pit, 'Unknown Pit');
+      const product = normalizeLabel(fields.material || parsedFromText.material, 'Unknown Product');
+      const tonsCandidate = fields.netTons ?? parsedFromText.netTons;
+      const tons = Number(tonsCandidate);
+      if (!Number.isFinite(tons) || tons <= 0) return null;
+
+      return { pit, product, tons };
+    }
+
+    function renderPitSummary() {
+      const tbody = document.getElementById('pitSummaryBody');
+      const meta = document.getElementById('pitSummaryMeta');
+      if (!tbody || !meta) return;
+      tbody.innerHTML = '';
+
+      const aggregate = {};
+      allTickets.forEach(t => {
+        const extracted = extractPitProductTons(t);
+        if (!extracted) return;
+        const key = extracted.pit + '||' + extracted.product;
+        if (!aggregate[key]) {
+          aggregate[key] = {
+            pit: extracted.pit,
+            product: extracted.product,
+            tons: 0,
+            loads: 0
+          };
+        }
+        aggregate[key].tons += extracted.tons;
+        aggregate[key].loads += 1;
+      });
+
+      const rows = Object.values(aggregate).sort((a, b) => {
+        const pitCmp = a.pit.localeCompare(b.pit);
+        if (pitCmp !== 0) return pitCmp;
+        return b.tons - a.tons;
+      });
+
+      meta.textContent = rows.length + (rows.length === 1 ? ' row' : ' rows');
+
+      if (!rows.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 4;
+        td.textContent = 'No OCR tons data yet.';
+        td.style.textAlign = 'center';
+        td.style.padding = '14px';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${r.pit}</td>
+          <td>${r.product}</td>
+          <td class="tons-cell">${r.tons.toFixed(2)}</td>
+          <td>${r.loads}</td>
+        `;
+        tbody.appendChild(tr);
+      });
     }
 
     async function runOcrForTicket(t) {
