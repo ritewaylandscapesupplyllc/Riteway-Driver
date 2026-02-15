@@ -1485,12 +1485,70 @@
         .trim();
     }
 
+    function normalizeOcrForMatching(value) {
+      return String(value || '')
+        .toLowerCase()
+        .replace(/[@]/g, 'a')
+        .replace(/[!|]/g, 'i')
+        .replace(/[€]/g, 'e')
+        .replace(/[0]/g, 'o')
+        .replace(/[5]/g, 's')
+        .replace(/[8]/g, 'b')
+        .replace(/[^a-z0-9\/&\-\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function buildMatchVariants(value) {
+      const raw = normalizeCandidateText(value);
+      const ocrNorm = normalizeOcrForMatching(value);
+      return Array.from(new Set([raw, ocrNorm].filter(Boolean)));
+    }
+
+    function bestAliasByScore(text, rules) {
+      const variants = buildMatchVariants(text);
+      if (!variants.length) return { canonical: '', score: 0 };
+
+      let bestCanonical = '';
+      let bestScore = 0;
+
+      for (const rule of rules) {
+        let score = 0;
+        for (const re of rule.patterns) {
+          for (const v of variants) {
+            if (re.test(v)) score += 1;
+          }
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestCanonical = rule.canonical;
+        }
+      }
+      return { canonical: bestCanonical, score: bestScore };
+    }
+
+    function extractLabeledCandidates(lines, labelRegexList) {
+      const candidates = [];
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        for (const labelRe of labelRegexList) {
+          const m = line.match(labelRe);
+          if (m && m[1]) {
+            candidates.push(m[1]);
+          } else if (labelRe.test(line) && lines[i + 1]) {
+            candidates.push(lines[i + 1]);
+          }
+        }
+      }
+      return candidates.map(normalizeCandidateText).filter(Boolean);
+    }
+
     function looksLikeNoiseForPit(line) {
       if (!line) return true;
       const low = line.toLowerCase();
       if (line.length < 3 || line.length > 90) return true;
       if (/^\d+([.,]\d+)?$/.test(line)) return true;
-      if (/\b(gross|tare|net|weight|ticket|invoice|date|time|truck|driver|axle|lb|pound|qty|quantity)\b/i.test(low)) {
+      if (/\b(gross|tare|net|weight|ticket|invoice|date|time|driver|axle|lb|pound|qty|quantity)\b/i.test(low)) {
         return true;
       }
       return false;
@@ -1514,60 +1572,42 @@
     function applyPitAliasRules(candidate) {
       const clean = normalizeCandidateText(candidate);
       if (!clean) return '';
-      for (const rule of PIT_ALIAS_RULES) {
-        if (rule.patterns.some(re => re.test(clean))) return rule.canonical;
-      }
-      return clean;
+      const best = bestAliasByScore(clean, PIT_ALIAS_RULES);
+      return best.canonical || clean;
     }
 
     function detectPitByWholeText(cleanText) {
-      for (const rule of PIT_ALIAS_RULES) {
-        if (rule.patterns.some(re => re.test(cleanText))) return rule.canonical;
-      }
-      return '';
+      return bestAliasByScore(cleanText, PIT_ALIAS_RULES).canonical;
     }
 
     function applyProductAliasRules(candidate) {
       const clean = normalizeCandidateText(candidate);
       if (!clean) return '';
-      for (const rule of PRODUCT_ALIAS_RULES) {
-        if (rule.patterns.some(re => re.test(clean))) return rule.canonical;
-      }
-      return clean;
+      const best = bestAliasByScore(clean, PRODUCT_ALIAS_RULES);
+      return best.canonical || clean;
     }
 
     function detectProductByWholeText(cleanText) {
-      for (const rule of PRODUCT_ALIAS_RULES) {
-        if (rule.patterns.some(re => re.test(cleanText))) return rule.canonical;
-      }
-      return '';
+      return bestAliasByScore(cleanText, PRODUCT_ALIAS_RULES).canonical;
     }
 
     function extractPitNameSmart(ocrText) {
       const cleanText = String(ocrText || '');
       if (!cleanText.trim()) return '';
-      const textWideAlias = detectPitByWholeText(cleanText);
-      if (textWideAlias) return textWideAlias;
-
-      const labeledPatterns = [
-        /(?:pit|source|origin|vendor|supplier|plant|quarry|loaded\s*at|shipper)\s*(?:name|company)?\s*[:#-]?\s*([^\n]{2,80})/i,
-        /(?:from|pickup\s*at|picked\s*up\s*at)\s*[:#-]?\s*([^\n]{2,80})/i
-      ];
-
-      for (const re of labeledPatterns) {
-        const m = cleanText.match(re);
-        if (m && m[1]) {
-          const candidate = normalizeCandidateText(m[1]);
-          if (!looksLikeNoiseForPit(candidate)) {
-            return applyPitAliasRules(candidate);
-          }
-        }
-      }
-
       const lines = cleanText
         .split('\n')
         .map(l => normalizeCandidateText(l))
         .filter(Boolean);
+
+      const labeledCandidates = extractLabeledCandidates(lines, [
+        /(?:pit|source|origin|vendor|supplier|plant|quarry|loaded\s*at|shipper)\s*(?:name|company)?\s*[:#-]?\s*([^\n]{2,80})/i,
+        /(?:from|pickup\s*at|picked\s*up\s*at)\s*[:#-]?\s*([^\n]{2,80})/i
+      ]);
+      for (const candidate of labeledCandidates) {
+        if (looksLikeNoiseForPit(candidate)) continue;
+        const aliased = applyPitAliasRules(candidate);
+        if (aliased) return aliased;
+      }
 
       let best = '';
       let bestScore = -Infinity;
@@ -1575,16 +1615,21 @@
       for (const line of lines) {
         if (looksLikeNoiseForPit(line)) continue;
         let score = scorePitCandidate(line);
-        if (detectPitByWholeText(line)) score += 9;
+        const lineAlias = detectPitByWholeText(line);
+        if (lineAlias) score += 11;
+        if (/\b(adobe|johnson|double|geneva|staker|rollins|sunroc|kilgore|lakeside|utah)\b/i.test(line)) score += 3;
         if (score > bestScore) {
           bestScore = score;
-          best = line;
+          best = lineAlias || line;
         }
       }
 
       if (bestScore >= 4 && best) {
         return applyPitAliasRules(best);
       }
+
+      const textWideAlias = detectPitByWholeText(cleanText);
+      if (textWideAlias) return textWideAlias;
 
       return '';
     }
@@ -1603,53 +1648,60 @@
     function scoreMaterialCandidate(line) {
       let score = 0;
       const low = line.toLowerCase();
-      if (/\b(material|product|description|commodity)\b/.test(low)) score += 6;
-      if (/\b(topsoil|gravel|sand|dirt|rock|base|screened|minus)\b/.test(low)) score += 7;
+      if (/\b(material|product|description|commodity|matl|item)\b/.test(low)) score += 6;
+      if (/\b(topsoil|gravel|sand|dirt|rock|base|screened|minus|chips|fill)\b/.test(low)) score += 7;
       if (/\b3\/4|1\/2|1-1\/2|3\/8\b/.test(low)) score += 3;
       if (/\d{4,}/.test(low)) score -= 2;
       if (line.length > 55) score -= 2;
       return score;
     }
 
+    function cleanMaterialCandidate(line) {
+      return normalizeCandidateText(line)
+        .replace(/\b(code|item|matl)\s*[:#-]?\s*[a-z0-9-]{2,}\b/ig, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    }
+
     function extractMaterialSmart(ocrText) {
       const cleanText = String(ocrText || '');
       if (!cleanText.trim()) return '';
-      const textWideAlias = detectProductByWholeText(cleanText);
-      if (textWideAlias) return textWideAlias;
-
-      const labeledPatterns = [
-        /(?:material|commodity|description|product)\s*[:#-]?\s*([^\n]{2,80})/i
-      ];
-      for (const re of labeledPatterns) {
-        const m = cleanText.match(re);
-        if (m && m[1]) {
-          const candidate = normalizeCandidateText(m[1]);
-          if (!looksLikeNoiseForMaterial(candidate)) {
-            return applyProductAliasRules(candidate);
-          }
-        }
-      }
-
       const lines = cleanText
         .split('\n')
         .map(l => normalizeCandidateText(l))
         .filter(Boolean);
 
+      const labeledCandidates = extractLabeledCandidates(lines, [
+        /(?:material|commodity|description|product|matl|item)\s*[:#-]?\s*([^\n]{2,80})/i
+      ]);
+      for (const candidateRaw of labeledCandidates) {
+        const candidate = cleanMaterialCandidate(candidateRaw);
+        if (!candidate || looksLikeNoiseForMaterial(candidate)) continue;
+        const aliased = applyProductAliasRules(candidate);
+        if (aliased) return aliased;
+      }
+
       let best = '';
       let bestScore = -Infinity;
       for (const line of lines) {
-        if (looksLikeNoiseForMaterial(line)) continue;
-        let score = scoreMaterialCandidate(line);
-        if (detectProductByWholeText(line)) score += 10;
+        const cleaned = cleanMaterialCandidate(line);
+        if (!cleaned || looksLikeNoiseForMaterial(cleaned)) continue;
+        let score = scoreMaterialCandidate(cleaned);
+        const lineAlias = detectProductByWholeText(cleaned);
+        if (lineAlias) score += 12;
+        if (/\b(topsoil|gravel|sand|fill|road\s*base|minus)\b/i.test(cleaned)) score += 4;
         if (score > bestScore) {
           bestScore = score;
-          best = line;
+          best = lineAlias || cleaned;
         }
       }
 
       if (bestScore >= 6 && best) {
         return applyProductAliasRules(best);
       }
+
+      const textWideAlias = detectProductByWholeText(cleanText);
+      if (textWideAlias) return textWideAlias;
       return '';
     }
 
@@ -1672,7 +1724,13 @@
       const tare = find(/tare(?:\s*weight)?[^\d]{0,10}(\d[\d,]*(?:\.\d+)?)/i);
       const net = find(/net(?:\s*weight)?[^\d]{0,10}(\d[\d,]*(?:\.\d+)?)/i);
       const rawMaterial = find(/(?:material|commodity|description|product)[^\n:]*[:#]?\s*([^\n]{2,80})/i) || '';
-      const material = applyProductAliasRules(rawMaterial) || extractMaterialSmart(clean);
+      const rawMaterialClean = cleanMaterialCandidate(rawMaterial);
+      const rawMaterialAlias = bestAliasByScore(rawMaterialClean, PRODUCT_ALIAS_RULES).canonical;
+      const rawMaterialUsable = rawMaterialClean && !looksLikeNoiseForMaterial(rawMaterialClean);
+      const material =
+        rawMaterialAlias ||
+        (rawMaterialUsable ? rawMaterialClean : '') ||
+        extractMaterialSmart(clean);
       const pit = extractPitNameSmart(clean);
 
       let netTons = null;
