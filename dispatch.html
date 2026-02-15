@@ -1118,8 +1118,14 @@
     let selectedDeliveryId = null;
     let activeDriverPopoverId = null;
     let pastLoadsOpen = false;
+    let selectedPastLoadId = null;
     let driversList = [];
     let infoWindow = null;
+    let geocoder = null;
+    let directionsService = null;
+    let pastRoutePolyline = null;
+    let pastRouteStartMarker = null;
+    let pastRouteEndMarker = null;
 
     /* ---------- SIDE MENU ---------- */
 
@@ -1414,6 +1420,8 @@ async function loadDriversForDispatch() {
         ]
       });
       infoWindow = new google.maps.InfoWindow();
+      geocoder = new google.maps.Geocoder();
+      directionsService = new google.maps.DirectionsService();
     }
 
     function waitForMapsThenInit() {
@@ -1593,7 +1601,10 @@ async function loadDriversForDispatch() {
 
     function selectDelivery(id, options = {}) {
       selectedDeliveryId = id;
+      selectedPastLoadId = null;
+      clearPastRouteOverlay();
       if (options.renderTable !== false) renderDeliveriesTable();
+      renderPastDeliveriesTable();
 
       const row = document.querySelector(`tr[data-delivery-id="${id}"]`);
       if (row && options.scroll !== false) {
@@ -1605,11 +1616,215 @@ async function loadDriversForDispatch() {
       }
     }
 
+    function clearPastRouteOverlay() {
+      if (pastRoutePolyline) {
+        pastRoutePolyline.setMap(null);
+        pastRoutePolyline = null;
+      }
+      if (pastRouteStartMarker) {
+        pastRouteStartMarker.setMap(null);
+        pastRouteStartMarker = null;
+      }
+      if (pastRouteEndMarker) {
+        pastRouteEndMarker.setMap(null);
+        pastRouteEndMarker = null;
+      }
+    }
+
+    function toLatLngLiteral(obj) {
+      if (!obj || typeof obj !== 'object') return null;
+      const lat = Number(obj.lat ?? obj.latitude);
+      const lng = Number(obj.lng ?? obj.lon ?? obj.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      return { lat, lng };
+    }
+
+    function getNestedValue(obj, path) {
+      return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
+    }
+
+    function extractScaleTicketOrigin(delivery) {
+      const candidates = [
+        'scaleTicket.photoLocation',
+        'scaleTicket.location',
+        'scaleTicket.captureLocation',
+        'scaleTicket.geo',
+        'scaleTicket.coordinates',
+        'scaleTicket.photoMeta.location',
+        'scaleTicket.metadata.location',
+        'ticket.location',
+        'details.scaleTicketLocation'
+      ];
+
+      for (const path of candidates) {
+        const point = toLatLngLiteral(getNestedValue(delivery, path));
+        if (point) return point;
+      }
+
+      const latPaths = ['scaleTicket.photoLat', 'scaleTicket.lat', 'ticket.lat'];
+      const lngPaths = ['scaleTicket.photoLng', 'scaleTicket.lng', 'ticket.lng'];
+      for (let i = 0; i < latPaths.length; i++) {
+        const lat = Number(getNestedValue(delivery, latPaths[i]));
+        const lng = Number(getNestedValue(delivery, lngPaths[i]));
+        if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+      }
+
+      return null;
+    }
+
+    function extractRecordedRoutePoints(delivery, originPoint, destPoint) {
+      const arrays = [
+        delivery.locationHistory,
+        delivery.routePoints,
+        delivery.gpsTrack,
+        delivery.path,
+        delivery.scaleTicket && delivery.scaleTicket.route,
+        delivery.scaleTicket && delivery.scaleTicket.path
+      ].filter(Array.isArray);
+
+      for (const arr of arrays) {
+        const pts = arr.map(toLatLngLiteral).filter(Boolean);
+        if (pts.length >= 2) {
+          if (originPoint) pts.unshift(originPoint);
+          if (destPoint) pts.push(destPoint);
+          return pts;
+        }
+      }
+      return null;
+    }
+
+    function geocodeAddress(address) {
+      return new Promise((resolve, reject) => {
+        if (!geocoder || !address) {
+          reject(new Error('Missing geocoder or address.'));
+          return;
+        }
+        geocoder.geocode({ address }, (results, status) => {
+          if (status === 'OK' && results && results[0] && results[0].geometry) {
+            const loc = results[0].geometry.location;
+            resolve({ lat: loc.lat(), lng: loc.lng() });
+            return;
+          }
+          reject(new Error('Geocode failed: ' + status));
+        });
+      });
+    }
+
+    function getDestinationPoint(delivery) {
+      if (toLatLngLiteral(delivery._resolvedDestLatLng)) {
+        return Promise.resolve(toLatLngLiteral(delivery._resolvedDestLatLng));
+      }
+      const address = delivery.details && delivery.details.address;
+      return geocodeAddress(address);
+    }
+
+    function drawRoutePolyline(points) {
+      clearPastRouteOverlay();
+      if (!map || !points || points.length < 2) return;
+
+      pastRoutePolyline = new google.maps.Polyline({
+        map,
+        path: points,
+        geodesic: true,
+        strokeColor: '#12C3A0',
+        strokeOpacity: 0.9,
+        strokeWeight: 4
+      });
+
+      pastRouteStartMarker = new google.maps.Marker({
+        map,
+        position: points[0],
+        title: 'Scale Ticket Photo Location',
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 6,
+          fillColor: '#f1c40f',
+          fillOpacity: 1,
+          strokeColor: '#1b2129',
+          strokeWeight: 2
+        }
+      });
+
+      pastRouteEndMarker = new google.maps.Marker({
+        map,
+        position: points[points.length - 1],
+        title: 'Delivery Address',
+        icon: {
+          path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+          scale: 5,
+          fillColor: '#12C3A0',
+          fillOpacity: 0.6,
+          strokeColor: '#12C3A0',
+          strokeWeight: 1
+        }
+      });
+
+      const bounds = new google.maps.LatLngBounds();
+      points.forEach(p => bounds.extend(p));
+      map.fitBounds(bounds);
+    }
+
+    function requestDirectionsRoute(originPoint, destPoint) {
+      return new Promise((resolve, reject) => {
+        if (!directionsService) {
+          reject(new Error('Directions service unavailable.'));
+          return;
+        }
+        directionsService.route({
+          origin: originPoint,
+          destination: destPoint,
+          travelMode: google.maps.TravelMode.DRIVING
+        }, (result, status) => {
+          if (status === 'OK' && result.routes && result.routes[0]) {
+            const points = result.routes[0].overview_path.map(p => ({ lat: p.lat(), lng: p.lng() }));
+            resolve(points);
+            return;
+          }
+          reject(new Error('Directions failed: ' + status));
+        });
+      });
+    }
+
+    async function selectPastLoadRoute(id) {
+      const delivery = deliveries[id];
+      if (!delivery || !map) return;
+
+      selectedPastLoadId = id;
+      selectedDeliveryId = null;
+      if (infoWindow) infoWindow.close();
+      renderDeliveriesTable();
+      renderPastDeliveriesTable();
+
+      const originPoint = extractScaleTicketOrigin(delivery);
+      if (!originPoint) {
+        alert('No scale ticket photo location found for this load.');
+        clearPastRouteOverlay();
+        return;
+      }
+
+      try {
+        const destPoint = await getDestinationPoint(delivery);
+        const recordedPoints = extractRecordedRoutePoints(delivery, originPoint, destPoint);
+        if (recordedPoints && recordedPoints.length >= 2) {
+          drawRoutePolyline(recordedPoints);
+          return;
+        }
+        const routePoints = await requestDirectionsRoute(originPoint, destPoint);
+        drawRoutePolyline(routePoints);
+      } catch (err) {
+        console.error('Unable to render past load route:', err);
+        alert('Could not render route for this load. Check address/location data.');
+        clearPastRouteOverlay();
+      }
+    }
+
     function applyFilter() {
       statusFilter = document.getElementById('statusFilter').value;
       driverFilter = document.getElementById('driverFilter').value;
       searchFilter = normalizeSearchText(document.getElementById('searchFilter').value).trim();
       activeDriverPopoverId = null;
+      selectedPastLoadId = null;
+      clearPastRouteOverlay();
       renderDeliveriesTable();
       renderPastDeliveriesTable();
       renderMapMarkers();
@@ -1619,6 +1834,10 @@ async function loadDriversForDispatch() {
       db.ref('deliveries').on('value', snapshot => {
         deliveries = snapshot.val() || {};
         if (selectedDeliveryId && !deliveries[selectedDeliveryId]) selectedDeliveryId = null;
+        if (selectedPastLoadId && !deliveries[selectedPastLoadId]) {
+          selectedPastLoadId = null;
+          clearPastRouteOverlay();
+        }
         updateStats();
         renderDeliveriesTable();
         renderPastDeliveriesTable();
@@ -1806,6 +2025,11 @@ async function loadDriversForDispatch() {
         if (!matchesSearch(id, details)) return;
 
         const tr = document.createElement('tr');
+        tr.className = 'table-row-clickable';
+        tr.dataset.deliveryId = id;
+        tr.dataset.status = statusNorm || 'pending';
+        if (selectedPastLoadId === id) tr.classList.add('table-row-selected');
+        tr.addEventListener('click', () => selectPastLoadRoute(id));
 
         const tdId = document.createElement('td');
         tdId.innerHTML = '<span class="delivery-id">' + id + '</span>';
@@ -1978,7 +2202,7 @@ async function loadDriversForDispatch() {
         selectedDeliveryId = null;
       }
 
-      if (hasBounds && !selectedDeliveryId) {
+      if (hasBounds && !selectedDeliveryId && !selectedPastLoadId) {
         map.fitBounds(bounds);
       }
     }
