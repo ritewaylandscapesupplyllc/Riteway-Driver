@@ -1121,9 +1121,21 @@
       const idsNow = new Set(tickets.map(t => t.id));
 
       if (!hasSeenInitialTicketSnapshot) {
-        tickets.forEach(t => knownTicketIds.add(t.id));
+        let backfillCount = 0;
+        tickets.forEach(t => {
+          knownTicketIds.add(t.id);
+          // Backfill OCR for tickets already in Firebase that don't have OCR yet.
+          if (!t.ocr && t.imageUrl) {
+            enqueueAutoOcr(t);
+            backfillCount++;
+          }
+        });
         hasSeenInitialTicketSnapshot = true;
-        setAutoOcrStatus('Auto OCR: watching for new tickets');
+        if (backfillCount > 0) {
+          setAutoOcrStatus('Auto OCR: backfill queued (' + backfillCount + ')');
+        } else {
+          setAutoOcrStatus('Auto OCR: watching for new tickets');
+        }
         return;
       }
 
@@ -1456,6 +1468,16 @@
       { canonical: 'Utah Rock', patterns: [/utah\s*rock/i] }
     ];
 
+    const PRODUCT_ALIAS_RULES = [
+      { canonical: 'Topsoil', patterns: [/top\s*soil/i] },
+      { canonical: 'Fill Dirt', patterns: [/fill\s*dirt/i] },
+      { canonical: 'Road Base', patterns: [/road\s*base/i, /\brb\b/i] },
+      { canonical: '3/4" Gravel', patterns: [/\b3\/4\b.*gravel/i, /three[\s-]*quarter.*gravel/i] },
+      { canonical: '1/2" Gravel', patterns: [/\b1\/2\b.*gravel/i, /half.*gravel/i] },
+      { canonical: 'Sand', patterns: [/\bsand\b/i] },
+      { canonical: 'Pea Gravel', patterns: [/pea\s*gravel/i] }
+    ];
+
     function normalizeCandidateText(value) {
       return String(value || '')
         .replace(/[|*_~`]/g, ' ')
@@ -1498,9 +1520,34 @@
       return clean;
     }
 
+    function detectPitByWholeText(cleanText) {
+      for (const rule of PIT_ALIAS_RULES) {
+        if (rule.patterns.some(re => re.test(cleanText))) return rule.canonical;
+      }
+      return '';
+    }
+
+    function applyProductAliasRules(candidate) {
+      const clean = normalizeCandidateText(candidate);
+      if (!clean) return '';
+      for (const rule of PRODUCT_ALIAS_RULES) {
+        if (rule.patterns.some(re => re.test(clean))) return rule.canonical;
+      }
+      return clean;
+    }
+
+    function detectProductByWholeText(cleanText) {
+      for (const rule of PRODUCT_ALIAS_RULES) {
+        if (rule.patterns.some(re => re.test(cleanText))) return rule.canonical;
+      }
+      return '';
+    }
+
     function extractPitNameSmart(ocrText) {
       const cleanText = String(ocrText || '');
       if (!cleanText.trim()) return '';
+      const textWideAlias = detectPitByWholeText(cleanText);
+      if (textWideAlias) return textWideAlias;
 
       const labeledPatterns = [
         /(?:pit|source|origin|vendor|supplier|plant|quarry|loaded\s*at|shipper)\s*(?:name|company)?\s*[:#-]?\s*([^\n]{2,80})/i,
@@ -1527,7 +1574,8 @@
 
       for (const line of lines) {
         if (looksLikeNoiseForPit(line)) continue;
-        const score = scorePitCandidate(line);
+        let score = scorePitCandidate(line);
+        if (detectPitByWholeText(line)) score += 9;
         if (score > bestScore) {
           bestScore = score;
           best = line;
@@ -1538,6 +1586,70 @@
         return applyPitAliasRules(best);
       }
 
+      return '';
+    }
+
+    function looksLikeNoiseForMaterial(line) {
+      if (!line) return true;
+      const low = line.toLowerCase();
+      if (line.length < 2 || line.length > 90) return true;
+      if (/^\d+([.,]\d+)?$/.test(line)) return true;
+      if (/\b(ticket|invoice|date|time|gross|tare|net|weight|truck|driver|lb|pound)\b/i.test(low)) {
+        return true;
+      }
+      return false;
+    }
+
+    function scoreMaterialCandidate(line) {
+      let score = 0;
+      const low = line.toLowerCase();
+      if (/\b(material|product|description|commodity)\b/.test(low)) score += 6;
+      if (/\b(topsoil|gravel|sand|dirt|rock|base|screened|minus)\b/.test(low)) score += 7;
+      if (/\b3\/4|1\/2|1-1\/2|3\/8\b/.test(low)) score += 3;
+      if (/\d{4,}/.test(low)) score -= 2;
+      if (line.length > 55) score -= 2;
+      return score;
+    }
+
+    function extractMaterialSmart(ocrText) {
+      const cleanText = String(ocrText || '');
+      if (!cleanText.trim()) return '';
+      const textWideAlias = detectProductByWholeText(cleanText);
+      if (textWideAlias) return textWideAlias;
+
+      const labeledPatterns = [
+        /(?:material|commodity|description|product)\s*[:#-]?\s*([^\n]{2,80})/i
+      ];
+      for (const re of labeledPatterns) {
+        const m = cleanText.match(re);
+        if (m && m[1]) {
+          const candidate = normalizeCandidateText(m[1]);
+          if (!looksLikeNoiseForMaterial(candidate)) {
+            return applyProductAliasRules(candidate);
+          }
+        }
+      }
+
+      const lines = cleanText
+        .split('\n')
+        .map(l => normalizeCandidateText(l))
+        .filter(Boolean);
+
+      let best = '';
+      let bestScore = -Infinity;
+      for (const line of lines) {
+        if (looksLikeNoiseForMaterial(line)) continue;
+        let score = scoreMaterialCandidate(line);
+        if (detectProductByWholeText(line)) score += 10;
+        if (score > bestScore) {
+          bestScore = score;
+          best = line;
+        }
+      }
+
+      if (bestScore >= 6 && best) {
+        return applyProductAliasRules(best);
+      }
       return '';
     }
 
@@ -1559,9 +1671,8 @@
       const gross = find(/gross(?:\s*weight)?[^\d]{0,10}(\d[\d,]*(?:\.\d+)?)/i);
       const tare = find(/tare(?:\s*weight)?[^\d]{0,10}(\d[\d,]*(?:\.\d+)?)/i);
       const net = find(/net(?:\s*weight)?[^\d]{0,10}(\d[\d,]*(?:\.\d+)?)/i);
-      const material =
-        find(/(?:material|commodity|description|product)[^\n:]*[:#]?\s*([^\n]{2,80})/i) ||
-        '';
+      const rawMaterial = find(/(?:material|commodity|description|product)[^\n:]*[:#]?\s*([^\n]{2,80})/i) || '';
+      const material = applyProductAliasRules(rawMaterial) || extractMaterialSmart(clean);
       const pit = extractPitNameSmart(clean);
 
       let netTons = null;
@@ -1652,9 +1763,10 @@
       const fields = ocr.fields || {};
       const parsedFromText = parseOcrFields(ocr.text || '');
 
-      const pit = normalizeLabel(fields.pit || parsedFromText.pit, 'Unknown Pit');
-      const product = normalizeLabel(fields.material || parsedFromText.material, 'Unknown Product');
-      const tonsCandidate = fields.netTons ?? parsedFromText.netTons;
+      // Trust re-parsed text first so older OCR runs get corrected automatically.
+      const pit = normalizeLabel(parsedFromText.pit || fields.pit, 'Unknown Pit');
+      const product = normalizeLabel(parsedFromText.material || fields.material, 'Unknown Product');
+      const tonsCandidate = parsedFromText.netTons ?? fields.netTons;
       const tons = Number(tonsCandidate);
       if (!Number.isFinite(tons) || tons <= 0) return null;
 
