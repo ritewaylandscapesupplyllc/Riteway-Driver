@@ -1644,7 +1644,15 @@ async function loadDriversForDispatch() {
     }
 
     function extractScaleTicketOrigin(delivery) {
+      const pitLat = Number(getNestedValue(delivery, 'ticketInfo.pitLat'));
+      const pitLng = Number(getNestedValue(delivery, 'ticketInfo.pitLng'));
+      if (Number.isFinite(pitLat) && Number.isFinite(pitLng)) {
+        return { lat: pitLat, lng: pitLng };
+      }
+
       const candidates = [
+        'ticketInfo.pitLocation',
+        'ticketInfo.location',
         'scaleTicket.photoLocation',
         'scaleTicket.location',
         'scaleTicket.captureLocation',
