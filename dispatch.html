@@ -833,6 +833,113 @@
       color: var(--text-muted);
       opacity: 0.7;
     }
+
+    .chat-card {
+      min-height: 260px;
+    }
+
+    .chat-header-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chat-status {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    .chat-messages {
+      max-height: 230px;
+      overflow-y: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(6, 9, 13, 0.95);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-top: 6px;
+    }
+
+    .chat-empty {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      padding: 12px 8px;
+    }
+
+    .chat-message {
+      max-width: 86%;
+      border-radius: 10px;
+      padding: 7px 8px;
+      font-size: 0.78rem;
+      line-height: 1.3;
+      border: 1px solid transparent;
+      word-break: break-word;
+    }
+
+    .chat-message.customer {
+      align-self: flex-start;
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.12);
+    }
+
+    .chat-message.dispatch {
+      align-self: flex-end;
+      background: rgba(18,195,160,0.16);
+      border-color: rgba(18,195,160,0.42);
+    }
+
+    .chat-meta {
+      margin-top: 3px;
+      font-size: 0.66rem;
+      color: var(--text-muted);
+    }
+
+    .chat-compose {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+
+    .chat-input {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(4,7,11,0.96);
+      color: var(--text);
+      padding: 8px 11px;
+      font-size: 0.8rem;
+      outline: none;
+    }
+
+    .chat-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+
+    .chat-send-btn {
+      border-radius: var(--radius-pill);
+      border: none;
+      background: linear-gradient(135deg, var(--accent), #12e1b5);
+      color: #031210;
+      font-size: 0.74rem;
+      padding: 8px 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .chat-input:disabled,
+    .chat-send-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -976,6 +1083,25 @@
         </div>
       </div>
 
+      <div class="card chat-card">
+        <div class="section-title-row">
+          <div class="section-title">Customer Chat</div>
+          <div class="chat-header-meta">
+            <div class="pill" id="chatDeliveryPill">No delivery selected</div>
+            <div class="chat-status" id="chatStatusText">Select a load to open chat</div>
+          </div>
+        </div>
+
+        <div id="dispatchChatMessages" class="chat-messages">
+          <div class="chat-empty">Select an active or past load to view customer chat.</div>
+        </div>
+
+        <div class="chat-compose">
+          <input id="dispatchChatInput" class="chat-input" type="text" maxlength="600" placeholder="Reply to customer..." disabled>
+          <button id="dispatchChatSendBtn" class="chat-send-btn" type="button" disabled>Send</button>
+        </div>
+      </div>
+
       <!-- Past Loads Card -->
       <div class="card">
         <div class="section-title-row">
@@ -1111,6 +1237,9 @@
 
     const AVG_SPEED_MPH = 35;
     const AVG_SPEED_MPS = AVG_SPEED_MPH * 1609.34 / 3600;
+    const DISPATCH_CHAT_MIN_INTERVAL_MS = 1200;
+    const DISPATCH_CHAT_WINDOW_MS = 60000;
+    const DISPATCH_CHAT_MAX_MESSAGES_PER_WINDOW = 30;
 
     let map;
     let deliveries = {};
@@ -1131,6 +1260,10 @@
     let pastRoutePolyline = null;
     let pastRouteStartMarker = null;
     let pastRouteEndMarker = null;
+    let activeChatDeliveryId = '';
+    let activeChatRef = null;
+    let dispatchChatLastSentAt = 0;
+    let dispatchChatRecentSendMs = [];
 
     /* ---------- SIDE MENU ---------- */
 
@@ -1151,6 +1284,158 @@
 
     function goToPage(path) {
       window.location.href = path;
+    }
+
+    function formatChatTime(createdAtMs, createdAtIso) {
+      const ts = Number(createdAtMs);
+      if (Number.isFinite(ts) && ts > 0) {
+        return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      }
+      const parsed = Date.parse(createdAtIso || '');
+      if (!Number.isNaN(parsed)) {
+        return new Date(parsed).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      }
+      return '';
+    }
+
+    function renderDispatchChat(messages) {
+      const listEl = document.getElementById('dispatchChatMessages');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      if (!messages.length) {
+        const empty = document.createElement('div');
+        empty.className = 'chat-empty';
+        empty.textContent = 'No messages yet.';
+        listEl.appendChild(empty);
+        return;
+      }
+
+      messages.forEach(msg => {
+        const senderType = msg.senderType === 'dispatch' ? 'dispatch' : 'customer';
+        const senderLabel = senderType === 'dispatch' ? 'Dispatch' : 'Customer';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-message ' + senderType;
+        bubble.textContent = String(msg.text || '');
+
+        const meta = document.createElement('div');
+        meta.className = 'chat-meta';
+        const time = formatChatTime(msg.createdAtMs, msg.createdAt);
+        let receiptText = '';
+        if (senderType === 'dispatch' && Number(msg.readByCustomerAtMs)) {
+          receiptText = ' · Seen by customer ' + formatChatTime(msg.readByCustomerAtMs, msg.readByCustomerAt);
+        } else if (senderType === 'dispatch') {
+          receiptText = ' · Sent';
+        } else if (Number(msg.readByDispatchAtMs)) {
+          receiptText = ' · Opened by dispatch ' + formatChatTime(msg.readByDispatchAtMs, msg.readByDispatchAt);
+        }
+        meta.textContent = senderLabel + (time ? ' · ' + time : '') + receiptText;
+
+        bubble.appendChild(meta);
+        listEl.appendChild(bubble);
+      });
+
+      listEl.scrollTop = listEl.scrollHeight;
+    }
+
+    function setDispatchChatEnabled(enabled) {
+      const input = document.getElementById('dispatchChatInput');
+      const sendBtn = document.getElementById('dispatchChatSendBtn');
+      if (input) input.disabled = !enabled;
+      if (sendBtn) sendBtn.disabled = !enabled;
+    }
+
+    function detachDispatchChatListener() {
+      if (activeChatRef) {
+        activeChatRef.off();
+        activeChatRef = null;
+      }
+    }
+
+    function setActiveChatDelivery(deliveryId) {
+      const nextId = String(deliveryId || '');
+      const pill = document.getElementById('chatDeliveryPill');
+      const status = document.getElementById('chatStatusText');
+      const input = document.getElementById('dispatchChatInput');
+
+      detachDispatchChatListener();
+      activeChatDeliveryId = nextId;
+
+      if (!nextId) {
+        if (pill) pill.textContent = 'No delivery selected';
+        if (status) status.textContent = 'Select a load to open chat';
+        if (input) input.value = '';
+        dispatchChatRecentSendMs = [];
+        dispatchChatLastSentAt = 0;
+        setDispatchChatEnabled(false);
+        renderDispatchChat([]);
+        return;
+      }
+
+      if (pill) pill.textContent = nextId;
+      if (status) status.textContent = 'Live chat connected';
+      setDispatchChatEnabled(true);
+
+      activeChatRef = db.ref('deliveries/' + nextId + '/chatMessages').limitToLast(100);
+      activeChatRef.on('value', snapshot => {
+        const val = snapshot.val() || {};
+        const rows = Object.entries(val).map(([key, msg]) => ({ key, ...(msg || {}) }));
+        rows.sort((a, b) => {
+          const aMs = Number(a && a.createdAtMs) || Date.parse(a && a.createdAt) || 0;
+          const bMs = Number(b && b.createdAtMs) || Date.parse(b && b.createdAt) || 0;
+          return aMs - bMs;
+        });
+
+        const nowMs = Date.now();
+        const nowIso = new Date(nowMs).toISOString();
+        const receiptUpdates = {};
+        rows.forEach(msg => {
+          if (msg.senderType === 'customer' && !Number(msg.readByDispatchAtMs) && msg.key) {
+            receiptUpdates[msg.key + '/readByDispatchAtMs'] = nowMs;
+            receiptUpdates[msg.key + '/readByDispatchAt'] = nowIso;
+          }
+        });
+        if (Object.keys(receiptUpdates).length) {
+          db.ref('deliveries/' + nextId + '/chatMessages').update(receiptUpdates).catch(() => {});
+        }
+
+        renderDispatchChat(rows);
+      });
+    }
+
+    function sendDispatchChatMessage() {
+      if (!activeChatDeliveryId) return;
+      const input = document.getElementById('dispatchChatInput');
+      if (!input) return;
+
+      const text = input.value.trim();
+      if (!text) return;
+      const nowMs = Date.now();
+      const sinceLast = nowMs - dispatchChatLastSentAt;
+      if (sinceLast < DISPATCH_CHAT_MIN_INTERVAL_MS) return;
+      dispatchChatRecentSendMs = dispatchChatRecentSendMs.filter(ts => nowMs - ts < DISPATCH_CHAT_WINDOW_MS);
+      if (dispatchChatRecentSendMs.length >= DISPATCH_CHAT_MAX_MESSAGES_PER_WINDOW) return;
+
+      const payload = {
+        text: text.slice(0, 600),
+        senderType: 'dispatch',
+        senderLabel: 'Dispatch',
+        createdAt: new Date(nowMs).toISOString(),
+        createdAtMs: nowMs
+      };
+
+      db.ref('deliveries/' + activeChatDeliveryId + '/chatMessages').push(payload)
+        .then(() => {
+          dispatchChatLastSentAt = nowMs;
+          dispatchChatRecentSendMs.push(nowMs);
+          input.value = '';
+          input.focus();
+        })
+        .catch(err => {
+          console.error('Failed to send dispatch chat message:', err);
+          alert('Failed to send message.');
+        });
     }
 
     /* ---------- FORM HELPERS ---------- */
@@ -1608,6 +1893,7 @@ async function loadDriversForDispatch() {
       selectedDeliveryId = id;
       selectedPastLoadId = null;
       clearPastRouteOverlay();
+      setActiveChatDelivery(id);
       if (options.renderTable !== false) renderDeliveriesTable();
       renderPastDeliveriesTable();
 
@@ -1804,6 +2090,7 @@ async function loadDriversForDispatch() {
 
       selectedPastLoadId = id;
       selectedDeliveryId = null;
+      setActiveChatDelivery(id);
       if (infoWindow) infoWindow.close();
       renderDeliveriesTable();
       renderPastDeliveriesTable();
@@ -1846,10 +2133,15 @@ async function loadDriversForDispatch() {
     function listenForDeliveries() {
       db.ref('deliveries').on('value', snapshot => {
         deliveries = snapshot.val() || {};
-        if (selectedDeliveryId && !deliveries[selectedDeliveryId]) selectedDeliveryId = null;
+        if (selectedDeliveryId && !deliveries[selectedDeliveryId]) {
+          selectedDeliveryId = null;
+        }
         if (selectedPastLoadId && !deliveries[selectedPastLoadId]) {
           selectedPastLoadId = null;
           clearPastRouteOverlay();
+        }
+        if (activeChatDeliveryId && !deliveries[activeChatDeliveryId]) {
+          setActiveChatDelivery('');
         }
         updateStats();
         renderDeliveriesTable();
@@ -2226,6 +2518,20 @@ async function loadDriversForDispatch() {
       togglePastLoads(false);
       loadDriversForDispatch();
       waitForMapsThenInit();
+      setActiveChatDelivery('');
+
+      const chatSendBtn = document.getElementById('dispatchChatSendBtn');
+      const chatInput = document.getElementById('dispatchChatInput');
+      if (chatSendBtn) {
+        chatSendBtn.addEventListener('click', sendDispatchChatMessage);
+      }
+      if (chatInput) {
+        chatInput.addEventListener('keydown', e => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          sendDispatchChatMessage();
+        });
+      }
     });
 
     document.addEventListener('keydown', e => {
