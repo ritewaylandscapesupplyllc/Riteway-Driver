@@ -940,6 +940,119 @@
       opacity: 0.55;
       cursor: not-allowed;
     }
+
+    .chat-inbox-view,
+    .chat-detail-view {
+      display: block;
+    }
+
+    .chat-hidden {
+      display: none !important;
+    }
+
+    .chat-thread-list {
+      margin-top: 6px;
+      max-height: 320px;
+      overflow-y: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(6, 9, 13, 0.95);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .chat-thread-item {
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.01);
+      padding: 8px 9px;
+      cursor: pointer;
+    }
+
+    .chat-thread-item:hover {
+      border-color: rgba(18,195,160,0.45);
+      background: rgba(18,195,160,0.08);
+    }
+
+    .chat-thread-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 3px;
+    }
+
+    .chat-thread-name {
+      font-size: 0.79rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-thread-time {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .chat-thread-preview {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-thread-meta {
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .chat-thread-delivery {
+      font-size: 0.67rem;
+      color: var(--text-muted);
+    }
+
+    .chat-unread-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: #12C3A0;
+      box-shadow: 0 0 8px rgba(18,195,160,0.9);
+      flex: 0 0 auto;
+    }
+
+    .chat-back-btn {
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(5, 8, 11, 0.9);
+      color: var(--text);
+      width: 30px;
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      font-size: 0.95rem;
+      box-shadow: none;
+    }
+
+    .chat-detail-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 190px;
+    }
   </style>
 </head>
 <body>
@@ -1084,21 +1197,33 @@
       </div>
 
       <div class="card chat-card">
-        <div class="section-title-row">
-          <div class="section-title">Customer Chat</div>
-          <div class="chat-header-meta">
-            <select id="chatThreadSelect" class="filter-select"></select>
-            <div class="chat-status" id="chatStatusText">Select a customer chat</div>
+        <div id="chatInboxView" class="chat-inbox-view">
+          <div class="section-title-row">
+            <div class="section-title">Customer Chats</div>
+            <div class="chat-status">Tap a chat to open history</div>
+          </div>
+          <div id="chatThreadList" class="chat-thread-list">
+            <div class="chat-empty">No active chats yet.</div>
           </div>
         </div>
 
-        <div id="dispatchChatMessages" class="chat-messages">
-          <div class="chat-empty">Select a customer thread to view chat.</div>
-        </div>
+        <div id="chatDetailView" class="chat-detail-view chat-hidden">
+          <div class="section-title-row">
+            <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+              <button id="chatBackBtn" class="chat-back-btn" type="button" aria-label="Back to chats">←</button>
+              <div class="chat-detail-title" id="chatDetailTitle">Chat</div>
+            </div>
+            <div class="chat-status" id="chatStatusText">Live chat</div>
+          </div>
 
-        <div class="chat-compose">
-          <input id="dispatchChatInput" class="chat-input" type="text" maxlength="600" placeholder="Reply to customer..." disabled>
-          <button id="dispatchChatSendBtn" class="chat-send-btn" type="button" disabled>Send</button>
+          <div id="dispatchChatMessages" class="chat-messages">
+            <div class="chat-empty">No messages yet.</div>
+          </div>
+
+          <div class="chat-compose">
+            <input id="dispatchChatInput" class="chat-input" type="text" maxlength="600" placeholder="Reply to customer..." disabled>
+            <button id="dispatchChatSendBtn" class="chat-send-btn" type="button" disabled>Send</button>
+          </div>
         </div>
       </div>
 
@@ -1261,7 +1386,7 @@
     let pastRouteStartMarker = null;
     let pastRouteEndMarker = null;
     let activeChatDeliveryId = '';
-    let activeChatRef = null;
+    let chatViewMode = 'inbox';
     let dispatchChatLastSentAt = 0;
     let dispatchChatRecentSendMs = [];
     let chatCleanupInFlight = new Set();
@@ -1297,6 +1422,120 @@
         return new Date(parsed).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       }
       return '';
+    }
+
+    function getChatMessagesForDelivery(deliveryId) {
+      const d = deliveries[deliveryId] || {};
+      const val = d.chatMessages || {};
+      const rows = Object.entries(val).map(([key, msg]) => ({ key, ...(msg || {}) }));
+      rows.sort((a, b) => {
+        const aMs = Number(a && a.createdAtMs) || Date.parse(a && a.createdAt) || 0;
+        const bMs = Number(b && b.createdAtMs) || Date.parse(b && b.createdAt) || 0;
+        return aMs - bMs;
+      });
+      return rows;
+    }
+
+    function truncateText(text, maxLen) {
+      const value = String(text || '').trim();
+      if (value.length <= maxLen) return value;
+      return value.slice(0, maxLen - 1) + '…';
+    }
+
+    function setChatView(mode) {
+      chatViewMode = mode === 'detail' ? 'detail' : 'inbox';
+      const inbox = document.getElementById('chatInboxView');
+      const detail = document.getElementById('chatDetailView');
+      if (inbox) inbox.classList.toggle('chat-hidden', chatViewMode !== 'inbox');
+      if (detail) detail.classList.toggle('chat-hidden', chatViewMode !== 'detail');
+    }
+
+    function getDeliveryCustomerName(deliveryId) {
+      const d = deliveries[deliveryId] || {};
+      const details = d.details || {};
+      return String(details.customerName || '').trim() || 'Unknown Customer';
+    }
+
+    function getChatThreadDeliveryIds() {
+      return Object.keys(deliveries)
+        .filter(id => !isPastLoadStatus(deliveries[id] && deliveries[id].status))
+        .filter(id => getChatMessagesForDelivery(id).length > 0)
+        .sort((a, b) => {
+          const aName = getDeliveryCustomerName(a).toLowerCase();
+          const bName = getDeliveryCustomerName(b).toLowerCase();
+          if (aName !== bName) return aName.localeCompare(bName);
+          return a.localeCompare(b);
+        });
+    }
+
+    function hasUnreadCustomerMessage(deliveryId) {
+      return getChatMessagesForDelivery(deliveryId)
+        .some(msg => msg.senderType === 'customer' && !Number(msg.readByDispatchAtMs));
+    }
+
+    function renderChatThreadList() {
+      const listEl = document.getElementById('chatThreadList');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      const threadIds = getChatThreadDeliveryIds();
+      if (!threadIds.length) {
+        const empty = document.createElement('div');
+        empty.className = 'chat-empty';
+        empty.textContent = 'No active chats yet.';
+        listEl.appendChild(empty);
+        return;
+      }
+
+      threadIds.forEach(id => {
+        const messages = getChatMessagesForDelivery(id);
+        const latest = messages[messages.length - 1] || null;
+        const row = document.createElement('div');
+        row.className = 'chat-thread-item';
+        row.addEventListener('click', () => setActiveChatDelivery(id));
+
+        const top = document.createElement('div');
+        top.className = 'chat-thread-top';
+
+        const name = document.createElement('div');
+        name.className = 'chat-thread-name';
+        name.textContent = getDeliveryCustomerName(id);
+
+        const time = document.createElement('div');
+        time.className = 'chat-thread-time';
+        time.textContent = latest ? formatChatTime(latest.createdAtMs, latest.createdAt) : '';
+
+        top.appendChild(name);
+        top.appendChild(time);
+
+        const preview = document.createElement('div');
+        preview.className = 'chat-thread-preview';
+        if (!latest) {
+          preview.textContent = 'No messages yet.';
+        } else {
+          const prefix = latest.senderType === 'dispatch' ? 'You: ' : '';
+          preview.textContent = truncateText(prefix + String(latest.text || ''), 78);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'chat-thread-meta';
+        const delivery = document.createElement('div');
+        delivery.className = 'chat-thread-delivery';
+        delivery.textContent = id;
+        meta.appendChild(delivery);
+
+        if (hasUnreadCustomerMessage(id)) {
+          const dot = document.createElement('span');
+          dot.className = 'chat-unread-dot';
+          dot.title = 'New customer message';
+          meta.appendChild(dot);
+        }
+
+        row.appendChild(top);
+        row.appendChild(preview);
+        row.appendChild(meta);
+        listEl.appendChild(row);
+      });
     }
 
     function renderDispatchChat(messages) {
@@ -1347,62 +1586,22 @@
       if (sendBtn) sendBtn.disabled = !enabled;
     }
 
-    function getDeliveryCustomerName(deliveryId) {
-      const d = deliveries[deliveryId] || {};
-      const details = d.details || {};
-      return String(details.customerName || '').trim() || 'Unknown Customer';
-    }
+    function markDispatchReadForDelivery(deliveryId) {
+      if (!deliveryId) return;
+      const messages = getChatMessagesForDelivery(deliveryId);
+      if (!messages.length) return;
 
-    function getChatThreadDeliveryIds() {
-      return Object.keys(deliveries)
-        .filter(id => !isPastLoadStatus(deliveries[id] && deliveries[id].status))
-        .sort((a, b) => {
-          const aName = getDeliveryCustomerName(a).toLowerCase();
-          const bName = getDeliveryCustomerName(b).toLowerCase();
-          if (aName !== bName) return aName.localeCompare(bName);
-          return a.localeCompare(b);
-        });
-    }
-
-    function refreshChatThreadSelector() {
-      const select = document.getElementById('chatThreadSelect');
-      if (!select) return;
-
-      const ids = getChatThreadDeliveryIds();
-      const previous = activeChatDeliveryId || select.value || '';
-      select.innerHTML = '';
-
-      if (!ids.length) {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = 'No active chat threads';
-        select.appendChild(opt);
-        select.disabled = true;
-        setActiveChatDelivery('');
-        return;
-      }
-
-      ids.forEach(id => {
-        const opt = document.createElement('option');
-        opt.value = id;
-        opt.textContent = getDeliveryCustomerName(id) + ' · ' + id;
-        select.appendChild(opt);
+      const nowMs = Date.now();
+      const nowIso = new Date(nowMs).toISOString();
+      const receiptUpdates = {};
+      messages.forEach(msg => {
+        if (msg.senderType === 'customer' && !Number(msg.readByDispatchAtMs) && msg.key) {
+          receiptUpdates[msg.key + '/readByDispatchAtMs'] = nowMs;
+          receiptUpdates[msg.key + '/readByDispatchAt'] = nowIso;
+        }
       });
-
-      select.disabled = false;
-
-      const next = ids.includes(previous) ? previous : ids[0];
-      if (next !== activeChatDeliveryId) {
-        setActiveChatDelivery(next);
-      } else {
-        select.value = next;
-      }
-    }
-
-    function detachDispatchChatListener() {
-      if (activeChatRef) {
-        activeChatRef.off();
-        activeChatRef = null;
+      if (Object.keys(receiptUpdates).length) {
+        db.ref('deliveries/' + deliveryId + '/chatMessages').update(receiptUpdates).catch(() => {});
       }
     }
 
@@ -1410,55 +1609,33 @@
       const nextId = String(deliveryId || '');
       const status = document.getElementById('chatStatusText');
       const input = document.getElementById('dispatchChatInput');
-      const select = document.getElementById('chatThreadSelect');
-
-      detachDispatchChatListener();
+      const title = document.getElementById('chatDetailTitle');
       activeChatDeliveryId = nextId;
 
       if (!nextId) {
         if (status) status.textContent = 'Select a customer chat';
         if (input) input.value = '';
-        if (select) select.value = '';
+        if (title) title.textContent = 'Chat';
         dispatchChatRecentSendMs = [];
         dispatchChatLastSentAt = 0;
         setDispatchChatEnabled(false);
         renderDispatchChat([]);
+        setChatView('inbox');
         return;
       }
 
-      if (select) select.value = nextId;
+      const name = getDeliveryCustomerName(nextId);
+      if (title) title.textContent = name + ' · ' + nextId;
       if (status) status.textContent = 'Live chat connected';
       setDispatchChatEnabled(true);
-
-      activeChatRef = db.ref('deliveries/' + nextId + '/chatMessages').limitToLast(100);
-      activeChatRef.on('value', snapshot => {
-        const val = snapshot.val() || {};
-        const rows = Object.entries(val).map(([key, msg]) => ({ key, ...(msg || {}) }));
-        rows.sort((a, b) => {
-          const aMs = Number(a && a.createdAtMs) || Date.parse(a && a.createdAt) || 0;
-          const bMs = Number(b && b.createdAtMs) || Date.parse(b && b.createdAt) || 0;
-          return aMs - bMs;
-        });
-
-        const nowMs = Date.now();
-        const nowIso = new Date(nowMs).toISOString();
-        const receiptUpdates = {};
-        rows.forEach(msg => {
-          if (msg.senderType === 'customer' && !Number(msg.readByDispatchAtMs) && msg.key) {
-            receiptUpdates[msg.key + '/readByDispatchAtMs'] = nowMs;
-            receiptUpdates[msg.key + '/readByDispatchAt'] = nowIso;
-          }
-        });
-        if (Object.keys(receiptUpdates).length) {
-          db.ref('deliveries/' + nextId + '/chatMessages').update(receiptUpdates).catch(() => {});
-        }
-
-        renderDispatchChat(rows);
-      });
+      renderDispatchChat(getChatMessagesForDelivery(nextId));
+      markDispatchReadForDelivery(nextId);
+      setChatView('detail');
     }
 
     function sendDispatchChatMessage() {
       if (!activeChatDeliveryId) return;
+      if (!deliveries[activeChatDeliveryId]) return;
       const input = document.getElementById('dispatchChatInput');
       if (!input) return;
 
@@ -2211,7 +2388,17 @@ async function loadDriversForDispatch() {
         if (activeChatDeliveryId && !deliveries[activeChatDeliveryId]) {
           setActiveChatDelivery('');
         }
-        refreshChatThreadSelector();
+        if (activeChatDeliveryId && isPastLoadStatus(deliveries[activeChatDeliveryId] && deliveries[activeChatDeliveryId].status)) {
+          setActiveChatDelivery('');
+        }
+
+        renderChatThreadList();
+        if (activeChatDeliveryId) {
+          renderDispatchChat(getChatMessagesForDelivery(activeChatDeliveryId));
+          markDispatchReadForDelivery(activeChatDeliveryId);
+        } else {
+          setChatView('inbox');
+        }
         updateStats();
         renderDeliveriesTable();
         renderPastDeliveriesTable();
@@ -2588,11 +2775,12 @@ async function loadDriversForDispatch() {
       loadDriversForDispatch();
       waitForMapsThenInit();
       setActiveChatDelivery('');
-      refreshChatThreadSelector();
+      setChatView('inbox');
+      renderChatThreadList();
 
       const chatSendBtn = document.getElementById('dispatchChatSendBtn');
       const chatInput = document.getElementById('dispatchChatInput');
-      const chatThreadSelect = document.getElementById('chatThreadSelect');
+      const chatBackBtn = document.getElementById('chatBackBtn');
       if (chatSendBtn) {
         chatSendBtn.addEventListener('click', sendDispatchChatMessage);
       }
@@ -2603,9 +2791,9 @@ async function loadDriversForDispatch() {
           sendDispatchChatMessage();
         });
       }
-      if (chatThreadSelect) {
-        chatThreadSelect.addEventListener('change', e => {
-          setActiveChatDelivery(e.target.value || '');
+      if (chatBackBtn) {
+        chatBackBtn.addEventListener('click', () => {
+          setActiveChatDelivery('');
         });
       }
     });
