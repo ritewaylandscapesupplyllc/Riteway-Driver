@@ -177,12 +177,16 @@
     }
 
     .chat-card {
-      margin: 12px auto 0 auto;
-      max-width: 560px;
+      position: fixed;
+      right: 16px;
+      bottom: 74px;
+      width: min(360px, calc(100vw - 24px));
       background: rgba(5, 8, 11, 0.96);
       border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.08);
       padding: 10px;
+      z-index: 10020;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.52);
     }
 
     .chat-header {
@@ -197,9 +201,34 @@
       color: var(--text-muted);
     }
 
+    .chat-header-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .chat-status {
       font-size: 0.68rem;
       color: var(--text-muted);
+    }
+
+    .chat-close-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.04);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      line-height: 1;
+      padding: 0;
+      box-shadow: none;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    .chat-close-btn:hover {
+      background: rgba(255,255,255,0.12);
     }
 
     .chat-messages {
@@ -276,6 +305,31 @@
     .chat-compose button:disabled {
       opacity: 0.55;
       cursor: not-allowed;
+    }
+
+    .chat-fab {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 10030;
+      border-radius: 999px;
+      border: 1px solid rgba(18,195,160,0.38);
+      background: linear-gradient(135deg, rgba(18,195,160,0.22), rgba(18,225,181,0.18));
+      color: var(--text);
+      font-size: 0.76rem;
+      font-weight: 600;
+      padding: 10px 14px;
+      box-shadow: 0 12px 24px rgba(0,0,0,0.42);
+      letter-spacing: 0.04em;
+      text-transform: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .chat-fab-icon {
+      font-size: 0.92rem;
+      line-height: 1;
     }
 
     .eta-label {
@@ -484,6 +538,11 @@
       background:rgba(0,0,0,0.75);
     }
 
+    body.fullscreen-active .chat-card,
+    body.fullscreen-active .chat-fab {
+      display: none !important;
+    }
+
     @media (max-width:600px) {
       #map {
         height:380px;
@@ -494,6 +553,16 @@
       }
       .completed-title {
         font-size: 1.18rem;
+      }
+      .chat-card {
+        right: 10px;
+        left: 10px;
+        width: auto;
+        bottom: 66px;
+      }
+      .chat-fab {
+        right: 10px;
+        bottom: 10px;
       }
       .card {
         padding:20px 14px 14px;
@@ -530,7 +599,10 @@
       <div id="chatCard" class="chat-card" style="display:none;">
         <div class="chat-header">
           <span>Chat With Dispatch</span>
-          <span class="chat-status" id="chatStatusText">Connecting…</span>
+          <div class="chat-header-actions">
+            <span class="chat-status" id="chatStatusText">Connecting…</span>
+            <button id="chatCloseBtn" class="chat-close-btn" type="button" aria-label="Close chat">✕</button>
+          </div>
         </div>
         <div id="customerChatMessages" class="chat-messages">
           <div class="chat-empty">No messages yet.</div>
@@ -542,6 +614,11 @@
       </div>
 
     </div>
+
+    <button id="chatFab" class="chat-fab" type="button" style="display:none;" aria-label="Open messages">
+      <span class="chat-fab-icon">💬</span>
+      <span>Message</span>
+    </button>
 
     <div class="card map-card">
       <!-- MAP WRAPPER (hidden while loading) -->
@@ -623,6 +700,7 @@
     let customerChatLastSentAt = 0;
     let customerChatRecentSendMs = [];
     let lastChatCleanupDeliveryId = '';
+    let chatWidgetOpen = false;
     const trackerSessionId = 'tracker_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now();
 
     const AVG_SPEED_MPH = 35;
@@ -881,6 +959,23 @@
       if (chatStatus) chatStatus.textContent = text;
     }
 
+    function setChatLauncherVisible(visible) {
+      const fab = document.getElementById('chatFab');
+      if (fab) fab.style.display = visible ? 'inline-flex' : 'none';
+      if (!visible) setChatWidgetOpen(false);
+    }
+
+    function setChatWidgetOpen(open) {
+      chatWidgetOpen = !!open;
+      const card = document.getElementById('chatCard');
+      if (!card) return;
+      card.style.display = chatWidgetOpen ? 'block' : 'none';
+    }
+
+    function toggleChatWidget() {
+      setChatWidgetOpen(!chatWidgetOpen);
+    }
+
     function renderCustomerChat(messages) {
       const listEl = document.getElementById('customerChatMessages');
       if (!listEl) return;
@@ -983,6 +1078,8 @@
       customerChatRecentSendMs = [];
       customerChatLastSentAt = 0;
       setReviewPromptVisible(false);
+      setChatLauncherVisible(false);
+      setChatWidgetOpen(false);
 
       if (!currentDeliveryId) {
         if (chatCard) chatCard.style.display = 'none';
@@ -993,7 +1090,7 @@
         return;
       }
 
-      if (chatCard) chatCard.style.display = 'block';
+      setChatLauncherVisible(true);
       setCustomerChatStatus('Validating tracker code...');
       setCustomerChatEnabled(false);
 
@@ -1122,6 +1219,8 @@
           setCustomerChatStatus('Delivery complete');
           setCustomerChatEnabled(false);
           setReviewPromptVisible(true);
+          setChatLauncherVisible(false);
+          setChatWidgetOpen(false);
           stopTrackerPresence();
           if (currentDeliveryId && lastChatCleanupDeliveryId !== currentDeliveryId) {
             lastChatCleanupDeliveryId = currentDeliveryId;
@@ -1136,6 +1235,7 @@
           setCustomerChatStatus('Live');
           setCustomerChatEnabled(true);
           setReviewPromptVisible(false);
+          setChatLauncherVisible(true);
         }
         refreshEtaText();
         updateViewForStatus();
@@ -1148,6 +1248,7 @@
           trackerCodeValidated = true;
           setCustomerChatStatus('Live');
           setCustomerChatEnabled(true);
+          setChatLauncherVisible(true);
           startTrackerPresence(deliveryId);
           document.getElementById('customerName').innerText = details.customerName || 'N/A';
           document.getElementById('address').innerText = details.address || 'N/A';
@@ -1189,6 +1290,8 @@
           setCustomerChatStatus('Invalid tracker code');
           setCustomerChatEnabled(false);
           setReviewPromptVisible(false);
+          setChatLauncherVisible(false);
+          setChatWidgetOpen(false);
           stopTrackerPresence();
           document.getElementById('details').style.display = 'none';
         }
@@ -1389,6 +1492,15 @@
 
     // auto-start from ?deliveryId=
     window.addEventListener('load', () => {
+      const chatFab = document.getElementById('chatFab');
+      if (chatFab) {
+        chatFab.addEventListener('click', toggleChatWidget);
+      }
+      const chatCloseBtn = document.getElementById('chatCloseBtn');
+      if (chatCloseBtn) {
+        chatCloseBtn.addEventListener('click', () => setChatWidgetOpen(false));
+      }
+
       const reviewBtn = document.getElementById('reviewBtnMap');
       if (reviewBtn) {
         reviewBtn.addEventListener('click', () => {
