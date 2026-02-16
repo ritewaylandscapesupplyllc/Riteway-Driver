@@ -22,6 +22,10 @@
       --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.55);
       --radius-lg: 18px;
       --radius-pill: 999px;
+      --chat-fab-right: 16px;
+      --chat-fab-bottom: 16px;
+      --chat-fab-height: 42px;
+      --chat-gap: 10px;
     }
 
     * {
@@ -178,8 +182,8 @@
 
     .chat-card {
       position: fixed;
-      right: 16px;
-      bottom: 74px;
+      right: var(--chat-fab-right);
+      bottom: calc(var(--chat-fab-bottom) + var(--chat-fab-height) + var(--chat-gap));
       width: min(360px, calc(100vw - 24px));
       background: rgba(5, 8, 11, 0.96);
       border-radius: 12px;
@@ -190,11 +194,11 @@
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
-      transform: translateY(16px) scale(0.98);
+      transform: scale(0.96);
       transform-origin: bottom right;
       transition:
         opacity 0.2s ease,
-        transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
         visibility 0s linear 0.24s;
       will-change: transform, opacity;
     }
@@ -203,10 +207,10 @@
       opacity: 1;
       visibility: visible;
       pointer-events: auto;
-      transform: translateY(0) scale(1);
+      transform: scale(1);
       transition:
         opacity 0.2s ease,
-        transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
         visibility 0s linear 0s;
     }
 
@@ -330,8 +334,8 @@
 
     .chat-fab {
       position: fixed;
-      right: 16px;
-      bottom: 16px;
+      right: var(--chat-fab-right);
+      bottom: var(--chat-fab-bottom);
       z-index: 10030;
       border-radius: 999px;
       border: 1px solid rgba(18,195,160,0.38);
@@ -346,6 +350,7 @@
       display: inline-flex;
       align-items: center;
       gap: 7px;
+      min-height: var(--chat-fab-height);
     }
 
     .chat-fab-icon {
@@ -565,6 +570,11 @@
     }
 
     @media (max-width:600px) {
+      :root {
+        --chat-fab-right: 10px;
+        --chat-fab-bottom: 10px;
+        --chat-gap: 8px;
+      }
       #map {
         height:380px;
       }
@@ -576,14 +586,8 @@
         font-size: 1.18rem;
       }
       .chat-card {
-        right: 10px;
         left: 10px;
         width: auto;
-        bottom: 66px;
-      }
-      .chat-fab {
-        right: 10px;
-        bottom: 10px;
       }
       .card {
         padding:20px 14px 14px;
