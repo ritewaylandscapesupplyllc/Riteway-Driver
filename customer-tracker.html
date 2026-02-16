@@ -278,36 +278,6 @@
       cursor: not-allowed;
     }
 
-    .review-card {
-      margin: 12px auto 0 auto;
-      max-width: 560px;
-      background: rgba(5, 8, 11, 0.96);
-      border-radius: 12px;
-      border: 1px solid rgba(18,195,160,0.28);
-      padding: 12px;
-      text-align: center;
-    }
-
-    .review-title {
-      margin: 0 0 4px;
-      font-size: 0.9rem;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .review-subtitle {
-      margin: 0 0 10px;
-      color: var(--text-muted);
-      font-size: 0.8rem;
-    }
-
-    .review-btn {
-      padding: 8px 14px;
-      font-size: 0.78rem;
-      box-shadow: none;
-    }
-
     .eta-label {
       font-weight:bold;
       color:var(--accent);
@@ -337,6 +307,88 @@
       height:500px;
       width:100%;
       border-radius:12px;
+    }
+
+    .completed-wrapper {
+      margin-top: 4px;
+      border-radius: 14px;
+      border: 1px solid rgba(18,195,160,0.3);
+      background:
+        radial-gradient(circle at 18% 22%, rgba(18,195,160,0.18), transparent 44%),
+        radial-gradient(circle at 84% 16%, rgba(255,255,255,0.12), transparent 36%),
+        linear-gradient(145deg, #0b1418 0%, #06080b 55%, #050608 100%);
+      min-height: 500px;
+      padding: 24px 18px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.03) inset;
+    }
+
+    .completed-inner {
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 22px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(4, 7, 11, 0.72);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.45);
+    }
+
+    .completed-logo {
+      width: 180px;
+      max-width: 70%;
+      display: block;
+      margin: 0 auto 14px;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,0.7));
+    }
+
+    .completed-kicker {
+      margin: 0;
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .completed-title {
+      margin: 6px 0 6px;
+      font-size: 1.45rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .completed-subtitle {
+      margin: 0 0 14px;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .completed-pill {
+      display: inline-block;
+      margin-bottom: 14px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(18,195,160,0.38);
+      color: var(--text);
+      background: rgba(18,195,160,0.13);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .completed-review-btn {
+      padding: 10px 16px;
+      font-size: 0.78rem;
+      border-radius: var(--radius-pill);
+      background: linear-gradient(135deg, #12C3A0, #19e8bc);
+      box-shadow: 0 10px 24px rgba(18,195,160,0.45);
     }
 
     /* NEW: loading illustration wrapper */
@@ -436,6 +488,13 @@
       #map {
         height:380px;
       }
+      .completed-wrapper {
+        min-height: 380px;
+        padding: 16px 12px;
+      }
+      .completed-title {
+        font-size: 1.18rem;
+      }
       .card {
         padding:20px 14px 14px;
       }
@@ -482,11 +541,6 @@
         </div>
       </div>
 
-      <div id="reviewCard" class="review-card" style="display:none;">
-        <p class="review-title">Delivery Completed</p>
-        <p class="review-subtitle">How did we do? Leave us a quick Google review.</p>
-        <button id="reviewBtn" class="review-btn" type="button">Leave Google Review</button>
-      </div>
     </div>
 
     <div class="card map-card">
@@ -500,6 +554,19 @@
         <img src="riteway-loading.png" alt="Loading your delivery">
         <p><strong>We are loading your delivery</strong></p>
         <p>Once your truck leaves the pit, you’ll see it live on the map.</p>
+      </div>
+
+      <div class="completed-wrapper" id="completedWrapper">
+        <div class="completed-inner">
+          <img src="riteway-logo.png" alt="Riteway Logo" class="completed-logo">
+          <p class="completed-kicker">Riteway Delivery</p>
+          <h2 class="completed-title">Delivery Complete</h2>
+          <p class="completed-subtitle">Thank you for choosing Riteway. If we earned it, we would value a quick Google review.</p>
+          <div class="completed-pill" id="completedDeliveryIdLabel">Delivery</div>
+          <div>
+            <button id="reviewBtnMap" class="completed-review-btn" type="button">Leave Google Review</button>
+          </div>
+        </div>
       </div>
 
       <div style="text-align:right; margin-top:6px;">
@@ -595,22 +662,31 @@
     function updateViewForStatus() {
       const mapWrapper = document.getElementById('mapWrapper');
       const loadingWrapper = document.getElementById('loadingWrapper');
+      const completedWrapper = document.getElementById('completedWrapper');
       const fullscreenBtn = document.getElementById('fullscreenToggle');
 
-      if (!mapWrapper || !loadingWrapper) return;
+      if (!mapWrapper || !loadingWrapper || !completedWrapper) return;
 
       const isLoadingStatus = currentStatus === 'loading';
       const isEnRouteButNotVisible = currentStatus === 'en_route' && !latestLoc;
+      const isCompleted = isCompletedStatus(currentStatus);
 
       const showLoading = isLoadingStatus || isEnRouteButNotVisible;
 
-      if (showLoading) {
+      if (isCompleted) {
+        completedWrapper.style.display = 'flex';
+        loadingWrapper.style.display = 'none';
+        mapWrapper.style.display = 'none';
+        if (fullscreenBtn) fullscreenBtn.style.display = 'none';
+      } else if (showLoading) {
         // Show your loading art, hide map
+        completedWrapper.style.display = 'none';
         loadingWrapper.style.display = 'flex';
         mapWrapper.style.display = 'none';
         if (fullscreenBtn) fullscreenBtn.style.display = 'none';
       } else {
         // Show map, hide loading art
+        completedWrapper.style.display = 'none';
         loadingWrapper.style.display = 'none';
         mapWrapper.style.display = 'block';
 
@@ -690,9 +766,11 @@
     }
 
     function setReviewPromptVisible(visible) {
-      const card = document.getElementById('reviewCard');
-      if (!card) return;
-      card.style.display = visible ? 'block' : 'none';
+      const completedLabel = document.getElementById('completedDeliveryIdLabel');
+      if (completedLabel) {
+        completedLabel.textContent = currentDeliveryId ? ('Delivery ' + currentDeliveryId) : 'Delivery';
+      }
+      if (!visible) return;
     }
 
     // Lazily define the TruckOverlay class ONLY after google.maps is ready
@@ -1311,7 +1389,7 @@
 
     // auto-start from ?deliveryId=
     window.addEventListener('load', () => {
-      const reviewBtn = document.getElementById('reviewBtn');
+      const reviewBtn = document.getElementById('reviewBtnMap');
       if (reviewBtn) {
         reviewBtn.addEventListener('click', () => {
           window.open(GOOGLE_REVIEW_URL, '_blank', 'noopener,noreferrer');
