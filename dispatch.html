@@ -1087,13 +1087,13 @@
         <div class="section-title-row">
           <div class="section-title">Customer Chat</div>
           <div class="chat-header-meta">
-            <div class="pill" id="chatDeliveryPill">No delivery selected</div>
-            <div class="chat-status" id="chatStatusText">Select a load to open chat</div>
+            <select id="chatThreadSelect" class="filter-select"></select>
+            <div class="chat-status" id="chatStatusText">Select a customer chat</div>
           </div>
         </div>
 
         <div id="dispatchChatMessages" class="chat-messages">
-          <div class="chat-empty">Select an active or past load to view customer chat.</div>
+          <div class="chat-empty">Select a customer thread to view chat.</div>
         </div>
 
         <div class="chat-compose">
@@ -1264,6 +1264,7 @@
     let activeChatRef = null;
     let dispatchChatLastSentAt = 0;
     let dispatchChatRecentSendMs = [];
+    let chatCleanupInFlight = new Set();
 
     /* ---------- SIDE MENU ---------- */
 
@@ -1346,6 +1347,58 @@
       if (sendBtn) sendBtn.disabled = !enabled;
     }
 
+    function getDeliveryCustomerName(deliveryId) {
+      const d = deliveries[deliveryId] || {};
+      const details = d.details || {};
+      return String(details.customerName || '').trim() || 'Unknown Customer';
+    }
+
+    function getChatThreadDeliveryIds() {
+      return Object.keys(deliveries)
+        .filter(id => !isPastLoadStatus(deliveries[id] && deliveries[id].status))
+        .sort((a, b) => {
+          const aName = getDeliveryCustomerName(a).toLowerCase();
+          const bName = getDeliveryCustomerName(b).toLowerCase();
+          if (aName !== bName) return aName.localeCompare(bName);
+          return a.localeCompare(b);
+        });
+    }
+
+    function refreshChatThreadSelector() {
+      const select = document.getElementById('chatThreadSelect');
+      if (!select) return;
+
+      const ids = getChatThreadDeliveryIds();
+      const previous = activeChatDeliveryId || select.value || '';
+      select.innerHTML = '';
+
+      if (!ids.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No active chat threads';
+        select.appendChild(opt);
+        select.disabled = true;
+        setActiveChatDelivery('');
+        return;
+      }
+
+      ids.forEach(id => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = getDeliveryCustomerName(id) + ' · ' + id;
+        select.appendChild(opt);
+      });
+
+      select.disabled = false;
+
+      const next = ids.includes(previous) ? previous : ids[0];
+      if (next !== activeChatDeliveryId) {
+        setActiveChatDelivery(next);
+      } else {
+        select.value = next;
+      }
+    }
+
     function detachDispatchChatListener() {
       if (activeChatRef) {
         activeChatRef.off();
@@ -1355,17 +1408,17 @@
 
     function setActiveChatDelivery(deliveryId) {
       const nextId = String(deliveryId || '');
-      const pill = document.getElementById('chatDeliveryPill');
       const status = document.getElementById('chatStatusText');
       const input = document.getElementById('dispatchChatInput');
+      const select = document.getElementById('chatThreadSelect');
 
       detachDispatchChatListener();
       activeChatDeliveryId = nextId;
 
       if (!nextId) {
-        if (pill) pill.textContent = 'No delivery selected';
-        if (status) status.textContent = 'Select a load to open chat';
+        if (status) status.textContent = 'Select a customer chat';
         if (input) input.value = '';
+        if (select) select.value = '';
         dispatchChatRecentSendMs = [];
         dispatchChatLastSentAt = 0;
         setDispatchChatEnabled(false);
@@ -1373,7 +1426,7 @@
         return;
       }
 
-      if (pill) pill.textContent = nextId;
+      if (select) select.value = nextId;
       if (status) status.textContent = 'Live chat connected';
       setDispatchChatEnabled(true);
 
@@ -1893,7 +1946,6 @@ async function loadDriversForDispatch() {
       selectedDeliveryId = id;
       selectedPastLoadId = null;
       clearPastRouteOverlay();
-      setActiveChatDelivery(id);
       if (options.renderTable !== false) renderDeliveriesTable();
       renderPastDeliveriesTable();
 
@@ -2090,7 +2142,6 @@ async function loadDriversForDispatch() {
 
       selectedPastLoadId = id;
       selectedDeliveryId = null;
-      setActiveChatDelivery(id);
       if (infoWindow) infoWindow.close();
       renderDeliveriesTable();
       renderPastDeliveriesTable();
@@ -2133,6 +2184,23 @@ async function loadDriversForDispatch() {
     function listenForDeliveries() {
       db.ref('deliveries').on('value', snapshot => {
         deliveries = snapshot.val() || {};
+
+        Object.entries(deliveries).forEach(([id, d]) => {
+          if (!isCompletedStatus(d && d.status)) return;
+          const hasChat = !!(d && d.chatMessages);
+          const hasTrackers = !!(d && d.activeTrackers);
+          if ((!hasChat && !hasTrackers) || chatCleanupInFlight.has(id)) return;
+          chatCleanupInFlight.add(id);
+          db.ref('deliveries/' + id).update({
+            chatMessages: null,
+            activeTrackers: null
+          }).catch(err => {
+            console.error('Failed to clear completed load chat for', id, err);
+          }).finally(() => {
+            chatCleanupInFlight.delete(id);
+          });
+        });
+
         if (selectedDeliveryId && !deliveries[selectedDeliveryId]) {
           selectedDeliveryId = null;
         }
@@ -2143,6 +2211,7 @@ async function loadDriversForDispatch() {
         if (activeChatDeliveryId && !deliveries[activeChatDeliveryId]) {
           setActiveChatDelivery('');
         }
+        refreshChatThreadSelector();
         updateStats();
         renderDeliveriesTable();
         renderPastDeliveriesTable();
@@ -2519,9 +2588,11 @@ async function loadDriversForDispatch() {
       loadDriversForDispatch();
       waitForMapsThenInit();
       setActiveChatDelivery('');
+      refreshChatThreadSelector();
 
       const chatSendBtn = document.getElementById('dispatchChatSendBtn');
       const chatInput = document.getElementById('dispatchChatInput');
+      const chatThreadSelect = document.getElementById('chatThreadSelect');
       if (chatSendBtn) {
         chatSendBtn.addEventListener('click', sendDispatchChatMessage);
       }
@@ -2530,6 +2601,11 @@ async function loadDriversForDispatch() {
           if (e.key !== 'Enter') return;
           e.preventDefault();
           sendDispatchChatMessage();
+        });
+      }
+      if (chatThreadSelect) {
+        chatThreadSelect.addEventListener('change', e => {
+          setActiveChatDelivery(e.target.value || '');
         });
       }
     });
