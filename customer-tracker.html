@@ -187,6 +187,27 @@
       padding: 10px;
       z-index: 10020;
       box-shadow: 0 20px 40px rgba(0,0,0,0.52);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(16px) scale(0.98);
+      transform-origin: bottom right;
+      transition:
+        opacity 0.2s ease,
+        transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0s linear 0.24s;
+      will-change: transform, opacity;
+    }
+
+    .chat-card.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateY(0) scale(1);
+      transition:
+        opacity 0.2s ease,
+        transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0s linear 0s;
     }
 
     .chat-header {
@@ -596,7 +617,7 @@
         <p><span class="eta-label">ETA:</span> <span id="eta" class="eta-value">Waiting for driver…</span></p>
       </div>
 
-      <div id="chatCard" class="chat-card" style="display:none;">
+      <div id="chatCard" class="chat-card">
         <div class="chat-header">
           <span>Chat With Dispatch</span>
           <div class="chat-header-actions">
@@ -969,7 +990,7 @@
       chatWidgetOpen = !!open;
       const card = document.getElementById('chatCard');
       if (!card) return;
-      card.style.display = chatWidgetOpen ? 'block' : 'none';
+      card.classList.toggle('open', chatWidgetOpen);
     }
 
     function toggleChatWidget() {
@@ -1069,7 +1090,6 @@
 
     function startCustomerChat(deliveryId) {
       currentDeliveryId = deliveryId || '';
-      const chatCard = document.getElementById('chatCard');
       const chatInput = document.getElementById('customerChatInput');
 
       stopCustomerChatListener();
@@ -1082,7 +1102,6 @@
       setChatWidgetOpen(false);
 
       if (!currentDeliveryId) {
-        if (chatCard) chatCard.style.display = 'none';
         if (chatInput) chatInput.value = '';
         setCustomerChatStatus('Enter a tracker code');
         setCustomerChatEnabled(false);
