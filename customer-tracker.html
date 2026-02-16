@@ -176,6 +176,108 @@
       color:var(--accent);
     }
 
+    .chat-card {
+      margin: 12px auto 0 auto;
+      max-width: 560px;
+      background: rgba(5, 8, 11, 0.96);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 10px;
+    }
+
+    .chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .chat-status {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    .chat-messages {
+      max-height: 220px;
+      overflow-y: auto;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(2, 4, 7, 0.9);
+      border-radius: 10px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .chat-empty {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      padding: 10px 6px;
+    }
+
+    .chat-message {
+      max-width: 86%;
+      border-radius: 10px;
+      padding: 7px 8px;
+      font-size: 0.82rem;
+      line-height: 1.3;
+      border: 1px solid transparent;
+    }
+
+    .chat-message.customer {
+      align-self: flex-end;
+      background: rgba(18,195,160,0.16);
+      border-color: rgba(18,195,160,0.4);
+    }
+
+    .chat-message.dispatch {
+      align-self: flex-start;
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.12);
+    }
+
+    .chat-meta {
+      margin-top: 3px;
+      font-size: 0.66rem;
+      color: var(--text-muted);
+    }
+
+    .chat-compose {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .chat-compose input {
+      min-width: 0;
+      max-width: none;
+      background: rgba(10,13,18,0.9);
+      border: 1px solid var(--border-subtle);
+      color: var(--text);
+      border-radius: var(--radius-pill);
+      padding: 8px 12px;
+      font-size: 0.84rem;
+    }
+
+    .chat-compose button {
+      padding: 8px 12px;
+      font-size: 0.75rem;
+      box-shadow: none;
+    }
+
+    .chat-compose input:disabled,
+    .chat-compose button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
     .eta-label {
       font-weight:bold;
       color:var(--accent);
@@ -335,6 +437,20 @@
         <p><strong>Items:</strong> <span id="items"></span></p>
         <p><span class="eta-label">ETA:</span> <span id="eta" class="eta-value">Waiting for driver…</span></p>
       </div>
+
+      <div id="chatCard" class="chat-card" style="display:none;">
+        <div class="chat-header">
+          <span>Chat With Dispatch</span>
+          <span class="chat-status" id="chatStatusText">Connecting…</span>
+        </div>
+        <div id="customerChatMessages" class="chat-messages">
+          <div class="chat-empty">No messages yet.</div>
+        </div>
+        <div class="chat-compose">
+          <input id="customerChatInput" type="text" placeholder="Message dispatch..." maxlength="600" disabled>
+          <button id="customerChatSendBtn" type="button" onclick="sendCustomerMessage()" disabled>Send</button>
+        </div>
+      </div>
     </div>
 
     <div class="card map-card">
@@ -375,6 +491,10 @@
 
     const TRUCK_ICON_URL = 'riteway-truck-marker.png';
     const ROTATION_OFFSET = 90; // cab points in direction of travel
+    const CHAT_MIN_INTERVAL_MS = 4000;
+    const CHAT_WINDOW_MS = 60000;
+    const CHAT_MAX_MESSAGES_PER_WINDOW = 6;
+    const TRACKER_HEARTBEAT_MS = 20000;
 
     let map, truckMarker, truckGlow, destMarker, geocoder;
     let destLatLng = null;
@@ -390,6 +510,15 @@
     // status & latest location tracking
     let currentStatus = null; // 'pending', 'loading', 'en_route', 'complete'
     let latestLoc = null;     // last location object from Firebase (customerLocation)
+    let currentDeliveryId = '';
+    let activeCustomerChatRef = null;
+    let trackerCodeValidated = false;
+    let trackerPresenceRef = null;
+    let trackerHeartbeatTimer = null;
+    let trackerPresenceActive = false;
+    let customerChatLastSentAt = 0;
+    let customerChatRecentSendMs = [];
+    const trackerSessionId = 'tracker_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now();
 
     const AVG_SPEED_MPH = 35;
     const AVG_SPEED_MPS = AVG_SPEED_MPH * 1609.34 / 3600;
@@ -608,7 +737,218 @@
       startTracking(deliveryId);
     }
 
+    function formatChatTime(createdAtMs, createdAtIso) {
+      const ts = Number(createdAtMs);
+      if (Number.isFinite(ts) && ts > 0) {
+        return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      }
+      const parsed = Date.parse(createdAtIso || '');
+      if (!Number.isNaN(parsed)) {
+        return new Date(parsed).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      }
+      return '';
+    }
+
+    function setCustomerChatStatus(text) {
+      const chatStatus = document.getElementById('chatStatusText');
+      if (chatStatus) chatStatus.textContent = text;
+    }
+
+    function renderCustomerChat(messages) {
+      const listEl = document.getElementById('customerChatMessages');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      if (!messages.length) {
+        const empty = document.createElement('div');
+        empty.className = 'chat-empty';
+        empty.textContent = 'No messages yet. You can message dispatch now.';
+        listEl.appendChild(empty);
+        return;
+      }
+
+      messages.forEach(msg => {
+        const bubble = document.createElement('div');
+        const senderType = msg.senderType === 'dispatch' ? 'dispatch' : 'customer';
+        bubble.className = 'chat-message ' + senderType;
+        bubble.textContent = String(msg.text || '');
+
+        const meta = document.createElement('div');
+        meta.className = 'chat-meta';
+        const label = senderType === 'dispatch' ? 'Dispatch' : 'You';
+        const time = formatChatTime(msg.createdAtMs, msg.createdAt);
+        meta.textContent = label + (time ? ' · ' + time : '');
+
+        bubble.appendChild(meta);
+        listEl.appendChild(bubble);
+      });
+
+      listEl.scrollTop = listEl.scrollHeight;
+    }
+
+    function setCustomerChatEnabled(enabled) {
+      const input = document.getElementById('customerChatInput');
+      const btn = document.getElementById('customerChatSendBtn');
+      if (input) input.disabled = !enabled;
+      if (btn) btn.disabled = !enabled;
+    }
+
+    function stopTrackerPresence() {
+      if (trackerHeartbeatTimer) {
+        clearInterval(trackerHeartbeatTimer);
+        trackerHeartbeatTimer = null;
+      }
+      trackerPresenceActive = false;
+      if (trackerPresenceRef) {
+        trackerPresenceRef.remove().catch(() => {});
+        trackerPresenceRef = null;
+      }
+    }
+
+    function startTrackerPresence(deliveryId) {
+      stopTrackerPresence();
+      if (!deliveryId) return;
+
+      const ref = database.ref('deliveries/' + deliveryId + '/activeTrackers/' + trackerSessionId);
+      trackerPresenceRef = ref;
+      const nowIso = new Date().toISOString();
+
+      const writePresence = () => ref.update({
+        sessionId: trackerSessionId,
+        source: 'customer-tracker',
+        lastSeenAt: new Date().toISOString(),
+        userAgent: navigator.userAgent || ''
+      });
+
+      ref.set({
+        sessionId: trackerSessionId,
+        source: 'customer-tracker',
+        startedAt: nowIso,
+        lastSeenAt: nowIso,
+        userAgent: navigator.userAgent || ''
+      }).then(() => {
+        trackerPresenceActive = true;
+        trackerHeartbeatTimer = setInterval(() => {
+          writePresence().catch(() => {});
+        }, TRACKER_HEARTBEAT_MS);
+        ref.onDisconnect().remove().catch(() => {});
+      }).catch(err => {
+        console.error('Unable to start tracker presence:', err);
+        trackerPresenceActive = false;
+      });
+    }
+
+    function stopCustomerChatListener() {
+      if (activeCustomerChatRef) {
+        activeCustomerChatRef.off();
+        activeCustomerChatRef = null;
+      }
+    }
+
+    function startCustomerChat(deliveryId) {
+      currentDeliveryId = deliveryId || '';
+      const chatCard = document.getElementById('chatCard');
+      const chatInput = document.getElementById('customerChatInput');
+
+      stopCustomerChatListener();
+      stopTrackerPresence();
+      trackerCodeValidated = false;
+      customerChatRecentSendMs = [];
+      customerChatLastSentAt = 0;
+
+      if (!currentDeliveryId) {
+        if (chatCard) chatCard.style.display = 'none';
+        if (chatInput) chatInput.value = '';
+        setCustomerChatStatus('Enter a tracker code');
+        setCustomerChatEnabled(false);
+        return;
+      }
+
+      if (chatCard) chatCard.style.display = 'block';
+      setCustomerChatStatus('Validating tracker code...');
+      setCustomerChatEnabled(false);
+
+      activeCustomerChatRef = database
+        .ref('deliveries/' + currentDeliveryId + '/chatMessages')
+        .limitToLast(100);
+
+      activeCustomerChatRef.on('value', snapshot => {
+        const val = snapshot.val() || {};
+        const rows = Object.entries(val).map(([key, msg]) => ({ key, ...(msg || {}) }));
+        rows.sort((a, b) => {
+          const aMs = Number(a && a.createdAtMs) || Date.parse(a && a.createdAt) || 0;
+          const bMs = Number(b && b.createdAtMs) || Date.parse(b && b.createdAt) || 0;
+          return aMs - bMs;
+        });
+
+        if (trackerCodeValidated) {
+          const nowMs = Date.now();
+          const nowIso = new Date(nowMs).toISOString();
+          const receiptUpdates = {};
+          rows.forEach(msg => {
+            if (msg.senderType === 'dispatch' && !Number(msg.readByCustomerAtMs) && msg.key) {
+              receiptUpdates[msg.key + '/readByCustomerAtMs'] = nowMs;
+              receiptUpdates[msg.key + '/readByCustomerAt'] = nowIso;
+            }
+          });
+          if (Object.keys(receiptUpdates).length) {
+            database.ref('deliveries/' + currentDeliveryId + '/chatMessages').update(receiptUpdates).catch(() => {});
+          }
+        }
+
+        renderCustomerChat(rows);
+      });
+    }
+
+    function sendCustomerMessage() {
+      if (!currentDeliveryId) return;
+      if (!trackerCodeValidated || !trackerPresenceActive) {
+        alert('Open tracking with a valid tracker code before messaging dispatch.');
+        return;
+      }
+      const input = document.getElementById('customerChatInput');
+      if (!input) return;
+
+      const text = input.value.trim();
+      if (!text) return;
+      const nowMs = Date.now();
+      const sinceLast = nowMs - customerChatLastSentAt;
+      if (sinceLast < CHAT_MIN_INTERVAL_MS) {
+        const waitSec = Math.ceil((CHAT_MIN_INTERVAL_MS - sinceLast) / 1000);
+        alert('Please wait ' + waitSec + 's before sending another message.');
+        return;
+      }
+
+      customerChatRecentSendMs = customerChatRecentSendMs.filter(ts => nowMs - ts < CHAT_WINDOW_MS);
+      if (customerChatRecentSendMs.length >= CHAT_MAX_MESSAGES_PER_WINDOW) {
+        alert('Message limit reached. Try again in about a minute.');
+        return;
+      }
+
+      const payload = {
+        text: text.slice(0, 600),
+        senderType: 'customer',
+        senderLabel: 'Customer',
+        createdAt: new Date(nowMs).toISOString(),
+        createdAtMs: nowMs
+      };
+
+      database.ref('deliveries/' + currentDeliveryId + '/chatMessages').push(payload)
+        .then(() => {
+          customerChatLastSentAt = nowMs;
+          customerChatRecentSendMs.push(nowMs);
+          input.value = '';
+          input.focus();
+        })
+        .catch(err => {
+          console.error('Failed to send customer message:', err);
+          alert('Message failed to send. Please try again.');
+        });
+    }
+
     function startTracking(deliveryId) {
+      startCustomerChat(deliveryId);
+
       if (!map) {
         map = new google.maps.Map(document.getElementById('map'), {
           center: { lat: 40.612, lng: -112.464 },
@@ -657,6 +997,10 @@
       deliveryRef.child('details').once('value', snapshot => {
         const details = snapshot.val();
         if (details) {
+          trackerCodeValidated = true;
+          setCustomerChatStatus('Live');
+          setCustomerChatEnabled(true);
+          startTrackerPresence(deliveryId);
           document.getElementById('customerName').innerText = details.customerName || 'N/A';
           document.getElementById('address').innerText = details.address || 'N/A';
           document.getElementById('items').innerText = details.items || 'N/A';
@@ -692,6 +1036,12 @@
               }
             });
           }
+        } else {
+          trackerCodeValidated = false;
+          setCustomerChatStatus('Invalid tracker code');
+          setCustomerChatEnabled(false);
+          stopTrackerPresence();
+          document.getElementById('details').style.display = 'none';
         }
       });
 
@@ -890,6 +1240,15 @@
 
     // auto-start from ?deliveryId=
     window.addEventListener('load', () => {
+      const chatInput = document.getElementById('customerChatInput');
+      if (chatInput) {
+        chatInput.addEventListener('keydown', e => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          sendCustomerMessage();
+        });
+      }
+
       const id = getDeliveryIdFromURL();
       if (!id) return;
 
@@ -897,6 +1256,11 @@
       if (input) input.value = id;
 
       loadTracking();
+    });
+
+    window.addEventListener('beforeunload', () => {
+      stopTrackerPresence();
+      stopCustomerChatListener();
     });
   </script>
 
