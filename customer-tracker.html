@@ -518,6 +518,7 @@
     let trackerPresenceActive = false;
     let customerChatLastSentAt = 0;
     let customerChatRecentSendMs = [];
+    let lastChatCleanupDeliveryId = '';
     const trackerSessionId = 'tracker_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now();
 
     const AVG_SPEED_MPH = 35;
@@ -632,6 +633,11 @@
       }
 
       return 'Driver is en route';
+    }
+
+    function isCompletedStatus(status) {
+      const s = String(status || '').trim().toLowerCase();
+      return s === 'complete' || s === 'completed' || s === 'delivered' || s === 'done' || s === 'finished';
     }
 
     function refreshEtaText(tsIso) {
@@ -989,6 +995,23 @@
       // STATUS LISTENER
       deliveryRef.child('status').on('value', snapshot => {
         currentStatus = snapshot.val();
+        if (isCompletedStatus(currentStatus)) {
+          setCustomerChatStatus('Delivery complete');
+          setCustomerChatEnabled(false);
+          stopTrackerPresence();
+          if (currentDeliveryId && lastChatCleanupDeliveryId !== currentDeliveryId) {
+            lastChatCleanupDeliveryId = currentDeliveryId;
+            database.ref('deliveries/' + currentDeliveryId).update({
+              chatMessages: null,
+              activeTrackers: null
+            }).catch(err => {
+              console.error('Failed clearing completed delivery chat:', err);
+            });
+          }
+        } else if (trackerCodeValidated) {
+          setCustomerChatStatus('Live');
+          setCustomerChatEnabled(true);
+        }
         refreshEtaText();
         updateViewForStatus();
       });
