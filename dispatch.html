@@ -403,6 +403,285 @@
       color: var(--text-muted);
     }
 
+    .dispatch-board {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 6px;
+    }
+
+    .dispatch-panel {
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(6, 9, 13, 0.72);
+      padding: 12px;
+    }
+
+    .dispatch-panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .dispatch-panel-title {
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text);
+    }
+
+    .dispatch-panel-subtitle {
+      margin-top: 3px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .dispatch-empty-state {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px dashed rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.02);
+      color: var(--text-muted);
+      text-align: center;
+      padding: 16px 12px;
+      font-size: 0.78rem;
+    }
+
+    .live-loads-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 10px;
+    }
+
+    .live-load-card,
+    .schedule-load-card {
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.07);
+      background: linear-gradient(160deg, rgba(255,255,255,0.04), rgba(4,7,11,0.92));
+      padding: 12px;
+      cursor: pointer;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .live-load-card:hover,
+    .schedule-load-card:hover {
+      transform: translateY(-1px);
+      border-color: rgba(18,195,160,0.34);
+      background: linear-gradient(160deg, rgba(18,195,160,0.08), rgba(4,7,11,0.95));
+    }
+
+    .dispatch-card-selected {
+      border-color: rgba(18,195,160,0.55) !important;
+      background: linear-gradient(160deg, rgba(18,195,160,0.12), rgba(4,7,11,0.96)) !important;
+      box-shadow: inset 0 0 0 1px rgba(18,195,160,0.22);
+    }
+
+    .live-load-top,
+    .schedule-load-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .live-load-id {
+      font-family: "JetBrains Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.73rem;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+    }
+
+    .dispatch-card-name {
+      margin-top: 4px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .dispatch-card-address {
+      margin-top: 7px;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .live-load-eta {
+      margin-top: 10px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.01em;
+    }
+
+    .live-load-eta-caption {
+      margin-top: 3px;
+      font-size: 0.64rem;
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+      color: var(--text-muted);
+    }
+
+    .dispatch-meta-grid {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .dispatch-meta-item {
+      min-width: 0;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.03);
+      padding: 8px 9px;
+    }
+
+    .dispatch-meta-label {
+      display: block;
+      margin-bottom: 3px;
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+    }
+
+    .dispatch-meta-value {
+      display: block;
+      font-size: 0.74rem;
+      color: var(--text);
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .dispatch-driver-row {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .dispatch-card-actions {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .dispatch-mini-btn {
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(5,8,11,0.92);
+      color: var(--text);
+      font-size: 0.68rem;
+      padding: 6px 10px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      box-shadow: none;
+    }
+
+    .dispatch-mini-btn-primary {
+      border-color: rgba(18,195,160,0.42);
+      background: rgba(18,195,160,0.14);
+      color: var(--accent);
+    }
+
+    .dispatch-mini-btn-danger {
+      border-color: rgba(255,121,121,0.4);
+      color: var(--danger);
+    }
+
+    .schedule-board {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scroll-snap-type: x proximity;
+    }
+
+    .schedule-board::-webkit-scrollbar {
+      height: 8px;
+    }
+
+    .schedule-board::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.12);
+      border-radius: 999px;
+    }
+
+    .schedule-day-column {
+      flex: 0 0 240px;
+      min-width: 240px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(4,7,11,0.92));
+      padding: 12px;
+      scroll-snap-align: start;
+    }
+
+    .schedule-day-column.is-today {
+      border-color: rgba(18,195,160,0.42);
+      box-shadow: inset 0 0 0 1px rgba(18,195,160,0.18);
+    }
+
+    .schedule-day-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .schedule-day-title {
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .schedule-day-subtitle {
+      margin-top: 3px;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .schedule-day-count {
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(5,8,11,0.88);
+      color: var(--text-muted);
+      font-size: 0.68rem;
+      white-space: nowrap;
+    }
+
+    .schedule-day-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .schedule-load-time {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      border: 1px solid rgba(18,195,160,0.28);
+      background: rgba(18,195,160,0.12);
+      color: var(--accent);
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 4px 8px;
+    }
+
+    .schedule-load-items {
+      margin-top: 8px;
+      font-size: 0.74rem;
+      color: var(--text);
+      line-height: 1.45;
+    }
+
     /* STATS */
 
     .stats-row {
@@ -1409,6 +1688,22 @@
         font-size: 0.88rem;
       }
 
+      .dispatch-panel-head {
+        flex-direction: column;
+      }
+
+      .live-loads-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .dispatch-meta-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .schedule-day-column {
+        min-width: min(82vw, 250px);
+      }
+
       .time-picker-sheet {
         width: calc(100vw - 10px);
         padding-left: 10px;
@@ -1553,25 +1848,36 @@
       <!-- Active Deliveries Card -->
       <div class="card">
         <div class="section-title-row">
-          <div class="section-title">Active Deliveries</div>
-          <div class="pill">Tap row to focus map</div>
+          <div class="section-title">Dispatch Board</div>
+          <div class="pill">Calendar queue + live tracking</div>
         </div>
 
-        <div class="deliveries-table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Customer / Address</th>
-                <th>Items</th>
-                <th>Status</th>
-                <th>Driver</th>
-                <th>ETA</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="deliveriesBody"></tbody>
-          </table>
+        <div class="dispatch-board">
+          <div class="dispatch-panel">
+            <div class="dispatch-panel-head">
+              <div>
+                <div class="dispatch-panel-title">Live Loads</div>
+                <div class="dispatch-panel-subtitle">Tap any card to jump straight to the truck on the dispatcher map.</div>
+              </div>
+              <div class="pill" id="liveLoadsCount">0 Live</div>
+            </div>
+            <div id="liveTrackingList" class="live-loads-grid">
+              <div class="dispatch-empty-state">No live loads right now.</div>
+            </div>
+          </div>
+
+          <div class="dispatch-panel">
+            <div class="dispatch-panel-head">
+              <div>
+                <div class="dispatch-panel-title">Load Calendar</div>
+                <div class="dispatch-panel-subtitle">Loads that have not started yet, grouped by scheduled date.</div>
+              </div>
+              <div class="pill" id="pendingLoadsCount">0 Scheduled</div>
+            </div>
+            <div id="pendingScheduleBoard" class="schedule-board">
+              <div class="dispatch-empty-state">No scheduled loads right now.</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1853,6 +2159,7 @@
     let dispatchChatLastSentAt = 0;
     let dispatchChatRecentSendMs = [];
     let chatCleanupInFlight = new Set();
+    let destinationGeocodeInFlight = new Set();
     let timePickerBuilt = false;
     let timePickerState = { hour: 12, minute: 0, period: 'PM' };
 
@@ -2148,6 +2455,10 @@
       if (!details) return '';
       return String(details.scheduledLabel || '').trim() ||
         formatScheduledLabel(details.loadDate, details.estimatedTime);
+    }
+
+    function formatScheduleTimeLabel(timeValue) {
+      return String(timeValue || '').trim() ? formatTimeValue(timeValue) : 'No time set';
     }
 
     function getChatMessagesForDelivery(deliveryId) {
@@ -2758,6 +3069,402 @@ async function loadDriversForDispatch() {
       return haystack.includes(searchFilter);
     }
 
+    function isLiveTrackedLoad(delivery) {
+      const statusNorm = normalizeStatus(delivery && delivery.status);
+      const loc = delivery && delivery.location;
+      const hasLocation = !!(loc && typeof loc.lat === 'number' && typeof loc.lng === 'number');
+      return hasLocation || statusNorm === 'loading' || statusNorm === 'en_route';
+    }
+
+    function passesActiveDeliveryFilters(id, delivery) {
+      const d = delivery || {};
+      const details = d.details || {};
+      const statusNorm = normalizeStatus(d.status || '');
+      const assignedEmail = (details.assignedDriverEmail || '').trim();
+
+      if (isPastLoadStatus(d.status)) return false;
+      if (statusFilter !== 'all' && statusFilter !== 'active' && statusNorm !== statusFilter) return false;
+      if (driverFilter !== 'all' && assignedEmail !== driverFilter) return false;
+      if (!matchesSearch(id, details)) return false;
+      return true;
+    }
+
+    function getFilteredActiveEntries() {
+      return Object.entries(deliveries).filter(([id, d]) => passesActiveDeliveryFilters(id, d));
+    }
+
+    function parseDateOnlyValue(dateValue) {
+      const parts = String(dateValue || '').trim().split('-');
+      if (parts.length !== 3) return null;
+
+      const year = Number(parts[0]);
+      const month = Number(parts[1]);
+      const day = Number(parts[2]);
+      const parsed = new Date(year, month - 1, day);
+
+      if (
+        !Number.isFinite(parsed.getTime()) ||
+        parsed.getFullYear() !== year ||
+        parsed.getMonth() !== month - 1 ||
+        parsed.getDate() !== day
+      ) {
+        return null;
+      }
+
+      parsed.setHours(0, 0, 0, 0);
+      return parsed;
+    }
+
+    function getScheduleGroupKey(delivery) {
+      const details = delivery && delivery.details || {};
+      return String(details.loadDate || '').trim() || 'unscheduled';
+    }
+
+    function getScheduleDateSortMs(groupKey) {
+      if (groupKey === 'unscheduled') return Number.MAX_SAFE_INTEGER;
+      const parsed = parseDateOnlyValue(groupKey);
+      return parsed ? parsed.getTime() : Number.MAX_SAFE_INTEGER - 1;
+    }
+
+    function getScheduledEntrySortMs(delivery) {
+      const details = delivery && delivery.details || {};
+      const dateValue = String(details.loadDate || '').trim();
+      const timeValue = String(details.estimatedTime || '').trim();
+      const dateObj = parseDateOnlyValue(dateValue);
+      if (dateObj) {
+        let hours = 0;
+        let minutes = 0;
+        if (timeValue) {
+          const parts = timeValue.split(':');
+          hours = Number(parts[0]) || 0;
+          minutes = Number(parts[1]) || 0;
+        }
+        return new Date(
+          dateObj.getFullYear(),
+          dateObj.getMonth(),
+          dateObj.getDate(),
+          hours,
+          minutes,
+          0,
+          0
+        ).getTime();
+      }
+
+      const createdAtMs = Date.parse(delivery && delivery.createdAt || '');
+      return Number.isNaN(createdAtMs) ? Number.MAX_SAFE_INTEGER : createdAtMs;
+    }
+
+    function compareScheduledEntries([idA, deliveryA], [idB, deliveryB]) {
+      const msA = getScheduledEntrySortMs(deliveryA);
+      const msB = getScheduledEntrySortMs(deliveryB);
+      if (msA !== msB) return msA - msB;
+      return idA.localeCompare(idB);
+    }
+
+    function compareLiveEntries(entryA, entryB) {
+      const statusA = normalizeStatus(entryA[1] && entryA[1].status);
+      const statusB = normalizeStatus(entryB[1] && entryB[1].status);
+      const rankA = statusA === 'en_route' ? 0 : statusA === 'loading' ? 1 : 2;
+      const rankB = statusB === 'en_route' ? 0 : statusB === 'loading' ? 1 : 2;
+      if (rankA !== rankB) return rankA - rankB;
+      return compareScheduledEntries(entryA, entryB);
+    }
+
+    function getScheduleDayMeta(groupKey) {
+      if (groupKey === 'unscheduled') {
+        return {
+          title: 'Unscheduled',
+          subtitle: 'No load date set yet',
+          isToday: false
+        };
+      }
+
+      const parsed = parseDateOnlyValue(groupKey);
+      if (!parsed) {
+        return {
+          title: groupKey,
+          subtitle: '',
+          isToday: false
+        };
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const diffDays = Math.round((parsed.getTime() - today.getTime()) / 86400000);
+
+      let title = parsed.toLocaleDateString([], { weekday: 'long' });
+      if (diffDays === 0) title = 'Today';
+      if (diffDays === 1) title = 'Tomorrow';
+
+      return {
+        title,
+        subtitle: parsed.toLocaleDateString([], {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        }),
+        isToday: diffDays === 0
+      };
+    }
+
+    function getTrackingSummary(delivery) {
+      const statusNorm = normalizeStatus(delivery && delivery.status);
+      const dest = delivery && delivery._resolvedDestLatLng;
+      const loc = delivery && delivery.location;
+
+      if (loc && dest) {
+        return {
+          value: computeEtaText(loc, dest),
+          caption: 'Estimated arrival'
+        };
+      }
+
+      if (statusNorm === 'loading') {
+        return {
+          value: 'Loading',
+          caption: 'Yard status'
+        };
+      }
+
+      if (statusNorm === 'en_route') {
+        return {
+          value: 'En Route',
+          caption: 'Tracking status'
+        };
+      }
+
+      return {
+        value: 'Awaiting GPS',
+        caption: 'Tracking status'
+      };
+    }
+
+    function createDispatchMetaItem(label, value) {
+      const item = document.createElement('div');
+      item.className = 'dispatch-meta-item';
+
+      const labelEl = document.createElement('span');
+      labelEl.className = 'dispatch-meta-label';
+      labelEl.textContent = label;
+
+      const valueEl = document.createElement('span');
+      valueEl.className = 'dispatch-meta-value';
+      valueEl.textContent = value;
+
+      item.appendChild(labelEl);
+      item.appendChild(valueEl);
+      return item;
+    }
+
+    function createDispatchActionButton(label, extraClass, onClick) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dispatch-mini-btn' + (extraClass ? ' ' + extraClass : '');
+      btn.textContent = label;
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        onClick();
+      });
+      return btn;
+    }
+
+    function renderDispatchEmptyState(container, text) {
+      const empty = document.createElement('div');
+      empty.className = 'dispatch-empty-state';
+      empty.textContent = text;
+      container.appendChild(empty);
+    }
+
+    function renderLiveTrackingList(entries) {
+      const listEl = document.getElementById('liveTrackingList');
+      const countEl = document.getElementById('liveLoadsCount');
+      if (!listEl || !countEl) return;
+
+      listEl.innerHTML = '';
+      countEl.textContent = entries.length + (entries.length === 1 ? ' Live Load' : ' Live Loads');
+
+      const sortedEntries = entries.slice().sort(compareLiveEntries);
+      if (!sortedEntries.length) {
+        renderDispatchEmptyState(listEl, 'No live loads match the current filters.');
+        return;
+      }
+
+      sortedEntries.forEach(([id, delivery]) => {
+        const details = delivery.details || {};
+        const schedule = getScheduleLabelFromDetails(details) || 'No schedule set';
+        const tracking = getTrackingSummary(delivery);
+        const status = formatStatus(delivery.status || '');
+
+        const card = document.createElement('article');
+        card.className = 'live-load-card' + (selectedDeliveryId === id ? ' dispatch-card-selected' : '');
+        card.dataset.deliveryId = id;
+        card.addEventListener('click', () => selectDelivery(id, { renderTable: true, scroll: false, focusMap: true }));
+
+        const top = document.createElement('div');
+        top.className = 'live-load-top';
+
+        const heading = document.createElement('div');
+        heading.innerHTML =
+          `<div class="live-load-id">${id}</div>` +
+          `<div class="dispatch-card-name">${details.customerName || 'N/A'}</div>`;
+
+        const statusPill = document.createElement('span');
+        statusPill.className = 'status-pill ' + status.cls;
+        statusPill.textContent = status.label;
+
+        top.appendChild(heading);
+        top.appendChild(statusPill);
+        card.appendChild(top);
+
+        const etaValue = document.createElement('div');
+        etaValue.className = 'live-load-eta';
+        etaValue.textContent = tracking.value;
+        card.appendChild(etaValue);
+
+        const etaCaption = document.createElement('div');
+        etaCaption.className = 'live-load-eta-caption';
+        etaCaption.textContent = tracking.caption;
+        card.appendChild(etaCaption);
+
+        const address = document.createElement('div');
+        address.className = 'dispatch-card-address';
+        address.textContent = details.address || 'No address';
+        card.appendChild(address);
+
+        const metaGrid = document.createElement('div');
+        metaGrid.className = 'dispatch-meta-grid';
+        metaGrid.appendChild(createDispatchMetaItem('Scheduled', schedule));
+        metaGrid.appendChild(createDispatchMetaItem('Items', details.items || 'No items listed'));
+        card.appendChild(metaGrid);
+
+        const driverRow = document.createElement('div');
+        driverRow.className = 'dispatch-driver-row';
+        const driverLabel = document.createElement('span');
+        driverLabel.className = 'dispatch-meta-label';
+        driverLabel.textContent = 'Driver';
+        driverRow.appendChild(driverLabel);
+        driverRow.appendChild(buildDriverAssigner(id, details.assignedDriverEmail || ''));
+        card.appendChild(driverRow);
+
+        const actions = document.createElement('div');
+        actions.className = 'dispatch-card-actions';
+        actions.appendChild(createDispatchActionButton('Track on Map', 'dispatch-mini-btn-primary', () => {
+          selectDelivery(id, { renderTable: true, scroll: false, focusMap: true });
+        }));
+        actions.appendChild(createDispatchActionButton('Edit', '', () => startEditLoad(id)));
+        actions.appendChild(createDispatchActionButton('Delete', 'dispatch-mini-btn-danger', () => deleteLoad(id)));
+        card.appendChild(actions);
+
+        listEl.appendChild(card);
+      });
+    }
+
+    function renderPendingScheduleBoard(entries) {
+      const boardEl = document.getElementById('pendingScheduleBoard');
+      const countEl = document.getElementById('pendingLoadsCount');
+      if (!boardEl || !countEl) return;
+
+      boardEl.innerHTML = '';
+      countEl.textContent = entries.length + (entries.length === 1 ? ' Scheduled Load' : ' Scheduled Loads');
+
+      const sortedEntries = entries.slice().sort(compareScheduledEntries);
+      if (!sortedEntries.length) {
+        renderDispatchEmptyState(boardEl, 'No not-started loads match the current filters.');
+        return;
+      }
+
+      const groupedEntries = new Map();
+      sortedEntries.forEach(([id, delivery]) => {
+        const key = getScheduleGroupKey(delivery);
+        if (!groupedEntries.has(key)) groupedEntries.set(key, []);
+        groupedEntries.get(key).push([id, delivery]);
+      });
+
+      Array.from(groupedEntries.entries())
+        .sort((a, b) => getScheduleDateSortMs(a[0]) - getScheduleDateSortMs(b[0]))
+        .forEach(([groupKey, group]) => {
+          const meta = getScheduleDayMeta(groupKey);
+          const column = document.createElement('section');
+          column.className = 'schedule-day-column' + (meta.isToday ? ' is-today' : '');
+
+          const head = document.createElement('div');
+          head.className = 'schedule-day-head';
+          head.innerHTML =
+            `<div>` +
+            `<div class="schedule-day-title">${meta.title}</div>` +
+            `<div class="schedule-day-subtitle">${meta.subtitle}</div>` +
+            `</div>` +
+            `<div class="schedule-day-count">${group.length}</div>`;
+          column.appendChild(head);
+
+          const list = document.createElement('div');
+          list.className = 'schedule-day-list';
+
+          group.forEach(([id, delivery]) => {
+            const details = delivery.details || {};
+            const status = formatStatus(delivery.status || '');
+
+            const card = document.createElement('article');
+            card.className = 'schedule-load-card' + (selectedDeliveryId === id ? ' dispatch-card-selected' : '');
+            card.dataset.deliveryId = id;
+            card.addEventListener('click', () => selectDelivery(id, { renderTable: true, scroll: false, focusMap: true }));
+
+            const top = document.createElement('div');
+            top.className = 'schedule-load-top';
+
+            const timeChip = document.createElement('span');
+            timeChip.className = 'schedule-load-time';
+            timeChip.textContent = formatScheduleTimeLabel(details.estimatedTime);
+
+            const statusPill = document.createElement('span');
+            statusPill.className = 'status-pill ' + status.cls;
+            statusPill.textContent = status.label;
+
+            top.appendChild(timeChip);
+            top.appendChild(statusPill);
+            card.appendChild(top);
+
+            const name = document.createElement('div');
+            name.className = 'dispatch-card-name';
+            name.textContent = details.customerName || id;
+            card.appendChild(name);
+
+            const address = document.createElement('div');
+            address.className = 'dispatch-card-address';
+            address.textContent = details.address || 'No address';
+            card.appendChild(address);
+
+            const items = document.createElement('div');
+            items.className = 'schedule-load-items';
+            items.textContent = details.items || 'No items listed';
+            card.appendChild(items);
+
+            const driverRow = document.createElement('div');
+            driverRow.className = 'dispatch-driver-row';
+            const driverLabel = document.createElement('span');
+            driverLabel.className = 'dispatch-meta-label';
+            driverLabel.textContent = 'Driver';
+            driverRow.appendChild(driverLabel);
+            driverRow.appendChild(buildDriverAssigner(id, details.assignedDriverEmail || ''));
+            card.appendChild(driverRow);
+
+            const actions = document.createElement('div');
+            actions.className = 'dispatch-card-actions';
+            actions.appendChild(createDispatchActionButton('Open', 'dispatch-mini-btn-primary', () => {
+              selectDelivery(id, { renderTable: true, scroll: false, focusMap: true });
+            }));
+            actions.appendChild(createDispatchActionButton('Edit', '', () => startEditLoad(id)));
+            actions.appendChild(createDispatchActionButton('Delete', 'dispatch-mini-btn-danger', () => deleteLoad(id)));
+            card.appendChild(actions);
+
+            list.appendChild(card);
+          });
+
+          column.appendChild(list);
+          boardEl.appendChild(column);
+        });
+    }
+
     function setPastLoadsCount(count) {
       const countEl = document.getElementById('pastLoadsCount');
       if (countEl) countEl.textContent = String(count);
@@ -2833,7 +3540,7 @@ async function loadDriversForDispatch() {
     }
 
     function openDeliveryInfoWindow(id) {
-      const marker = markers[id];
+      const marker = markers[id] || destMarkers[id];
       const d = deliveries[id];
       if (!marker || !d || !infoWindow) return;
 
@@ -2855,8 +3562,16 @@ async function loadDriversForDispatch() {
     }
 
     function focusMapOnDelivery(id) {
-      const marker = markers[id];
-      if (!map || !marker) return;
+      const d = deliveries[id];
+      if (!map || !d) return;
+
+      let marker = markers[id] || destMarkers[id];
+      if (!marker) {
+        ensureResolvedDestination(id, d);
+        marker = markers[id] || destMarkers[id];
+      }
+      if (!marker) return;
+
       map.panTo(marker.getPosition());
       const zoom = map.getZoom() || 10;
       if (zoom < 13) map.setZoom(13);
@@ -2870,9 +3585,9 @@ async function loadDriversForDispatch() {
       if (options.renderTable !== false) renderDeliveriesTable();
       renderPastDeliveriesTable();
 
-      const row = document.querySelector(`tr[data-delivery-id="${id}"]`);
-      if (row && options.scroll !== false) {
-        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const card = document.querySelector(`[data-delivery-id="${id}"]`);
+      if (card && options.scroll !== false) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
       }
 
       if (options.focusMap !== false) {
@@ -2893,6 +3608,33 @@ async function loadDriversForDispatch() {
         pastRouteEndMarker.setMap(null);
         pastRouteEndMarker = null;
       }
+    }
+
+    function ensureResolvedDestination(id, delivery) {
+      if (!geocoder || !delivery) return;
+      if (toLatLngLiteral(delivery._resolvedDestLatLng)) return;
+
+      const details = delivery.details || {};
+      const address = String(details.address || '').trim();
+      if (!address || destinationGeocodeInFlight.has(id)) return;
+
+      destinationGeocodeInFlight.add(id);
+      geocoder.geocode({ address }, (results, status) => {
+        destinationGeocodeInFlight.delete(id);
+        if (status !== 'OK' || !results || !results[0] || !results[0].geometry) return;
+        if (!deliveries[id]) return;
+
+        const loc = results[0].geometry.location;
+        deliveries[id]._resolvedDestLatLng = {
+          lat: loc.lat(),
+          lng: loc.lng()
+        };
+
+        renderMapMarkers();
+        if (selectedDeliveryId === id) {
+          focusMapOnDelivery(id);
+        }
+      });
     }
 
     function toLatLngLiteral(obj) {
@@ -3177,130 +3919,12 @@ async function loadDriversForDispatch() {
     }
 
     function renderDeliveriesTable() {
-      const tbody = document.getElementById('deliveriesBody');
-      tbody.innerHTML = '';
+      const entries = getFilteredActiveEntries();
+      const liveEntries = entries.filter(([, delivery]) => isLiveTrackedLoad(delivery));
+      const scheduledEntries = entries.filter(([, delivery]) => !isLiveTrackedLoad(delivery));
 
-      const entries = Object.entries(deliveries).filter(([, d]) => !isPastLoadStatus(d.status));
-      if (!entries.length) {
-        const tr = document.createElement('tr');
-        const td = document.createElement('td');
-        td.colSpan = 7;
-        td.textContent = 'No active deliveries.';
-        td.style.textAlign = 'center';
-        td.style.padding = '14px';
-        tr.appendChild(td);
-        tbody.appendChild(tr);
-        return;
-      }
-
-      entries.forEach(([id, d]) => {
-        const details = d.details || {};
-        const statusRaw = d.status || '';
-        const statusNorm = normalizeStatus(statusRaw);
-        const { label: statusLabel, cls: statusCls } = formatStatus(statusRaw);
-
-        if (statusFilter !== 'all' && statusFilter !== 'active' &&
-            statusNorm !== statusFilter) return;
-
-        const assignedEmail = (details.assignedDriverEmail || '').trim();
-        if (driverFilter !== 'all' && assignedEmail !== driverFilter) return;
-        if (!matchesSearch(id, details)) return;
-
-        const tr = document.createElement('tr');
-        tr.className = 'table-row-clickable';
-        tr.dataset.deliveryId = id;
-        tr.dataset.status = statusNorm || 'pending';
-        if (selectedDeliveryId === id) tr.classList.add('table-row-selected');
-        tr.addEventListener('click', () => selectDelivery(id, { renderTable: true, scroll: false, focusMap: true }));
-
-        // ID
-        const tdId = document.createElement('td');
-        tdId.innerHTML = `<span class="delivery-id">${id}</span>`;
-        tr.appendChild(tdId);
-
-        // Customer / Address
-        const tdCust = document.createElement('td');
-        const cust = details.customerName || 'N/A';
-        const addr = details.address || 'N/A';
-        const schedule = getScheduleLabelFromDetails(details);
-        tdCust.innerHTML = `
-          <div style="font-size:0.8rem;">${cust}</div>
-          <div style="font-size:0.72rem; color:var(--text-muted);">${addr}</div>
-          ${schedule ? `<div class="load-schedule">Scheduled: ${schedule}</div>` : ''}
-        `;
-        tr.appendChild(tdCust);
-
-        // Items
-        const tdItems = document.createElement('td');
-        tdItems.textContent = details.items || '';
-        tr.appendChild(tdItems);
-
-        // Status
-        const tdStatus = document.createElement('td');
-        const statusSpan = document.createElement('span');
-        statusSpan.className = 'status-pill ' + statusCls;
-        statusSpan.textContent = statusLabel;
-        tdStatus.appendChild(statusSpan);
-        tr.appendChild(tdStatus);
-
-        // Driver (pill + popover)
-        const tdDriver = document.createElement('td');
-        tdDriver.appendChild(buildDriverAssigner(id, assignedEmail));
-        tr.appendChild(tdDriver);
-
-        // ETA
-        const tdEta = document.createElement('td');
-        tdEta.className = 'eta-cell';
-        const dest = d._resolvedDestLatLng;
-        const loc = d.location;
-        let etaText = 'N/A';
-        if (loc && dest) {
-          etaText = computeEtaText(loc, dest);
-        } else if (statusNorm === 'loading') {
-          etaText = 'Loading materials';
-        } else if (statusNorm === 'pending') {
-          etaText = 'Pending start';
-        }
-        tdEta.textContent = etaText;
-        tr.appendChild(tdEta);
-
-        // Actions
-        const tdActions = document.createElement('td');
-        tdActions.style.whiteSpace = 'nowrap';
-
-        const editBtn = document.createElement('button');
-        editBtn.className = 'action-btn action-btn-edit';
-        editBtn.textContent = 'Edit';
-        editBtn.addEventListener('click', e => {
-          e.stopPropagation();
-          startEditLoad(id);
-        });
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'action-btn action-btn-delete';
-        deleteBtn.textContent = 'Delete';
-        deleteBtn.addEventListener('click', e => {
-          e.stopPropagation();
-          deleteLoad(id);
-        });
-
-        tdActions.appendChild(editBtn);
-        tdActions.appendChild(deleteBtn);
-        tr.appendChild(tdActions);
-
-        tbody.appendChild(tr);
-      });
-
-      if (!tbody.children.length) {
-        const tr = document.createElement('tr');
-        const td = document.createElement('td');
-        td.colSpan = 7;
-        td.textContent = 'No active deliveries match current filters/search.';
-        td.style.textAlign = 'center';
-        td.style.padding = '14px';
-        tr.appendChild(td);
-        tbody.appendChild(tr);
-      }
+      renderLiveTrackingList(liveEntries);
+      renderPendingScheduleBoard(scheduledEntries);
     }
 
     function renderPastDeliveriesTable() {
@@ -3445,6 +4069,8 @@ async function loadDriversForDispatch() {
             statusNorm !== statusFilter) return;
         if (driverFilter !== 'all' && assignedEmail !== driverFilter) return;
         if (!matchesSearch(id, details)) return;
+
+        ensureResolvedDestination(id, d);
 
         const loc = d.location;
         if (loc && typeof loc.lat === 'number' && typeof loc.lng === 'number') {
