@@ -237,6 +237,117 @@
       box-shadow: 0 0 0 1px var(--accent-soft);
     }
 
+    .picker-input-shell {
+      position: relative;
+    }
+
+    .picker-input-shell .field-input {
+      padding-right: 46px;
+      cursor: pointer;
+    }
+
+    .picker-input-shell input[type="date"]::-webkit-calendar-picker-indicator {
+      opacity: 0;
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    .picker-icon-btn {
+      position: absolute;
+      top: 50%;
+      right: 7px;
+      transform: translateY(-50%);
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      border: 1px solid rgba(18,195,160,0.24);
+      background: rgba(18,195,160,0.1);
+      color: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      box-shadow: none;
+      text-transform: none;
+      letter-spacing: normal;
+      z-index: 1;
+    }
+
+    .picker-icon-btn:hover {
+      background: rgba(18,195,160,0.16);
+    }
+
+    .picker-icon-btn svg,
+    .picker-trigger-icon svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .picker-trigger {
+      width: 100%;
+      min-height: 38px;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(5, 8, 11, 0.95);
+      color: var(--text);
+      padding: 6px 8px 6px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.8rem;
+      text-align: left;
+      text-transform: none;
+      letter-spacing: normal;
+      box-shadow: none;
+    }
+
+    .picker-trigger:hover {
+      border-color: rgba(18,195,160,0.34);
+      background: rgba(7, 12, 16, 0.98);
+    }
+
+    .picker-trigger:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+
+    .picker-trigger-value {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .picker-trigger.has-value .picker-trigger-value {
+      color: var(--text);
+    }
+
+    .picker-trigger-icon {
+      flex: 0 0 auto;
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      border: 1px solid rgba(18,195,160,0.24);
+      background: rgba(18,195,160,0.1);
+      color: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .picker-trigger.has-value .picker-trigger-icon {
+      background: rgba(18,195,160,0.16);
+      border-color: rgba(18,195,160,0.34);
+    }
+
     .new-load-actions {
       margin-top: 10px;
       display: flex;
@@ -699,6 +810,172 @@
       z-index: 2;
     }
 
+    .picker-sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.52);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+      z-index: 17;
+    }
+
+    .picker-sheet-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .time-picker-sheet {
+      position: fixed;
+      left: 50%;
+      bottom: 0;
+      width: min(560px, calc(100vw - 16px));
+      transform: translate(-50%, 105%);
+      transition: transform 0.24s ease;
+      z-index: 18;
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px 20px 0 0;
+      background: linear-gradient(180deg, rgba(17, 25, 31, 0.98), rgba(5, 8, 11, 0.99));
+      box-shadow: 0 -18px 36px rgba(0,0,0,0.48);
+      padding: 14px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .time-picker-sheet.open {
+      transform: translate(-50%, 0);
+    }
+
+    .time-picker-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .time-picker-preview {
+      margin-top: 4px;
+      font-size: 1.22rem;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.01em;
+    }
+
+    .time-picker-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .time-picker-btn {
+      min-width: 84px;
+      box-shadow: none;
+    }
+
+    .time-picker-grid {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 0.8fr;
+      gap: 10px;
+    }
+
+    .time-wheel-card {
+      min-width: 0;
+    }
+
+    .time-wheel-label {
+      margin-bottom: 6px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .time-wheel-column {
+      position: relative;
+      height: 220px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+        rgba(6, 9, 13, 0.96);
+      overflow: hidden;
+    }
+
+    .time-wheel-column::before,
+    .time-wheel-column::after {
+      content: "";
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .time-wheel-column::before {
+      top: 0;
+      height: calc(50% - 22px);
+      background: linear-gradient(180deg, rgba(6, 9, 13, 0.96), rgba(6, 9, 13, 0));
+    }
+
+    .time-wheel-column::after {
+      top: calc(50% - 22px);
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid rgba(18,195,160,0.34);
+      background: rgba(18,195,160,0.08);
+      box-shadow: 0 0 0 1px rgba(18,195,160,0.08) inset;
+    }
+
+    .time-wheel-fade {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 0;
+      height: calc(50% - 22px);
+      background: linear-gradient(0deg, rgba(6, 9, 13, 0.96), rgba(6, 9, 13, 0));
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .time-wheel-scroll {
+      height: 100%;
+      overflow-y: auto;
+      padding: 88px 0;
+      scroll-snap-type: y mandatory;
+      overscroll-behavior: contain;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      position: relative;
+      z-index: 1;
+    }
+
+    .time-wheel-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    .time-wheel-option {
+      width: 100%;
+      height: 44px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 1.02rem;
+      font-weight: 500;
+      scroll-snap-align: start;
+      text-align: center;
+      padding: 0;
+      box-shadow: none;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    .time-wheel-option.active {
+      color: var(--text);
+      font-weight: 700;
+    }
+
     .filter-select {
       padding: 5px 9px;
       border-radius: 999px;
@@ -1104,9 +1381,15 @@
       }
 
       .load-drawer .field-input,
-      .load-drawer .filter-select {
+      .load-drawer .filter-select,
+      .load-drawer .picker-trigger {
         min-height: 46px;
         font-size: 16px;
+      }
+
+      .picker-icon-btn {
+        width: 36px;
+        height: 36px;
       }
 
       .new-load-actions {
@@ -1124,6 +1407,29 @@
         width: 100%;
         min-height: 46px;
         font-size: 0.88rem;
+      }
+
+      .time-picker-sheet {
+        width: calc(100vw - 10px);
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+
+      .time-picker-top {
+        flex-direction: column;
+      }
+
+      .time-picker-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .time-picker-actions .time-picker-btn {
+        flex: 1 1 0;
+      }
+
+      .time-picker-grid {
+        gap: 8px;
       }
     }
   </style>
@@ -1382,11 +1688,30 @@
 
       <div>
         <div class="field-label">Load Date</div>
-        <input id="newLoadDate" class="field-input" type="date" enterkeyhint="next">
+        <div class="picker-input-shell">
+          <input id="newLoadDate" class="field-input" type="date" enterkeyhint="next">
+          <button class="picker-icon-btn" type="button" aria-label="Open date picker" onclick="openDatePicker()">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 2v3"></path>
+              <path d="M17 2v3"></path>
+              <path d="M3 9h18"></path>
+              <rect x="3" y="4.5" width="18" height="16.5" rx="2.5"></rect>
+            </svg>
+          </button>
+        </div>
       </div>
       <div>
         <div class="field-label">Estimated Time</div>
-        <input id="newLoadTime" class="field-input" type="time" enterkeyhint="next">
+        <input id="newLoadTime" type="hidden">
+        <button id="newLoadTimeTrigger" class="picker-trigger" type="button" onclick="openTimePicker()">
+          <span id="newLoadTimeText" class="picker-trigger-value">Select time</span>
+          <span class="picker-trigger-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M12 7v5l3 2"></path>
+            </svg>
+          </span>
+        </button>
       </div>
 
       <div>
@@ -1424,6 +1749,44 @@
     </div>
   </div>
 
+  <div id="timePickerBackdrop" class="picker-sheet-backdrop" onclick="closeTimePicker()"></div>
+  <div id="timePickerSheet" class="time-picker-sheet" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Select estimated time">
+    <div class="time-picker-top">
+      <div>
+        <div class="section-title">Estimated Time</div>
+        <div id="timePickerPreview" class="time-picker-preview">Select time</div>
+      </div>
+      <div class="time-picker-actions">
+        <button class="btn-secondary time-picker-btn" type="button" onclick="closeTimePicker()">Cancel</button>
+        <button class="btn-primary time-picker-btn" type="button" onclick="applyTimePicker()">Done</button>
+      </div>
+    </div>
+
+    <div class="time-picker-grid">
+      <div class="time-wheel-card">
+        <div class="time-wheel-label">Hour</div>
+        <div class="time-wheel-column">
+          <div id="timePickerHourWheel" class="time-wheel-scroll"></div>
+          <div class="time-wheel-fade"></div>
+        </div>
+      </div>
+      <div class="time-wheel-card">
+        <div class="time-wheel-label">Minute</div>
+        <div class="time-wheel-column">
+          <div id="timePickerMinuteWheel" class="time-wheel-scroll"></div>
+          <div class="time-wheel-fade"></div>
+        </div>
+      </div>
+      <div class="time-wheel-card">
+        <div class="time-wheel-label">AM / PM</div>
+        <div class="time-wheel-column">
+          <div id="timePickerPeriodWheel" class="time-wheel-scroll"></div>
+          <div class="time-wheel-fade"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     // --- CONFIG ---
     const ADMIN_API_BASE = 'https://riteway-admin-api.onrender.com';
@@ -1447,6 +1810,24 @@
     const DISPATCH_CHAT_MIN_INTERVAL_MS = 1200;
     const DISPATCH_CHAT_WINDOW_MS = 60000;
     const DISPATCH_CHAT_MAX_MESSAGES_PER_WINDOW = 30;
+    const TIME_WHEEL_ITEM_HEIGHT = 44;
+    const TIME_PICKER_COLUMNS = {
+      hour: {
+        elementId: 'timePickerHourWheel',
+        values: Array.from({ length: 12 }, (_, i) => i + 1),
+        formatter: value => String(value)
+      },
+      minute: {
+        elementId: 'timePickerMinuteWheel',
+        values: Array.from({ length: 60 }, (_, i) => i),
+        formatter: value => pad2(value)
+      },
+      period: {
+        elementId: 'timePickerPeriodWheel',
+        values: ['AM', 'PM'],
+        formatter: value => value
+      }
+    };
 
     let map;
     let deliveries = {};
@@ -1472,6 +1853,8 @@
     let dispatchChatLastSentAt = 0;
     let dispatchChatRecentSendMs = [];
     let chatCleanupInFlight = new Set();
+    let timePickerBuilt = false;
+    let timePickerState = { hour: 12, minute: 0, period: 'PM' };
 
     /* ---------- SIDE MENU ---------- */
 
@@ -1513,6 +1896,216 @@
     function getTodayInputValue() {
       const now = new Date();
       return now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-' + pad2(now.getDate());
+    }
+
+    function openDatePicker() {
+      const input = document.getElementById('newLoadDate');
+      if (!input) return;
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+        return;
+      }
+      input.focus();
+      try {
+        input.click();
+      } catch (_) {}
+    }
+
+    function formatTimeValue(timeValue) {
+      const clean = String(timeValue || '').trim();
+      if (!clean) return 'Select time';
+
+      const parts = clean.split(':');
+      const hours = Number(parts[0]);
+      const minutes = Number(parts[1]);
+      if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return clean;
+
+      const parsed = new Date();
+      parsed.setHours(hours, minutes, 0, 0);
+      return parsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function getSuggestedTimeValue() {
+      const now = new Date();
+      let hours = now.getHours();
+      let minutes = Math.ceil(now.getMinutes() / 5) * 5;
+      if (minutes >= 60) {
+        hours = (hours + 1) % 24;
+        minutes = 0;
+      }
+      return pad2(hours) + ':' + pad2(minutes);
+    }
+
+    function parseTimeValue(timeValue) {
+      const clean = String(timeValue || '').trim() || getSuggestedTimeValue();
+      const parts = clean.split(':');
+      let hours24 = Number(parts[0]);
+      let minutes = Number(parts[1]);
+      if (!Number.isFinite(hours24)) hours24 = 9;
+      if (!Number.isFinite(minutes)) minutes = 0;
+
+      const period = hours24 >= 12 ? 'PM' : 'AM';
+      let hour = hours24 % 12;
+      if (hour === 0) hour = 12;
+
+      return {
+        hour,
+        minute: Math.max(0, Math.min(59, minutes)),
+        period
+      };
+    }
+
+    function get24HourTimeFromState(state) {
+      const minute = Math.max(0, Math.min(59, Number(state.minute) || 0));
+      let hours = Number(state.hour) || 12;
+      if (state.period === 'AM') {
+        hours = hours === 12 ? 0 : hours;
+      } else {
+        hours = hours === 12 ? 12 : hours + 12;
+      }
+      return pad2(hours) + ':' + pad2(minute);
+    }
+
+    function updateLoadTimeDisplay() {
+      const input = document.getElementById('newLoadTime');
+      const text = document.getElementById('newLoadTimeText');
+      const trigger = document.getElementById('newLoadTimeTrigger');
+      const value = input ? String(input.value || '').trim() : '';
+      if (text) text.textContent = value ? formatTimeValue(value) : 'Select time';
+      if (trigger) trigger.classList.toggle('has-value', !!value);
+    }
+
+    function setLoadTimeValue(value) {
+      const input = document.getElementById('newLoadTime');
+      if (input) input.value = value || '';
+      updateLoadTimeDisplay();
+    }
+
+    function getTimePickerElement(key) {
+      const cfg = TIME_PICKER_COLUMNS[key];
+      return cfg ? document.getElementById(cfg.elementId) : null;
+    }
+
+    function updateTimePickerPreview() {
+      const preview = document.getElementById('timePickerPreview');
+      if (!preview) return;
+      preview.textContent = formatTimeValue(get24HourTimeFromState(timePickerState));
+    }
+
+    function updateTimeWheelActive(key) {
+      const el = getTimePickerElement(key);
+      const cfg = TIME_PICKER_COLUMNS[key];
+      if (!el || !cfg) return;
+      const currentValue = String(timePickerState[key]);
+      el.querySelectorAll('.time-wheel-option').forEach(option => {
+        option.classList.toggle('active', option.dataset.value === currentValue);
+      });
+    }
+
+    function scrollTimeWheelToValue(key, behavior) {
+      const el = getTimePickerElement(key);
+      const cfg = TIME_PICKER_COLUMNS[key];
+      if (!el || !cfg) return;
+      const index = cfg.values.findIndex(value => String(value) === String(timePickerState[key]));
+      const top = Math.max(0, index) * TIME_WHEEL_ITEM_HEIGHT;
+      el.scrollTo({ top, behavior: behavior || 'auto' });
+      updateTimeWheelActive(key);
+    }
+
+    function setTimePickerValue(key, value, shouldAnimate) {
+      const cfg = TIME_PICKER_COLUMNS[key];
+      if (!cfg) return;
+      const normalized = cfg.values.find(candidate => String(candidate) === String(value));
+      if (normalized === undefined) return;
+      timePickerState[key] = normalized;
+      updateTimePickerPreview();
+      scrollTimeWheelToValue(key, shouldAnimate ? 'smooth' : 'auto');
+    }
+
+    function buildTimeWheel(key) {
+      const el = getTimePickerElement(key);
+      const cfg = TIME_PICKER_COLUMNS[key];
+      if (!el || !cfg) return;
+
+      el.innerHTML = '';
+      cfg.values.forEach(value => {
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'time-wheel-option';
+        option.dataset.value = String(value);
+        option.textContent = cfg.formatter(value);
+        option.addEventListener('click', () => setTimePickerValue(key, value, true));
+        el.appendChild(option);
+      });
+
+      let snapTimer = null;
+      let rafPending = false;
+
+      el.addEventListener('scroll', () => {
+        if (!rafPending) {
+          rafPending = true;
+          requestAnimationFrame(() => {
+            rafPending = false;
+            const index = Math.max(0, Math.min(cfg.values.length - 1, Math.round(el.scrollTop / TIME_WHEEL_ITEM_HEIGHT)));
+            timePickerState[key] = cfg.values[index];
+            updateTimeWheelActive(key);
+            updateTimePickerPreview();
+          });
+        }
+
+        clearTimeout(snapTimer);
+        snapTimer = setTimeout(() => {
+          const index = Math.max(0, Math.min(cfg.values.length - 1, Math.round(el.scrollTop / TIME_WHEEL_ITEM_HEIGHT)));
+          el.scrollTo({ top: index * TIME_WHEEL_ITEM_HEIGHT, behavior: 'smooth' });
+        }, 90);
+      }, { passive: true });
+    }
+
+    function ensureTimePickerBuilt() {
+      if (timePickerBuilt) return;
+      Object.keys(TIME_PICKER_COLUMNS).forEach(buildTimeWheel);
+      timePickerBuilt = true;
+    }
+
+    function isTimePickerOpen() {
+      const sheet = document.getElementById('timePickerSheet');
+      return !!(sheet && sheet.classList.contains('open'));
+    }
+
+    function openTimePicker() {
+      ensureTimePickerBuilt();
+      const input = document.getElementById('newLoadTime');
+      const currentValue = input && input.value ? input.value : getSuggestedTimeValue();
+      timePickerState = parseTimeValue(currentValue);
+      updateTimePickerPreview();
+      Object.keys(TIME_PICKER_COLUMNS).forEach(key => scrollTimeWheelToValue(key, 'auto'));
+
+      const backdrop = document.getElementById('timePickerBackdrop');
+      const sheet = document.getElementById('timePickerSheet');
+      if (backdrop) backdrop.classList.add('open');
+      if (sheet) {
+        sheet.classList.add('open');
+        sheet.setAttribute('aria-hidden', 'false');
+      }
+    }
+
+    function closeTimePicker(skipFocus) {
+      const backdrop = document.getElementById('timePickerBackdrop');
+      const sheet = document.getElementById('timePickerSheet');
+      if (backdrop) backdrop.classList.remove('open');
+      if (sheet) {
+        sheet.classList.remove('open');
+        sheet.setAttribute('aria-hidden', 'true');
+      }
+      if (!skipFocus) {
+        const trigger = document.getElementById('newLoadTimeTrigger');
+        if (trigger) trigger.focus();
+      }
+    }
+
+    function applyTimePicker() {
+      setLoadTimeValue(get24HourTimeFromState(timePickerState));
+      closeTimePicker();
     }
 
     function formatScheduledLabel(loadDate, estimatedTime) {
@@ -1809,7 +2402,7 @@
       document.getElementById('newAddress').value = '';
       document.getElementById('newItems').value = '';
       document.getElementById('newLoadDate').value = getTodayInputValue();
-      document.getElementById('newLoadTime').value = '';
+      setLoadTimeValue('');
       document.getElementById('newYards').value = '';
       document.getElementById('newRatePerYard').value = '';
       document.getElementById('newTruckingCharge').value = '';
@@ -1826,6 +2419,7 @@
     }
 
     function closeLoadDrawer() {
+      closeTimePicker(true);
       document.getElementById('loadDrawer').classList.remove('open');
       document.getElementById('loadDrawer').setAttribute('aria-hidden', 'true');
       document.getElementById('loadDrawerBackdrop').classList.remove('open');
@@ -1863,7 +2457,7 @@
       document.getElementById('newAddress').value = details.address || '';
       document.getElementById('newItems').value = details.items || '';
       document.getElementById('newLoadDate').value = details.loadDate || '';
-      document.getElementById('newLoadTime').value = details.estimatedTime || '';
+      setLoadTimeValue(details.estimatedTime || '');
       document.getElementById('newYards').value = details.yards || '';
       document.getElementById('newRatePerYard').value = details.ratePerYard || '';
       document.getElementById('newTruckingCharge').value = details.truckingCharge || '';
@@ -2931,6 +3525,7 @@ async function loadDriversForDispatch() {
       setActiveChatDelivery('');
       setChatView('inbox');
       renderChatThreadList();
+      updateLoadTimeDisplay();
 
       const chatSendBtn = document.getElementById('dispatchChatSendBtn');
       const chatInput = document.getElementById('dispatchChatInput');
@@ -2954,6 +3549,11 @@ async function loadDriversForDispatch() {
 
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape') return;
+
+      if (isTimePickerOpen()) {
+        closeTimePicker();
+        return;
+      }
 
       if (activeDriverPopoverId) {
         activeDriverPopoverId = null;
