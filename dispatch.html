@@ -52,6 +52,10 @@
       overflow-x: hidden;
     }
 
+    body.drawer-open {
+      overflow: hidden;
+    }
+
     body::before {
       content: "";
       position: fixed;
@@ -279,6 +283,12 @@
     .new-load-hint {
       margin-top: 4px;
       font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .load-schedule {
+      margin-top: 3px;
+      font-size: 0.7rem;
       color: var(--text-muted);
     }
 
@@ -668,7 +678,7 @@
       z-index: 16;
       border-left: 1px solid var(--border-subtle);
       border-radius: 0;
-      padding: 12px;
+      padding: 12px 12px calc(18px + env(safe-area-inset-bottom, 0px));
       overflow-y: auto;
     }
 
@@ -1053,6 +1063,69 @@
       text-overflow: ellipsis;
       max-width: 190px;
     }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 12px;
+      }
+
+      .header-row {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .header-badge {
+        align-self: stretch;
+        text-align: center;
+      }
+
+      .load-drawer {
+        width: 100vw;
+        max-width: 100vw;
+        padding: 12px 12px calc(18px + env(safe-area-inset-bottom, 0px));
+      }
+
+      .drawer-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .drawer-header > div:last-child {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .new-load-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .new-load-grid .full-span {
+        grid-column: auto;
+      }
+
+      .load-drawer .field-input,
+      .load-drawer .filter-select {
+        min-height: 46px;
+        font-size: 16px;
+      }
+
+      .new-load-actions {
+        position: sticky;
+        bottom: calc(-12px - env(safe-area-inset-bottom, 0px));
+        margin-top: 14px;
+        padding: 10px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+        background: linear-gradient(180deg, rgba(5, 8, 11, 0), rgba(5, 8, 11, 0.98) 18%);
+        flex-direction: column-reverse;
+      }
+
+      .new-load-actions .btn-primary,
+      .new-load-actions .btn-secondary,
+      .ops-bar-controls .btn-primary {
+        width: 100%;
+        min-height: 46px;
+        font-size: 0.88rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1290,39 +1363,48 @@
     <div class="new-load-grid">
       <div>
         <div class="field-label">Delivery ID</div>
-        <input id="newDeliveryId" class="field-input" placeholder="E.g. RITE123">
+        <input id="newDeliveryId" class="field-input" placeholder="E.g. RITE123" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="next">
       </div>
       <div>
         <div class="field-label">Customer Name</div>
-        <input id="newCustomerName" class="field-input" placeholder="E.g. John Smith">
+        <input id="newCustomerName" class="field-input" placeholder="E.g. John Smith" autocomplete="name" enterkeyhint="next">
       </div>
 
       <div class="full-span">
         <div class="field-label">Address</div>
-        <input id="newAddress" class="field-input" placeholder="Drop location address">
+        <input id="newAddress" class="field-input" placeholder="Drop location address" autocomplete="street-address" enterkeyhint="next">
       </div>
 
       <div class="full-span">
         <div class="field-label">Items</div>
-        <input id="newItems" class="field-input" placeholder="E.g. 10 yd topsoil, 5 yd gravel">
+        <input id="newItems" class="field-input" placeholder="E.g. 10 yd topsoil, 5 yd gravel" enterkeyhint="next">
+      </div>
+
+      <div>
+        <div class="field-label">Load Date</div>
+        <input id="newLoadDate" class="field-input" type="date" enterkeyhint="next">
+      </div>
+      <div>
+        <div class="field-label">Estimated Time</div>
+        <input id="newLoadTime" class="field-input" type="time" enterkeyhint="next">
       </div>
 
       <div>
         <div class="field-label">Yards</div>
-        <input id="newYards" class="field-input" type="number" step="0.1" placeholder="10">
+        <input id="newYards" class="field-input" type="number" step="0.1" placeholder="10" inputmode="decimal" enterkeyhint="next">
       </div>
       <div>
         <div class="field-label">Price / Yard ($)</div>
-        <input id="newRatePerYard" class="field-input" type="number" step="0.01" placeholder="20">
+        <input id="newRatePerYard" class="field-input" type="number" step="0.01" placeholder="20" inputmode="decimal" enterkeyhint="next">
       </div>
 
       <div>
         <div class="field-label">Trucking Charge ($)</div>
-        <input id="newTruckingCharge" class="field-input" type="number" step="0.01" placeholder="75">
+        <input id="newTruckingCharge" class="field-input" type="number" step="0.01" placeholder="75" inputmode="decimal" enterkeyhint="next">
       </div>
       <div>
         <div class="field-label">Cost / Yard ($)</div>
-        <input id="newCostPerYard" class="field-input" type="number" step="0.01" placeholder="Your material cost">
+        <input id="newCostPerYard" class="field-input" type="number" step="0.01" placeholder="Your material cost" inputmode="decimal" enterkeyhint="next">
       </div>
 
       <div class="full-span">
@@ -1422,6 +1504,57 @@
         return new Date(parsed).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       }
       return '';
+    }
+
+    function pad2(value) {
+      return String(value).padStart(2, '0');
+    }
+
+    function getTodayInputValue() {
+      const now = new Date();
+      return now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-' + pad2(now.getDate());
+    }
+
+    function formatScheduledLabel(loadDate, estimatedTime) {
+      const cleanDate = String(loadDate || '').trim();
+      const cleanTime = String(estimatedTime || '').trim();
+      if (!cleanDate && !cleanTime) return '';
+
+      let dateText = cleanDate;
+      if (cleanDate) {
+        const parts = cleanDate.split('-');
+        if (parts.length === 3) {
+          const parsed = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          if (!Number.isNaN(parsed.getTime())) {
+            dateText = parsed.toLocaleDateString([], {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            });
+          }
+        }
+      }
+
+      let timeText = cleanTime;
+      if (cleanTime) {
+        const bits = cleanTime.split(':');
+        const hours = Number(bits[0]);
+        const minutes = Number(bits[1]);
+        if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+          const parsed = new Date();
+          parsed.setHours(hours, minutes, 0, 0);
+          timeText = parsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        }
+      }
+
+      if (dateText && timeText) return dateText + ' · ' + timeText;
+      return dateText || timeText;
+    }
+
+    function getScheduleLabelFromDetails(details) {
+      if (!details) return '';
+      return String(details.scheduledLabel || '').trim() ||
+        formatScheduledLabel(details.loadDate, details.estimatedTime);
     }
 
     function getChatMessagesForDelivery(deliveryId) {
@@ -1675,6 +1808,8 @@
       document.getElementById('newCustomerName').value = '';
       document.getElementById('newAddress').value = '';
       document.getElementById('newItems').value = '';
+      document.getElementById('newLoadDate').value = getTodayInputValue();
+      document.getElementById('newLoadTime').value = '';
       document.getElementById('newYards').value = '';
       document.getElementById('newRatePerYard').value = '';
       document.getElementById('newTruckingCharge').value = '';
@@ -1687,12 +1822,14 @@
       document.getElementById('loadDrawer').classList.add('open');
       document.getElementById('loadDrawer').setAttribute('aria-hidden', 'false');
       document.getElementById('loadDrawerBackdrop').classList.add('open');
+      document.body.classList.add('drawer-open');
     }
 
     function closeLoadDrawer() {
       document.getElementById('loadDrawer').classList.remove('open');
       document.getElementById('loadDrawer').setAttribute('aria-hidden', 'true');
       document.getElementById('loadDrawerBackdrop').classList.remove('open');
+      document.body.classList.remove('drawer-open');
     }
 
     function openNewLoadDrawer() {
@@ -1725,6 +1862,8 @@
       document.getElementById('newCustomerName').value = details.customerName || '';
       document.getElementById('newAddress').value = details.address || '';
       document.getElementById('newItems').value = details.items || '';
+      document.getElementById('newLoadDate').value = details.loadDate || '';
+      document.getElementById('newLoadTime').value = details.estimatedTime || '';
       document.getElementById('newYards').value = details.yards || '';
       document.getElementById('newRatePerYard').value = details.ratePerYard || '';
       document.getElementById('newTruckingCharge').value = details.truckingCharge || '';
@@ -1763,6 +1902,8 @@
       const customerName = document.getElementById('newCustomerName').value.trim();
       const address = document.getElementById('newAddress').value.trim();
       const items = document.getElementById('newItems').value.trim();
+      const loadDate = document.getElementById('newLoadDate').value.trim();
+      const estimatedTime = document.getElementById('newLoadTime').value.trim();
       const yardsRaw = document.getElementById('newYards').value.trim();
       const rateRaw = document.getElementById('newRatePerYard').value.trim();
       const truckingRaw = document.getElementById('newTruckingCharge').value.trim();
@@ -1785,6 +1926,7 @@
       const materialCost = yards * costPerYard;
       const revenue = materialRevenue + truckingCharge;
       const profit = revenue - materialCost;
+      const scheduledLabel = formatScheduledLabel(loadDate, estimatedTime);
 
       let assignedName = '';
       if (assignedEmail) {
@@ -1796,6 +1938,9 @@
         customerName: customerName || '',
         address,
         items: items || '',
+        loadDate: loadDate || null,
+        estimatedTime: estimatedTime || null,
+        scheduledLabel: scheduledLabel || null,
         yards: yards || 0,
         ratePerYard: ratePerYard || 0,
         truckingCharge: truckingCharge || 0,
@@ -2011,7 +2156,10 @@ async function loadDriversForDispatch() {
         id,
         details.customerName || '',
         details.address || '',
-        details.items || ''
+        details.items || '',
+        details.loadDate || '',
+        details.estimatedTime || '',
+        details.scheduledLabel || ''
       ].join(' ').toLowerCase();
       return haystack.includes(searchFilter);
     }
@@ -2098,11 +2246,13 @@ async function loadDriversForDispatch() {
       const details = d.details || {};
       const status = formatStatus(d.status || '').label;
       const driver = details.assignedDriverName || details.assignedDriverEmail || 'Unassigned';
+      const schedule = getScheduleLabelFromDetails(details);
       infoWindow.setContent(
         `<div style="min-width:170px">
           <div style="font-weight:700; margin-bottom:2px;">${id}</div>
           <div style="font-size:0.78rem; margin-bottom:2px;">${details.customerName || 'N/A'}</div>
           <div style="font-size:0.74rem; color:#9ca5b3; margin-bottom:4px;">${details.address || 'N/A'}</div>
+          ${schedule ? `<div style="font-size:0.72rem; color:#9ca5b3; margin-bottom:4px;">Scheduled: ${schedule}</div>` : ''}
           <div style="font-size:0.72rem;">Status: ${status}</div>
           <div style="font-size:0.72rem;">Driver: ${driver}</div>
         </div>`
@@ -2478,9 +2628,11 @@ async function loadDriversForDispatch() {
         const tdCust = document.createElement('td');
         const cust = details.customerName || 'N/A';
         const addr = details.address || 'N/A';
+        const schedule = getScheduleLabelFromDetails(details);
         tdCust.innerHTML = `
           <div style="font-size:0.8rem;">${cust}</div>
           <div style="font-size:0.72rem; color:var(--text-muted);">${addr}</div>
+          ${schedule ? `<div class="load-schedule">Scheduled: ${schedule}</div>` : ''}
         `;
         tr.appendChild(tdCust);
 
@@ -2599,9 +2751,11 @@ async function loadDriversForDispatch() {
         const tdCust = document.createElement('td');
         const cust = details.customerName || 'N/A';
         const addr = details.address || 'N/A';
+        const schedule = getScheduleLabelFromDetails(details);
         tdCust.innerHTML = `
           <div style="font-size:0.8rem;">${cust}</div>
           <div style="font-size:0.72rem; color:var(--text-muted);">${addr}</div>
+          ${schedule ? `<div class="load-schedule">Scheduled: ${schedule}</div>` : ''}
         `;
         tr.appendChild(tdCust);
 
